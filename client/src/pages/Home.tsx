@@ -84,17 +84,17 @@ export default function Home() {
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-2 pt-4">
                 <Button asChild className="text-white h-10 px-4 text-sm" style={{backgroundColor: '#9D4EDD'}}>
-                  <a href="https://impactosocial.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
                     Conhecer Impacto Social <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </a>
                 </Button>
                 <Button asChild variant="outline" className="border-purple-600 text-purple-700 hover:bg-purple-50 h-10 px-4 text-sm" style={{borderColor: '#9D4EDD', color: '#9D4EDD'}}>
-                  <a href="https://reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
                     Ver Reconhecimento Racial <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </a>
                 </Button>
                 <Button asChild variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-50 h-10 px-4 text-sm" style={{borderColor: '#FF9500', color: '#FF9500'}}>
-                  <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                     Explorar Evento Sustentável <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </a>
                 </Button>
@@ -210,7 +210,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-700 rounded-full"></span>Relatórios para governança, ESG e DE&I</li>
               </ul>
               <Button asChild className="w-full bg-blue-700 hover:bg-blue-800 text-white">
-                <a href="https://impactosocial.com.br" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
                   Acessar Impacto Social
                 </a>
               </Button>
@@ -234,7 +234,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Apoio à governança e auditoria</li>
               </ul>
               <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
-                <a href="https://reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
                   Acessar Reconhecimento Racial
                 </a>
               </Button>
@@ -258,7 +258,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Apoio à governança ambiental e reputacional</li>
               </ul>
               <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                   Acessar Evento Sustentável
                 </a>
               </Button>
@@ -282,7 +282,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Conexão com grandes empresas e compradores</li>
               </ul>
               <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                <a href="https://diversidade.io" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer">
                   Conhecer Diversidade.io
                 </a>
               </Button>
@@ -310,7 +310,7 @@ export default function Home() {
                   <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Acompanhamento por status: negociação, pedido, nota fiscal</li>
                 </ul>
                 <Button asChild className="bg-white text-blue-700 hover:bg-gray-100">
-                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
                     Acessar Rodadas Inclusivas <ArrowRight className="w-4 h-4 ml-2" />
                   </a>
                 </Button>
@@ -615,27 +615,27 @@ export default function Home() {
           {/* CTA Buttons */}
           <div className="flex flex-wrap justify-center gap-4 mb-16">
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://impactosocial.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
                 Impacto Social
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
                 Reconhecimento Racial
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                 Evento Sustentável
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://diversidade.io" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer">
                 Curadoria de Fornecedores
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
                 Rodadas Inclusivas
               </a>
             </Button>
@@ -686,27 +686,27 @@ export default function Home() {
               <h4 className="font-bold text-white mb-4">Plataformas</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="https://impactosocial.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Impacto Social
                   </a>
                 </li>
                 <li>
-                  <a href="https://reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Reconhecimento Racial
                   </a>
                 </li>
                 <li>
-                  <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Evento Sustentável
                   </a>
                 </li>
                 <li>
-                  <a href="https://diversidade.io" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Diversidade.io
                   </a>
                 </li>
                 <li>
-                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Rodadas Inclusivas
                   </a>
                 </li>
