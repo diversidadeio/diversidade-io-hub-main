@@ -94,7 +94,7 @@ export default function Home() {
                   </a>
                 </Button>
                 <Button asChild variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-50 h-10 px-4 text-sm" style={{borderColor: '#FF9500', color: '#FF9500'}}>
-                  <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                     Explorar Evento Sustentável <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </a>
                 </Button>
@@ -258,7 +258,7 @@ export default function Home() {
                 <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Apoio à governança ambiental e reputacional</li>
               </ul>
               <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+                <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                   Acessar Evento Sustentável
                 </a>
               </Button>
@@ -310,7 +310,7 @@ export default function Home() {
                   <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Acompanhamento por status: negociação, pedido, nota fiscal</li>
                 </ul>
                 <Button asChild className="bg-white text-blue-700 hover:bg-gray-100">
-                  <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
+                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
                     Acessar Rodadas Inclusivas <ArrowRight className="w-4 h-4 ml-2" />
                   </a>
                 </Button>
@@ -625,7 +625,7 @@ export default function Home() {
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                 Evento Sustentável
               </a>
             </Button>
@@ -635,7 +635,7 @@ export default function Home() {
               </a>
             </Button>
             <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
-              <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
+              <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
                 Rodadas Inclusivas
               </a>
             </Button>
@@ -671,9 +671,7 @@ export default function Home() {
             {/* Logo & Description */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">D</span>
-                </div>
+                <img src={logoImage} alt="Logo Diversidade.io" className="h-8 w-auto object-contain" />
                 <span className="font-bold text-lg text-white">Diversidade.io</span>
               </div>
               <p className="text-gray-400 leading-relaxed">
@@ -696,7 +694,7 @@ export default function Home() {
                   </a>
                 </li>
                 <li>
-                  <a href="https://www.eventosustentavel.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Evento Sustentável
                   </a>
                 </li>
@@ -706,7 +704,7 @@ export default function Home() {
                   </a>
                 </li>
                 <li>
-                  <a href="https://www.rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Rodadas Inclusivas
                   </a>
                 </li>
