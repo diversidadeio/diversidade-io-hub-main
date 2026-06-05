@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap, Search as SearchIcon, ShieldCheck, FileText, PieChart } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import logoImage from "@/assets/logo.png";
 import rhinoImage from "@/assets/rhino.png";
 
@@ -16,6 +17,8 @@ import rhinoImage from "@/assets/rhino.png";
 
 export default function Home() {
   const [scrollY, setScrollY] = useState(0);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -82,21 +85,11 @@ export default function Home() {
               </p>
 
               {/* CTA Buttons */}
-              <div className="flex flex-wrap gap-2 pt-4">
-                <Button asChild className="text-white h-10 px-4 text-sm" style={{backgroundColor: '#9D4EDD'}}>
-                  <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
-                    Conhecer Impacto Social <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                  </a>
-                </Button>
-                <Button asChild variant="outline" className="border-purple-600 text-purple-700 hover:bg-purple-50 h-10 px-4 text-sm" style={{borderColor: '#9D4EDD', color: '#9D4EDD'}}>
-                  <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
-                    Ver Reconhecimento Racial <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                  </a>
-                </Button>
-                <Button asChild variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-50 h-10 px-4 text-sm" style={{borderColor: '#FF9500', color: '#FF9500'}}>
-                  <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
-                    Explorar Evento Sustentável <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                  </a>
+              <div className="flex pt-4">
+                <Button asChild className="text-white h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" style={{backgroundColor: '#9D4EDD'}}>
+                  <Link href="/cadastro-gratuito">
+                    Formulário de cadastro gratuito <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -337,29 +330,59 @@ export default function Home() {
           </div>
 
           {/* Integration Flow Visualization */}
-          <div className="mb-12">
-            <img
-              src="https://d2xsxph8kpxj0f.cloudfront.net/310419663028736640/fj5hvLQNAskbvkdGiCiGce/integration-flow-visual-HHC3xpMxmjHo2yodUJPeRE.webp"
-              alt="Integration Flow"
-              className="w-full h-auto rounded-xl shadow-lg"
-            />
+          <div className="mb-16 relative pt-6 overflow-x-auto pb-4">
+            <div className="min-w-[800px] relative">
+              {/* Linha conectora verde */}
+              <div className="absolute top-[4.5rem] left-0 w-full h-1 bg-[#10B981] hidden md:block z-0"></div>
+              
+              <div className="grid grid-cols-7 gap-4 relative z-10">
+                {[
+                  { step: 1, title: "Encontrar", icon: SearchIcon },
+                  { step: 2, title: "Validar", icon: ShieldCheck },
+                  { step: 3, title: "Conectar", icon: Users },
+                  { step: 4, title: "Medir", icon: BarChart3 },
+                  { step: 5, title: "Sustentabilizar", icon: Leaf },
+                  { step: 6, title: "Reportar", icon: FileText },
+                  { step: 7, title: "Comprovar", icon: Target },
+                ].map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={idx} className="flex flex-col items-center">
+                      <div className="w-7 h-7 rounded-full bg-[#E85D04] text-white flex items-center justify-center font-bold text-xs mb-3 shadow-md border-2 border-white relative z-10">
+                        {item.step}
+                      </div>
+                      <div className="w-20 h-20 rounded-full bg-[#0F3A7D] border-4 border-[#10B981] flex items-center justify-center shadow-lg mb-4 hover:scale-110 transition-transform duration-300 relative z-10 bg-white p-1">
+                        <div className="w-full h-full bg-[#0F3A7D] rounded-full flex items-center justify-center">
+                          <Icon className="w-8 h-8 text-white" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                      <h3 className="font-bold text-blue-900 text-center text-sm md:text-base">{item.title}</h3>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Integration Steps */}
-          <div className="grid md:grid-cols-5 gap-6 mb-12">
+          {/* Integration Steps Descriptions */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
             {[
               { step: 1, title: "Encontrar", desc: "A Diversidade.io identifica e organiza fornecedores diversos por atividade, território, porte e capacidade." },
               { step: 2, title: "Validar", desc: "Reconhecimento Racial apoia processos estruturados de validação, heteroidentificação e registro." },
               { step: 3, title: "Conectar", desc: "Rodadas Inclusivas organiza encontros comerciais com agenda, matching e controle de tempo." },
               { step: 4, title: "Medir", desc: "Impacto Social registra o valor econômico, pessoas impactadas e alcance territorial." },
-              { step: 5, title: "Sustentar", desc: "Evento Sustentável mede práticas ambientais e sociais em eventos e ativações." },
+              { step: 5, title: "Sustentabilizar", desc: "Evento Sustentável mede práticas ambientais e sociais em eventos e ativações." },
+              { step: 6, title: "Reportar", desc: "Geração de relatórios estruturados com indicadores ESG e diversidade para governança corporativa e conselhos." },
+              { step: 7, title: "Comprovar", desc: "Materialidade evidenciada com registros rastreáveis que suportam auditorias externas, comprovação e métricas sólidas." },
             ].map((item, idx) => (
-              <div key={idx} className="text-center">
-                <div className="w-16 h-16 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl shadow-lg" style={{backgroundColor: '#9D4EDD'}}>
-                  {item.step}
+              <div key={idx} className="bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-[#9D4EDD] text-white flex items-center justify-center font-bold text-sm">
+                    {item.step}
+                  </div>
+                  <h3 className="font-bold text-lg" style={{color: '#9D4EDD'}}>{item.title}</h3>
                 </div>
-                <h3 className="font-bold text-lg mb-2" style={{color: '#9D4EDD'}}>{item.title}</h3>
-                <p className="text-sm text-gray-600">{item.desc}</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -586,11 +609,18 @@ export default function Home() {
               { title: "Mensuração de impacto social", icon: "📈" },
               { title: "Relatórios, governança e comprovação", icon: "📋" },
             ].map((item, idx) => (
-              <div key={idx} className="flex items-center gap-4">
-                <div className="w-12 h-12 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold" style={{backgroundColor: '#9D4EDD'}}>
+              <div 
+                key={idx} 
+                className={`flex items-center gap-4 cursor-pointer transition-all duration-300 hover:scale-105 ${selectedTopic === item.title ? 'scale-105 opacity-100' : 'opacity-80 hover:opacity-100'}`}
+                onClick={() => {
+                  setSelectedTopic(item.title);
+                  setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                }}
+              >
+                <div className={`w-12 h-12 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold ${selectedTopic === item.title ? 'shadow-[0_0_15px_rgba(157,78,221,0.6)]' : ''}`} style={{backgroundColor: '#9D4EDD'}}>
                   {item.icon}
                 </div>
-                <div className="flex-1 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div className={`flex-1 bg-white p-4 rounded-lg border shadow-sm transition-colors ${selectedTopic === item.title ? 'border-[#9D4EDD] ring-1 ring-[#9D4EDD]' : 'border-gray-200'}`}>
                   <p className="font-semibold text-gray-900">{item.title}</p>
                 </div>
                 {idx < 6 && (
@@ -598,6 +628,66 @@ export default function Home() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Contact Specialist Form */}
+          <div 
+            ref={formRef}
+            className={`max-w-2xl mx-auto bg-white rounded-xl shadow-lg border border-purple-100 transition-all duration-500 overflow-hidden ${selectedTopic ? 'mt-16 p-8 opacity-100 max-h-[800px] transform translate-y-0' : 'mt-0 p-0 opacity-0 max-h-0 transform -translate-y-4 border-0'}`}
+          >
+            {selectedTopic && (
+              <>
+                <h3 className="text-2xl font-bold mb-2 text-center" style={{color: '#9D4EDD'}}>
+                  Um especialista nosso pode falar com você
+                </h3>
+                <p className="text-gray-600 text-center mb-8">
+                  Preencha os dados abaixo para conversar sobre:<br/>
+                  <strong style={{color: '#FF9500', fontSize: '1.1rem'}}>{selectedTopic}</strong>
+                </p>
+                <form 
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const nome = formData.get('nome');
+                    const email = formData.get('email');
+                    const telefone = formData.get('telefone');
+                    const empresa = formData.get('empresa');
+                    
+                    const subject = encodeURIComponent(`${selectedTopic}`);
+                    const body = encodeURIComponent(`Nome: ${nome}\nE-mail: ${email}\nTelefone: ${telefone}\nEmpresa: ${empresa}\n\nTópico de interesse: ${selectedTopic}`);
+                    
+                    window.location.href = `mailto:suporte@diversidade.io?subject=${subject}&body=${body}`;
+                  }}
+                >
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2 text-left">
+                      <label htmlFor="nome" className="text-sm font-medium text-gray-700">Nome</label>
+                      <input type="text" id="nome" name="nome" required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all" placeholder="Seu nome" />
+                    </div>
+                    <div className="space-y-2 text-left">
+                      <label htmlFor="email" className="text-sm font-medium text-gray-700">E-mail</label>
+                      <input type="email" id="email" name="email" required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all" placeholder="seu@email.com" />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2 text-left">
+                      <label htmlFor="telefone" className="text-sm font-medium text-gray-700">Telefone</label>
+                      <input type="tel" id="telefone" name="telefone" required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="space-y-2 text-left">
+                      <label htmlFor="empresa" className="text-sm font-medium text-gray-700">Empresa</label>
+                      <input type="text" id="empresa" name="empresa" required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all" placeholder="Sua empresa" />
+                    </div>
+                  </div>
+                  <div className="pt-2">
+                    <Button type="submit" className="w-full h-12 text-white font-bold text-lg hover:opacity-90 transition-opacity" style={{backgroundColor: '#FF9500'}}>
+                      Enviar
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -642,22 +732,45 @@ export default function Home() {
           </div>
 
           {/* Contact Info */}
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-8 max-w-2xl mx-auto text-center">
-            <h3 className="text-2xl font-bold mb-6">Falar com a Diversidade.io</h3>
-            <div className="space-y-3">
-              <p className="text-lg">
-                <strong>Marcelo Arruda</strong>
-              </p>
-              <p style={{color: 'rgba(255,255,255,0.9)'}}>
-                <a href="tel:+5511991999942" className="hover:text-white transition-colors">
-                  +55 11 99199 9942
-                </a>
-              </p>
-              <p style={{color: 'rgba(255,255,255,0.9)'}}>
-                <a href="mailto:marcelo.arruda@diversidade.io" className="hover:text-white transition-colors">
-                  marcelo.arruda@diversidade.io
-                </a>
-              </p>
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-8 max-w-3xl mx-auto text-center">
+            <h3 className="text-2xl font-bold mb-8">Falar com a Diversidade.io</h3>
+            <div className="grid md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-white/20">
+              {/* Comercial */}
+              <div className="space-y-3 pb-6 md:pb-0">
+                <p className="text-lg">
+                  <strong>Comercial</strong><br/>
+                  <span className="text-base font-normal">Marcelo Arruda</span>
+                </p>
+                <p style={{color: 'rgba(255,255,255,0.9)'}}>
+                  <a href="tel:+5511991999942" className="hover:text-white transition-colors">
+                    +55 11 99199 9942
+                  </a>
+                </p>
+                <p style={{color: 'rgba(255,255,255,0.9)'}}>
+                  <a href="mailto:marcelo.arruda@diversidade.io" className="hover:text-white transition-colors">
+                    marcelo.arruda@diversidade.io
+                  </a>
+                </p>
+              </div>
+
+              {/* Suporte */}
+              <div className="space-y-3 pt-6 md:pt-0">
+                <p className="text-lg">
+                  <strong>Suporte da Diversidade.io</strong>
+                </p>
+                <p style={{color: 'rgba(255,255,255,0.9)'}}>
+                  <a href="tel:+5511989832953" className="hover:text-white transition-colors">
+                    +55 11 98983 2953
+                  </a>
+                </p>
+                <p style={{color: 'rgba(255,255,255,0.9)'}}>
+                  <a href="mailto:suporte@diversidade.io" className="hover:text-white transition-colors">
+                    suporte@diversidade.io
+                  </a>
+                </p>
+              </div>
+            </div>
+            <div className="mt-8 pt-6 border-t border-white/20">
               <p style={{color: 'rgba(255,255,255,0.9)'}}>São Paulo, Brasil • Atendimento nacional</p>
             </div>
           </div>
