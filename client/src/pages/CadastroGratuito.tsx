@@ -59,6 +59,7 @@ export default function CadastroGratuito() {
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjErro, setCnpjErro] = useState("");
   const [acessoTipo, setAcessoTipo] = useState("");
+  const [acessoTipoOutro, setAcessoTipoOutro] = useState("");
 
   // 2.5 Arquivos
   const [fotoResponsavelFile, setFotoResponsavelFile] = useState<File | null>(null);
@@ -67,6 +68,7 @@ export default function CadastroGratuito() {
   const [fichaJuntaFile, setFichaJuntaFile] = useState<File | null>(null);
   const [areaEmpresa, setAreaEmpresa] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
+  const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
   const [sobreEmpresa, setSobreEmpresa] = useState("");
 
   // 3. Financeiro
@@ -416,9 +418,9 @@ export default function CadastroGratuito() {
         razao_social: razaoSocial,
         nome_fantasia: nomeFantasia,
         cnpj: cnpj,
-        acesso_tipo: acessoTipo,
+        acesso_tipo: acessoTipo === "OUTRO" ? acessoTipoOutro : acessoTipo,
         area_empresa: areaEmpresa,
-        area_geografica: areaGeografica,
+        area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
         sobre_empresa: sobreEmpresa,
         emite_nota_fiscal: emiteNotaFiscal,
         tem_conta_pj: temContaPJ,
@@ -663,6 +665,15 @@ export default function CadastroGratuito() {
                       <SelectItem value="OUTRO">OUTRO - CITE AQUI</SelectItem>
                     </SelectContent>
                   </Select>
+                  {acessoTipo === "OUTRO" && (
+                    <Input 
+                      required 
+                      value={acessoTipoOutro} 
+                      onChange={e=>setAcessoTipoOutro(e.target.value)} 
+                      placeholder="Qual o seu tipo de acesso?" 
+                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -698,6 +709,15 @@ export default function CadastroGratuito() {
                       <SelectItem value="Outro">Outro - Detalhe</SelectItem>
                     </SelectContent>
                   </Select>
+                  {areaGeografica === "Outro" && (
+                    <Input 
+                      required 
+                      value={areaGeograficaOutro} 
+                      onChange={e=>setAreaGeograficaOutro(e.target.value)} 
+                      placeholder="Detalhe a área geográfica" 
+                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
+                    />
+                  )}
                 </div>
               </div>
 

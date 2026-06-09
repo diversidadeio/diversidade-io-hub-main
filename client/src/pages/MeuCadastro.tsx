@@ -69,6 +69,7 @@ export default function MeuCadastro() {
   const [cnpj, setCnpj] = useState("");
   const [cnpjValido] = useState(true);
   const [acessoTipo, setAcessoTipo] = useState("");
+  const [acessoTipoOutro, setAcessoTipoOutro] = useState("");
   const [logoEmpresaFile, setLogoEmpresaFile] = useState<File | null>(null);
   const [logoEmpresaUrl, setLogoEmpresaUrl] = useState<string | null>(null);
   const [cartaoCnpjFile, setCartaoCnpjFile] = useState<File | null>(null);
@@ -77,6 +78,7 @@ export default function MeuCadastro() {
   const [fichaJuntaUrl, setFichaJuntaUrl] = useState<string | null>(null);
   const [areaEmpresa, setAreaEmpresa] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
+  const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
   const [sobreEmpresa, setSobreEmpresa] = useState("");
 
   // 3. Financeiro
@@ -143,9 +145,25 @@ export default function MeuCadastro() {
         setRazaoSocial(empresa.razao_social ?? "");
         setNomeFantasia(empresa.nome_fantasia ?? "");
         setCnpj(empresa.cnpj ?? "");
-        setAcessoTipo(empresa.acesso_tipo ?? "");
+        const acessoDB = empresa.acesso_tipo ?? "";
+        if (["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO", ""].includes(acessoDB)) {
+          setAcessoTipo(acessoDB);
+          setAcessoTipoOutro("");
+        } else {
+          setAcessoTipo("OUTRO");
+          setAcessoTipoOutro(acessoDB);
+        }
+
         setAreaEmpresa(empresa.area_empresa ?? "");
-        setAreaGeografica(empresa.area_geografica ?? "");
+
+        const areaGeoDB = empresa.area_geografica ?? "";
+        if (["Meu Bairro", "Minha região da minha cidade", "Minha cidade", "Minha cidade e o entorno", "Meu estado", "Os estados da minha região", "Todo o Brasil", ""].includes(areaGeoDB)) {
+          setAreaGeografica(areaGeoDB);
+          setAreaGeograficaOutro("");
+        } else {
+          setAreaGeografica("Outro");
+          setAreaGeograficaOutro(areaGeoDB);
+        }
         setSobreEmpresa(empresa.sobre_empresa ?? "");
         setEmiteNotaFiscal(empresa.emite_nota_fiscal ?? "");
         setTemContaPJ(empresa.tem_conta_pj ?? "");
@@ -457,9 +475,9 @@ export default function MeuCadastro() {
           razao_social: razaoSocial,
           nome_fantasia: nomeFantasia,
           cnpj: cnpj,
-          acesso_tipo: acessoTipo,
+          acesso_tipo: acessoTipo === "OUTRO" ? acessoTipoOutro : acessoTipo,
           area_empresa: areaEmpresa,
-          area_geografica: areaGeografica,
+          area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
           sobre_empresa: sobreEmpresa,
           emite_nota_fiscal: emiteNotaFiscal,
           tem_conta_pj: temContaPJ,
@@ -739,6 +757,15 @@ export default function MeuCadastro() {
                       <SelectItem value="OUTRO">OUTRO - CITE AQUI</SelectItem>
                     </SelectContent>
                   </Select>
+                  {acessoTipo === "OUTRO" && (
+                    <Input 
+                      required 
+                      value={acessoTipoOutro} 
+                      onChange={e=>setAcessoTipoOutro(e.target.value)} 
+                      placeholder="Qual o seu tipo de acesso?" 
+                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -774,6 +801,15 @@ export default function MeuCadastro() {
                       <SelectItem value="Outro">Outro - Detalhe</SelectItem>
                     </SelectContent>
                   </Select>
+                  {areaGeografica === "Outro" && (
+                    <Input 
+                      required 
+                      value={areaGeograficaOutro} 
+                      onChange={e=>setAreaGeograficaOutro(e.target.value)} 
+                      placeholder="Detalhe a área geográfica" 
+                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
+                    />
+                  )}
                 </div>
               </div>
 
