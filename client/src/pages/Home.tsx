@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap, Search as SearchIcon, ShieldCheck, FileText, PieChart } from "lucide-react";
+import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap, Search as SearchIcon, ShieldCheck, FileText, PieChart, LogIn } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import logoImage from "@/assets/logo.png";
@@ -38,7 +38,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src={logoImage} alt="Logo Diversidade.io" className="h-10 w-auto object-contain" />
-            <span className="font-bold text-lg" style={{color: '#9D4EDD'}}>Diversidade.io</span>
+            <span className="font-bold text-lg" style={{color: '#7030A0'}}>Diversidade.io</span>
           </div>
 
           {/* Navigation Menu */}
@@ -60,8 +60,10 @@ export default function Home() {
             </button>
           </nav>
 
-          <Button className="text-white" style={{backgroundColor: '#8B2D8B'}} onClick={() => scrollToSection("platforms")}>
-            Conheça nossas plataformas
+          <Button asChild className="text-white flex items-center gap-2" style={{backgroundColor: '#502273'}}>
+            <Link href="/login">
+              <LogIn className="w-4 h-4" /> Login
+            </Link>
           </Button>
         </div>
       </header>
@@ -74,7 +76,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <h1 className="text-5xl md:text-6xl font-bold leading-tight" style={{color: '#9D4EDD'}}>
+              <h1 className="text-5xl md:text-6xl font-bold leading-tight" style={{color: '#7030A0'}}>
                 Diversidade.io: tecnologia para transformar diversidade em negócio, impacto e evidência
               </h1>
               <p className="text-xl text-gray-600 leading-relaxed">
@@ -86,7 +88,7 @@ export default function Home() {
 
               {/* CTA Buttons */}
               <div className="flex pt-4">
-                <Button asChild className="text-white h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" style={{backgroundColor: '#9D4EDD'}}>
+                <Button asChild className="text-white h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" style={{backgroundColor: '#7030A0'}}>
                   <Link href="/cadastro-gratuito">
                     Formulário de cadastro gratuito <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
@@ -115,7 +117,7 @@ export default function Home() {
       <section id="ecosystem" className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6" style={{color: '#9D4EDD'}}>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6" style={{color: '#7030A0'}}>
               Da intenção à comprovação: a infraestrutura que faltava para a diversidade gerar resultado real
             </h2>
             <p className="text-lg text-gray-600 leading-relaxed">
@@ -175,7 +177,7 @@ export default function Home() {
       <section id="platforms" className="py-20 bg-gradient-to-b from-gray-50 to-white">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{color: '#9D4EDD'}}>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{color: '#7030A0'}}>
               Cinco plataformas. Uma jornada integrada.
             </h2>
             <p className="text-lg text-gray-600">
@@ -377,10 +379,10 @@ export default function Home() {
             ].map((item, idx) => (
               <div key={idx} className="bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-[#9D4EDD] text-white flex items-center justify-center font-bold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-[#7030A0] text-white flex items-center justify-center font-bold text-sm">
                     {item.step}
                   </div>
-                  <h3 className="font-bold text-lg" style={{color: '#9D4EDD'}}>{item.title}</h3>
+                  <h3 className="font-bold text-lg" style={{color: '#7030A0'}}>{item.title}</h3>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
               </div>
@@ -409,8 +411,8 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-8">
             {/* Empresas Privadas */}
             <div className="bg-white p-8 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#9D4EDD'}}>
-                <TrendingUp className="w-6 h-6" style={{color: '#9D4EDD'}} />
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#7030A0'}}>
+                <TrendingUp className="w-6 h-6" style={{color: '#7030A0'}} />
                 Empresas Privadas
               </h3>
               <ul className="space-y-3 text-gray-700">
@@ -443,8 +445,8 @@ export default function Home() {
 
             {/* Órgãos Públicos */}
             <div className="bg-white p-8 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#9D4EDD'}}>
-                <Target className="w-6 h-6" style={{color: '#FF9500'}} />
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#7030A0'}}>
+                <Target className="w-6 h-6" style={{color: '#FFC000'}} />
                 Órgãos Públicos e Instituições
               </h3>
               <ul className="space-y-3 text-gray-700">
@@ -477,8 +479,8 @@ export default function Home() {
 
             {/* Organizadores de Eventos */}
             <div className="bg-white p-8 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#9D4EDD'}}>
-                <Zap className="w-6 h-6" style={{color: '#FF9500'}} />
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#7030A0'}}>
+                <Zap className="w-6 h-6" style={{color: '#FFC000'}} />
                 Organizadores de Eventos
               </h3>
               <ul className="space-y-3 text-gray-700">
@@ -507,8 +509,8 @@ export default function Home() {
 
             {/* Empreendedores Diversos */}
             <div className="bg-white p-8 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#9D4EDD'}}>
-                <Handshake className="w-6 h-6" style={{color: '#9D4EDD'}} />
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{color: '#7030A0'}}>
+                <Handshake className="w-6 h-6" style={{color: '#7030A0'}} />
                 Empreendedores Diversos
               </h3>
               <ul className="space-y-3 text-gray-700">
@@ -541,7 +543,7 @@ export default function Home() {
       {/* Section: Resultados e Credibilidade */}
       <section id="results" className="py-20 bg-gradient-to-b from-white to-purple-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{color: '#9D4EDD'}}>
+          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{color: '#7030A0'}}>
             Trajetória que reduz risco de adoção
           </h2>
           <p className="text-lg text-gray-600 text-center mb-16 max-w-2xl mx-auto">
@@ -550,16 +552,16 @@ export default function Home() {
 
           {/* Stats Grid */}
           <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#9D4EDD'}}>
-              <div className="text-5xl font-bold mb-2" style={{color: '#9D4EDD'}}>209 mil</div>
+            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#7030A0'}}>
+              <div className="text-5xl font-bold mb-2" style={{color: '#7030A0'}}>209 mil</div>
               <p className="text-gray-700 font-medium">Empreendedores negros mapeados no Brasil</p>
             </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FF9500'}}>
-              <div className="text-5xl font-bold mb-2" style={{color: '#FF9500'}}>53</div>
+            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FFC000'}}>
+              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>53</div>
               <p className="text-gray-700 font-medium">Negócios gerados pela plataforma</p>
             </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FF9500'}}>
-              <div className="text-5xl font-bold mb-2" style={{color: '#FF9500'}}>R$ 8,34M</div>
+            <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FFC000'}}>
+              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>R$ 8,34M</div>
               <p className="text-gray-700 font-medium">Volume de negócios gerado</p>
             </div>
           </div>
@@ -567,8 +569,8 @@ export default function Home() {
           {/* Additional Credentials */}
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-gradient-to-br from-purple-50 to-white p-8 rounded-xl" style={{border: '1px solid #E6D5FF'}}>
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{color: '#9D4EDD'}}>
-                <CheckCircle className="w-5 h-5" style={{color: '#FF9500'}} />
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{color: '#7030A0'}}>
+                <CheckCircle className="w-5 h-5" style={{color: '#FFC000'}} />
                 Experiência Comprovada
               </h3>
               <p className="text-gray-700">
@@ -576,8 +578,8 @@ export default function Home() {
               </p>
             </div>
             <div className="bg-gradient-to-br from-orange-50 to-white p-8 rounded-xl" style={{border: '1px solid #FFE6CC'}}>
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{color: '#9D4EDD'}}>
-                <CheckCircle className="w-5 h-5" style={{color: '#FF9500'}} />
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{color: '#7030A0'}}>
+                <CheckCircle className="w-5 h-5" style={{color: '#FFC000'}} />
                 Atuação Nacional
               </h3>
               <p className="text-gray-700">
@@ -591,7 +593,7 @@ export default function Home() {
       {/* Section: Arquitetura de Valor */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{color: '#9D4EDD'}}>
+          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{color: '#7030A0'}}>
             Do dado ao impacto comprovado
           </h2>
           <p className="text-lg text-gray-600 text-center mb-16 max-w-3xl mx-auto">
@@ -617,14 +619,14 @@ export default function Home() {
                   setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
                 }}
               >
-                <div className={`w-12 h-12 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold ${selectedTopic === item.title ? 'shadow-[0_0_15px_rgba(157,78,221,0.6)]' : ''}`} style={{backgroundColor: '#9D4EDD'}}>
+                <div className={`w-12 h-12 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold ${selectedTopic === item.title ? 'shadow-[0_0_15px_rgba(157,78,221,0.6)]' : ''}`} style={{backgroundColor: '#7030A0'}}>
                   {item.icon}
                 </div>
-                <div className={`flex-1 bg-white p-4 rounded-lg border shadow-sm transition-colors ${selectedTopic === item.title ? 'border-[#9D4EDD] ring-1 ring-[#9D4EDD]' : 'border-gray-200'}`}>
+                <div className={`flex-1 bg-white p-4 rounded-lg border shadow-sm transition-colors ${selectedTopic === item.title ? 'border-[#7030A0] ring-1 ring-[#7030A0]' : 'border-gray-200'}`}>
                   <p className="font-semibold text-gray-900">{item.title}</p>
                 </div>
                 {idx < 6 && (
-                  <div className="w-1 h-8 rounded-full -ml-2 -mr-2" style={{background: 'linear-gradient(to bottom, #9D4EDD, #FF9500)'}}></div>
+                  <div className="w-1 h-8 rounded-full -ml-2 -mr-2" style={{background: 'linear-gradient(to bottom, #7030A0, #FFC000)'}}></div>
                 )}
               </div>
             ))}
@@ -637,12 +639,12 @@ export default function Home() {
           >
             {selectedTopic && (
               <>
-                <h3 className="text-2xl font-bold mb-2 text-center" style={{color: '#9D4EDD'}}>
+                <h3 className="text-2xl font-bold mb-2 text-center" style={{color: '#7030A0'}}>
                   Um especialista nosso pode falar com você
                 </h3>
                 <p className="text-gray-600 text-center mb-8">
                   Preencha os dados abaixo para conversar sobre:<br/>
-                  <strong style={{color: '#FF9500', fontSize: '1.1rem'}}>{selectedTopic}</strong>
+                  <strong style={{color: '#FFC000', fontSize: '1.1rem'}}>{selectedTopic}</strong>
                 </p>
                 <form 
                   className="space-y-4"
@@ -681,7 +683,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="pt-2">
-                    <Button type="submit" className="w-full h-12 text-white font-bold text-lg hover:opacity-90 transition-opacity" style={{backgroundColor: '#FF9500'}}>
+                    <Button type="submit" className="w-full h-12 text-white font-bold text-lg hover:opacity-90 transition-opacity" style={{backgroundColor: '#FFC000'}}>
                       Enviar
                     </Button>
                   </div>
@@ -693,9 +695,9 @@ export default function Home() {
       </section>
 
       {/* Section: CTA Final */}
-      <section id="contact" className="py-20 text-white" style={{background: 'linear-gradient(to bottom right, #9D4EDD, #8B2D8B)'}}>
+      <section id="contact" className="py-20 text-white" style={{background: 'linear-gradient(to bottom right, #7030A0, #502273)'}}>
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-center mb-6" style={{color: '#FFFFFF'}}>
             Escolha a plataforma ideal para sua demanda ou integre toda a jornada
           </h2>
           <p className="text-xl text-center mb-12 max-w-3xl mx-auto" style={{color: 'rgba(255,255,255,0.9)'}}>
@@ -704,27 +706,27 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap justify-center gap-4 mb-16">
-            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
+            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#7030A0'}}>
               <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
                 Impacto Social
               </a>
             </Button>
-            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
+            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#7030A0'}}>
               <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
                 Reconhecimento Racial
               </a>
             </Button>
-            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
+            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#7030A0'}}>
               <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
                 Evento Sustentável
               </a>
             </Button>
-            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
+            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#7030A0'}}>
               <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer">
                 Curadoria de Fornecedores
               </a>
             </Button>
-            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#9D4EDD'}}>
+            <Button asChild className="bg-white hover:bg-gray-100 h-12 px-6" style={{color: '#7030A0'}}>
               <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
                 Rodadas Inclusivas
               </a>

@@ -45,46 +45,46 @@
 
 :root {
   /* Diversidade.io Brand Colors */
-  --primary: #9D4EDD;
-  --primary-dark: #8B2D8B;
+  --primary: #7030A0;
+  --primary-dark: #502273;
   --primary-foreground: #FFFFFF;
-  --accent-orange: #FF9500;
+  --accent-orange: #FFC000;
   --accent-green: #059669;
-  --accent-purple: #9D4EDD;
+  --accent-purple: #7030A0;
   --accent-teal: #0891B2;
   
-  --sidebar-primary: #0F3A7D;
-  --sidebar-primary-foreground: #FAFBFC;
-  --chart-1: #0F3A7D;
-  --chart-2: #059669;
-  --chart-3: #EA580C;
+  --sidebar-primary: #191020;
+  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #7030A0;
+  --chart-2: #FFC000;
+  --chart-3: #191020;
   --chart-4: #0891B2;
-  --chart-5: #7C3AED;
+  --chart-5: #059669;
   
   --radius: 0.5rem;
-  --background: #FAFBFC;
-  --foreground: #1F2937;
+  --background: #FFFFFF;
+  --foreground: #191020;
   --card: #FFFFFF;
-  --card-foreground: #1F2937;
+  --card-foreground: #191020;
   --popover: #FFFFFF;
-  --popover-foreground: #1F2937;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #4B5563;
+  --popover-foreground: #191020;
+  --secondary: #FFC000;
+  --secondary-foreground: #191020;
   --muted: #E5E7EB;
   --muted-foreground: #6B7280;
-  --accent: #059669;
-  --accent-foreground: #FFFFFF;
+  --accent: #FFC000;
+  --accent-foreground: #191020;
   --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
   --input: #F3F4F6;
-  --ring: #0F3A7D;
+  --ring: #7030A0;
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #1F2937;
+  --sidebar-foreground: #191020;
   --sidebar-accent: #F3F4F6;
-  --sidebar-accent-foreground: #0F3A7D;
+  --sidebar-accent-foreground: #7030A0;
   --sidebar-border: #E5E7EB;
-  --sidebar-ring: #0F3A7D;
+  --sidebar-ring: #7030A0;
 }
 
 .dark {
@@ -136,15 +136,15 @@
   }
   h1 {
     @apply text-5xl md:text-6xl font-bold leading-tight;
-    color: #9D4EDD;
+    color: #7030A0;
   }
   h2 {
     @apply text-4xl md:text-5xl font-bold leading-tight;
-    color: #9D4EDD;
+    color: #7030A0;
   }
   h3 {
     @apply text-2xl md:text-3xl font-bold leading-snug;
-    color: #9D4EDD;
+    color: #7030A0;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
