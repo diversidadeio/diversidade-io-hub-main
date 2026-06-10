@@ -6,11 +6,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, Loader2, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import logoImage from "@/assets/logo.png";
 import { supabase } from "@/lib/supabase";
+import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 
 interface SocioData {
   foto: File | null;
@@ -28,6 +29,7 @@ interface SocioData {
   etariedade: string;
   raca: string;
   sexo: string;
+  sexoOutro: string;
   genero: string;
   orientacao: string;
   deficiencia: string;
@@ -58,7 +60,7 @@ export default function CadastroGratuito() {
   const [cnpjValido, setCnpjValido] = useState(false);
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjErro, setCnpjErro] = useState("");
-  const [acessoTipo, setAcessoTipo] = useState("");
+  const [acessoTipo, setAcessoTipo] = useState<string[]>([]);
   const [acessoTipoOutro, setAcessoTipoOutro] = useState("");
 
   // 2.5 Arquivos
@@ -66,6 +68,8 @@ export default function CadastroGratuito() {
   const [logoEmpresaFile, setLogoEmpresaFile] = useState<File | null>(null);
   const [cartaoCnpjFile, setCartaoCnpjFile] = useState<File | null>(null);
   const [fichaJuntaFile, setFichaJuntaFile] = useState<File | null>(null);
+  const [analisandoJucesp, setAnalisandoJucesp] = useState(false);
+  const [jucespPreencheu, setJucespPreencheu] = useState(false);
   const [areaEmpresa, setAreaEmpresa] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
   const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
@@ -106,8 +110,7 @@ export default function CadastroGratuito() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "",
-              sexo: "", genero: "", orientacao: "", deficiencia: ""
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""
             });
           }
         } else if (newData.length > num) {
@@ -168,6 +171,41 @@ export default function CadastroGratuito() {
 
   const formatCep = (value: string) => {
     return value.replace(/\D/g, '').replace(/^(\d{5})(\d)/, '$1-$2').slice(0, 9);
+  };
+
+  /**
+   * Ao anexar a Ficha da Junta Comercial, tenta extrair automaticamente
+   * os dados do Quadro Societário via pdfjs-dist.
+   */
+  const handleFichaJuntaChange = async (arquivo: File) => {
+    setFichaJuntaFile(arquivo);
+    setJucespPreencheu(false);
+    setAnalisandoJucesp(true);
+
+    try {
+      const sociosExtraidos = await extrairSociosDoJucesp(arquivo);
+
+      if (sociosExtraidos.length > 0) {
+        setSociosData(prev => {
+          const novos = [...prev];
+          sociosExtraidos.forEach((s, idx) => {
+            if (idx < novos.length) {
+              // Preenche apenas valor e percentual, preserva o restante
+              novos[idx] = {
+                ...novos[idx],
+                nome: novos[idx].nome || s.nome,
+                participacaoValor: s.valorParticipacao,
+                participacaoPercentual: s.percentualParticipacao,
+              };
+            }
+          });
+          return novos;
+        });
+        setJucespPreencheu(true);
+      }
+    } finally {
+      setAnalisandoJucesp(false);
+    }
   };
 
   const fetchCepData = async (cep: string) => {
@@ -261,6 +299,14 @@ export default function CadastroGratuito() {
       .slice(0, 14);
   };
 
+  const formatDateInput = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1/$2')
+      .replace(/(\d{2})(\d)/, '$1/$2')
+      .slice(0, 10);
+  };
+
   const formatPhone = (value: string) => {
     const v = value.replace(/\D/g, '');
     if (v.length > 10) {
@@ -293,8 +339,7 @@ export default function CadastroGratuito() {
           setNumeroSocios(sociosQsa.length);
           const novosSocios = sociosQsa.map((s: any) => ({
             foto: null, fonteImagem: "", nome: s.nome_socio || "", participacaoValor: "", participacaoPercentual: "",
-            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "",
-            sexo: "", genero: "", orientacao: "", deficiencia: ""
+            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""
           }));
           setSociosData(novosSocios);
         }
@@ -418,7 +463,7 @@ export default function CadastroGratuito() {
         razao_social: razaoSocial,
         nome_fantasia: nomeFantasia,
         cnpj: cnpj,
-        acesso_tipo: acessoTipo === "OUTRO" ? acessoTipoOutro : acessoTipo,
+        acesso_tipo: acessoTipo.includes("OUTRO") ? acessoTipo.filter(t => t !== "OUTRO").concat(`OUTRO: ${acessoTipoOutro}`).join(', ') : acessoTipo.join(', '),
         area_empresa: areaEmpresa,
         area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
         sobre_empresa: sobreEmpresa,
@@ -456,7 +501,7 @@ export default function CadastroGratuito() {
             nacionalidade: s.nacionalidade,
             etariedade: s.etariedade,
             raca: s.raca,
-            sexo: s.sexo,
+            sexo: s.sexo === "Outro" ? `Outro: ${s.sexoOutro}` : s.sexo,
             genero: s.genero,
             orientacao: s.orientacao,
             deficiencia: s.deficiencia,
@@ -653,19 +698,33 @@ export default function CadastroGratuito() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">O seu acesso é como:</Label>
-                  <Select onValueChange={setAcessoTipo} required>
-                    <SelectTrigger className="h-12 bg-gray-50 focus:bg-white">
-                      <SelectValue placeholder="Selecione o acesso" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EMPRESA OU INICIATIVA INCENTIVADORA">EMPRESA OU INICIATIVA INCENTIVADORA</SelectItem>
-                      <SelectItem value="FORNECEDOR INCLUSIVO">FORNECEDOR INCLUSIVO</SelectItem>
-                      <SelectItem value="EMPREENDIMENTO DIVERSO">EMPREENDIMENTO DIVERSO</SelectItem>
-                      <SelectItem value="OUTRO">OUTRO - CITE AQUI</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {acessoTipo === "OUTRO" && (
+                  <Label className="text-gray-700 font-medium">O seu acesso é como: (Pode selecionar mais de um)</Label>
+                  <div className="flex flex-col gap-3 mt-2">
+                    {[
+                      "EMPRESA OU INICIATIVA INCENTIVADORA",
+                      "FORNECEDOR INCLUSIVO",
+                      "EMPREENDIMENTO DIVERSO",
+                      "OUTRO"
+                    ].map((opcao) => (
+                      <div key={opcao} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`acesso-${opcao}`} 
+                          checked={acessoTipo.includes(opcao)}
+                          onCheckedChange={(checked) => {
+                            setAcessoTipo(prev => 
+                              checked 
+                                ? [...prev, opcao] 
+                                : prev.filter(item => item !== opcao)
+                            );
+                          }}
+                        />
+                        <Label htmlFor={`acesso-${opcao}`} className="font-normal cursor-pointer">
+                          {opcao === "OUTRO" ? "OUTRO - CITE AQUI" : opcao}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {acessoTipo.includes("OUTRO") && (
                     <Input 
                       required 
                       value={acessoTipoOutro} 
@@ -740,14 +799,26 @@ export default function CadastroGratuito() {
                 <div className="space-y-2">
                   <Label className="text-gray-700 font-medium">Ficha Simples da Junta Comercial (PDF)</Label>
                   <div className={`border-2 border-dashed ${fichaJuntaFile ? 'border-[#7030A0] bg-purple-50' : 'border-gray-300 bg-white'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
-                    <input type="file" id="fichaJunta" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) setFichaJuntaFile(e.target.files[0]) }} required />
+                    <input type="file" id="fichaJunta" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) handleFichaJuntaChange(e.target.files[0]) }} required />
                     <label htmlFor="fichaJunta" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
                       <div className={`w-10 h-10 rounded-full ${fichaJuntaFile ? 'bg-[#7030A0]' : 'bg-purple-100'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <FileText className={`w-5 h-5 ${fichaJuntaFile ? 'text-white' : 'text-[#7030A0]'}`} />
                       </div>
-                      <p className="text-gray-700 font-medium text-sm">
-                        {fichaJuntaFile ? <span className="text-[#7030A0]">{fichaJuntaFile.name}</span> : "Clique para enviar Ficha Simples"}
-                      </p>
+                      {analisandoJucesp ? (
+                        <span className="text-sm text-[#7030A0] flex items-center gap-1 font-medium">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analisando documento...
+                        </span>
+                      ) : jucespPreencheu ? (
+                        <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
+                          <Sparkles className="w-4 h-4" />
+                          Dados do quadro societário parcialmente preenchidos automaticamente! Lembre-se de preencher o restante das informações.
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 font-medium text-sm">
+                          {fichaJuntaFile ? fichaJuntaFile.name : "Clique para enviar Ficha Simples"}
+                        </span>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -956,7 +1027,7 @@ export default function CadastroGratuito() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-gray-700 font-medium">Data de Nascimento</Label>
-                                <Input type="date" value={socio.dataNascimento} onChange={(e) => updateSocio(idx, 'dataNascimento', e.target.value)} />
+                                <Input maxLength={10} placeholder="DD/MM/AAAA" value={socio.dataNascimento} onChange={(e) => updateSocio(idx, 'dataNascimento', formatDateInput(e.target.value))} />
                               </div>
                               <div className="space-y-2 md:col-span-2">
                                 <Label className="text-gray-700 font-medium">CEP</Label>
@@ -970,7 +1041,6 @@ export default function CadastroGratuito() {
                             </div>
 
                             <div className="pt-4 border-t border-gray-100">
-                              <h4 className="font-semibold text-gray-900 mb-4">Autodeclaração</h4>
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Nacionalidade</Label>
@@ -986,17 +1056,44 @@ export default function CadastroGratuito() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Sexo</Label>
-                                  <Input value={socio.sexo} onChange={(e) => updateSocio(idx, 'sexo', e.target.value)} placeholder="Ex: Feminino, Masculino" />
+                                  <Select value={socio.sexo} onValueChange={(v) => updateSocio(idx, 'sexo', v)}>
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Masculino">Masculino</SelectItem>
+                                      <SelectItem value="Feminino">Feminino</SelectItem>
+                                      <SelectItem value="Outro">Outro</SelectItem>
+                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {socio.sexo === "Outro" && (
+                                    <Input 
+                                      className="mt-2" 
+                                      value={socio.sexoOutro} 
+                                      onChange={(e) => updateSocio(idx, 'sexoOutro', e.target.value)} 
+                                      placeholder="Qual o outro?" 
+                                    />
+                                  )}
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Gênero</Label>
-                                  <Input value={socio.genero} onChange={(e) => updateSocio(idx, 'genero', e.target.value)} placeholder="Ex: Cisgênero, Transgênero..." />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Orientação</Label>
-                                  <Input value={socio.orientacao} onChange={(e) => updateSocio(idx, 'orientacao', e.target.value)} placeholder="Ex: Heterossexual, LGBTQIAP+" />
-                                </div>
-                                <div className="space-y-2 md:col-span-2 mt-2">
+                                  <Select value={socio.genero} onValueChange={(v) => updateSocio(idx, 'genero', v)}>
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
+                                      <SelectItem value="Homem trans">Homem trans</SelectItem>
+                                      <SelectItem value="Mulher cis">Mulher cis</SelectItem>
+                                      <SelectItem value="Mulher trans">Mulher trans</SelectItem>
+                                      <SelectItem value="Agênero">Agênero</SelectItem>
+                                      <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>
+                                      <SelectItem value="Não binário">Não binário</SelectItem>
+                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>                                <div className="space-y-2 md:col-span-2 mt-2">
                                   <Label className="text-gray-700 font-medium mb-2 block">Possui algum tipo de deficiência?</Label>
                                   <RadioGroup value={socio.deficiencia} onValueChange={(v) => updateSocio(idx, 'deficiencia', v)} className="flex gap-6">
                                     <div className="flex items-center space-x-2">

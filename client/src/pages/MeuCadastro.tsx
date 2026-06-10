@@ -6,12 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2, Sparkles } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import logoImage from "@/assets/logo.png";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 
 interface SocioData {
   foto: File | null;
@@ -30,6 +31,7 @@ interface SocioData {
   etariedade: string;
   raca: string;
   sexo: string;
+  sexoOutro: string;
   genero: string;
   orientacao: string;
   deficiencia: string;
@@ -68,7 +70,7 @@ export default function MeuCadastro() {
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [cnpjValido] = useState(true);
-  const [acessoTipo, setAcessoTipo] = useState("");
+  const [acessoTipo, setAcessoTipo] = useState<string[]>([]);
   const [acessoTipoOutro, setAcessoTipoOutro] = useState("");
   const [logoEmpresaFile, setLogoEmpresaFile] = useState<File | null>(null);
   const [logoEmpresaUrl, setLogoEmpresaUrl] = useState<string | null>(null);
@@ -76,6 +78,8 @@ export default function MeuCadastro() {
   const [cartaoCnpjUrl, setCartaoCnpjUrl] = useState<string | null>(null);
   const [fichaJuntaFile, setFichaJuntaFile] = useState<File | null>(null);
   const [fichaJuntaUrl, setFichaJuntaUrl] = useState<string | null>(null);
+  const [analisandoJucesp, setAnalisandoJucesp] = useState(false);
+  const [jucespPreencheu, setJucespPreencheu] = useState(false);
   const [areaEmpresa, setAreaEmpresa] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
   const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
@@ -146,13 +150,26 @@ export default function MeuCadastro() {
         setNomeFantasia(empresa.nome_fantasia ?? "");
         setCnpj(empresa.cnpj ?? "");
         const acessoDB = empresa.acesso_tipo ?? "";
-        if (["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO", ""].includes(acessoDB)) {
-          setAcessoTipo(acessoDB);
-          setAcessoTipoOutro("");
-        } else {
-          setAcessoTipo("OUTRO");
-          setAcessoTipoOutro(acessoDB);
-        }
+        const tipos = acessoDB.split(',').map((s: string) => s.trim()).filter((s: string) => s !== "");
+        const standardTypes = ["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO"];
+        
+        const selectedTipos: string[] = [];
+        let outroValue = "";
+
+        tipos.forEach((t: string) => {
+          if (standardTypes.includes(t)) {
+            selectedTipos.push(t);
+          } else if (t.startsWith("OUTRO: ")) {
+            selectedTipos.push("OUTRO");
+            outroValue = t.replace("OUTRO: ", "");
+          } else {
+            selectedTipos.push("OUTRO");
+            outroValue = t;
+          }
+        });
+
+        setAcessoTipo([...new Set(selectedTipos)]);
+        setAcessoTipoOutro(outroValue);
 
         setAreaEmpresa(empresa.area_empresa ?? "");
 
@@ -198,7 +215,8 @@ export default function MeuCadastro() {
             nacionalidade: s.nacionalidade ?? "",
             etariedade: s.etariedade ?? "",
             raca: s.raca ?? "",
-            sexo: s.sexo ?? "",
+            sexo: s.sexo?.startsWith("Outro: ") ? "Outro" : (s.sexo ?? ""),
+            sexoOutro: s.sexo?.startsWith("Outro: ") ? s.sexo.replace("Outro: ", "") : "",
             genero: s.genero ?? "",
             orientacao: s.orientacao ?? "",
             deficiencia: s.deficiencia ?? "",
@@ -274,12 +292,51 @@ export default function MeuCadastro() {
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
       .slice(0, 14);
 
+  const formatDateInput = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "$1/$2")
+      .replace(/(\d{2})(\d)/, "$1/$2")
+      .slice(0, 10);
+  };
+
   const formatPhone = (value: string) => {
     const v = value.replace(/\D/g, "");
     if (v.length > 10) return v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
     if (v.length > 6) return v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
     if (v.length > 2) return v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
     return v;
+  };
+
+  /**
+   * Ao anexar a Ficha da Junta Comercial, extrai automaticamente o quadro societário.
+   */
+  const handleFichaJuntaChange = async (arquivo: File) => {
+    setFichaJuntaFile(arquivo);
+    setJucespPreencheu(false);
+    setAnalisandoJucesp(true);
+    try {
+      const sociosExtraidos = await extrairSociosDoJucesp(arquivo);
+      if (sociosExtraidos.length > 0) {
+        setSociosData(prev => {
+          const novos = [...prev];
+          sociosExtraidos.forEach((s, idx) => {
+            if (idx < novos.length) {
+              novos[idx] = {
+                ...novos[idx],
+                nome: novos[idx].nome || s.nome,
+                participacaoValor: s.valorParticipacao,
+                participacaoPercentual: s.percentualParticipacao,
+              };
+            }
+          });
+          return novos;
+        });
+        setJucespPreencheu(true);
+      }
+    } finally {
+      setAnalisandoJucesp(false);
+    }
   };
 
   const updateSocio = (index: number, field: keyof SocioData, value: any) => {
@@ -298,9 +355,7 @@ export default function MeuCadastro() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "",
-              sexo: "", genero: "", orientacao: "", deficiencia: "",
-            });
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: "", fonteImagem: ""           });
           }
         } else {
           newData.length = num;
@@ -475,7 +530,7 @@ export default function MeuCadastro() {
           razao_social: razaoSocial,
           nome_fantasia: nomeFantasia,
           cnpj: cnpj,
-          acesso_tipo: acessoTipo === "OUTRO" ? acessoTipoOutro : acessoTipo,
+          acesso_tipo: acessoTipo.includes("OUTRO") ? acessoTipo.filter(t => t !== "OUTRO").concat(`OUTRO: ${acessoTipoOutro}`).join(', ') : acessoTipo.join(', '),
           area_empresa: areaEmpresa,
           area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
           sobre_empresa: sobreEmpresa,
@@ -515,7 +570,7 @@ export default function MeuCadastro() {
             nacionalidade: s.nacionalidade,
             etariedade: s.etariedade,
             raca: s.raca,
-            sexo: s.sexo,
+            sexo: s.sexo === "Outro" ? `Outro: ${s.sexoOutro}` : s.sexo,
             genero: s.genero,
             orientacao: s.orientacao,
             deficiencia: s.deficiencia,
@@ -745,19 +800,33 @@ export default function MeuCadastro() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">O seu acesso é como:</Label>
-                  <Select value={acessoTipo} onValueChange={setAcessoTipo}>
-                    <SelectTrigger className="h-12 bg-gray-50 focus:bg-white">
-                      <SelectValue placeholder="Selecione o acesso" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EMPRESA OU INICIATIVA INCENTIVADORA">EMPRESA OU INICIATIVA INCENTIVADORA</SelectItem>
-                      <SelectItem value="FORNECEDOR INCLUSIVO">FORNECEDOR INCLUSIVO</SelectItem>
-                      <SelectItem value="EMPREENDIMENTO DIVERSO">EMPREENDIMENTO DIVERSO</SelectItem>
-                      <SelectItem value="OUTRO">OUTRO - CITE AQUI</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {acessoTipo === "OUTRO" && (
+                  <Label className="text-gray-700 font-medium">O seu acesso é como: (Pode selecionar mais de um)</Label>
+                  <div className="flex flex-col gap-3 mt-2">
+                    {[
+                      "EMPRESA OU INICIATIVA INCENTIVADORA",
+                      "FORNECEDOR INCLUSIVO",
+                      "EMPREENDIMENTO DIVERSO",
+                      "OUTRO"
+                    ].map((opcao) => (
+                      <div key={opcao} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`acesso-${opcao}`} 
+                          checked={acessoTipo.includes(opcao)}
+                          onCheckedChange={(checked) => {
+                            setAcessoTipo(prev => 
+                              checked 
+                                ? [...prev, opcao] 
+                                : prev.filter(item => item !== opcao)
+                            );
+                          }}
+                        />
+                        <Label htmlFor={`acesso-${opcao}`} className="font-normal cursor-pointer">
+                          {opcao === "OUTRO" ? "OUTRO - CITE AQUI" : opcao}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {acessoTipo.includes("OUTRO") && (
                     <Input 
                       required 
                       value={acessoTipoOutro} 
@@ -836,16 +905,28 @@ export default function MeuCadastro() {
                   <Label className="text-gray-700 font-medium">Ficha Simples da Junta Comercial (PDF)</Label>
                   <div className={`border-2 border-dashed ${fichaJuntaFile || fichaJuntaUrl ? "border-[#7030A0] bg-purple-50" : "border-gray-300 bg-white"} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
                     <input type="file" id="fichaJunta" className="hidden" accept=".pdf"
-                      onChange={(e) => { if (e.target.files && e.target.files[0]) setFichaJuntaFile(e.target.files[0]); }} />
+                      onChange={(e) => { if (e.target.files && e.target.files[0]) handleFichaJuntaChange(e.target.files[0]); }} />
                     <label htmlFor="fichaJunta" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
                       <div className={`w-10 h-10 rounded-full ${fichaJuntaFile || fichaJuntaUrl ? "bg-[#7030A0]" : "bg-purple-100"} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <FileText className={`w-5 h-5 ${fichaJuntaFile || fichaJuntaUrl ? "text-white" : "text-[#7030A0]"}`} />
                       </div>
-                      <p className="text-gray-700 font-medium text-sm">
-                        {fichaJuntaFile ? <span className="text-[#7030A0]">{fichaJuntaFile.name}</span> : 
-                         fichaJuntaUrl ? <a href={fichaJuntaUrl} target="_blank" rel="noreferrer" className="text-[#7030A0] hover:underline" onClick={(e) => e.stopPropagation()}>Ver arquivo salvo (clique para abrir) ou escolha outro</a> : 
-                         "Clique para enviar Ficha Simples"}
-                      </p>
+                      {analisandoJucesp ? (
+                        <span className="text-sm text-[#7030A0] flex items-center gap-1 font-medium">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analisando documento...
+                        </span>
+                      ) : jucespPreencheu ? (
+                        <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
+                          <Sparkles className="w-4 h-4" />
+                          Dados do quadro societário parcialmente preenchidos automaticamente! Lembre-se de preencher o restante das informações.
+                        </span>
+                      ) : (
+                        <p className="text-gray-700 font-medium text-sm">
+                          {fichaJuntaFile ? <span className="text-[#7030A0]">{fichaJuntaFile.name}</span> : 
+                           fichaJuntaUrl ? <a href={fichaJuntaUrl} target="_blank" rel="noreferrer" className="text-[#7030A0] hover:underline" onClick={(e) => e.stopPropagation()}>Ver arquivo salvo (clique para abrir) ou escolha outro</a> : 
+                           "Clique para enviar Ficha Simples"}
+                        </p>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -1059,7 +1140,7 @@ export default function MeuCadastro() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-gray-700 font-medium">Data de Nascimento</Label>
-                                <Input type="date" value={socio.dataNascimento} onChange={(e) => updateSocio(idx, "dataNascimento", e.target.value)} />
+                                <Input maxLength={10} placeholder="DD/MM/AAAA" value={socio.dataNascimento} onChange={(e) => updateSocio(idx, "dataNascimento", formatDateInput(e.target.value))} />
                               </div>
                               <div className="space-y-2 md:col-span-2">
                                 <Label className="text-gray-700 font-medium">CEP</Label>
@@ -1071,7 +1152,6 @@ export default function MeuCadastro() {
                             </div>
 
                             <div className="pt-4 border-t border-gray-100">
-                              <h4 className="font-semibold text-gray-900 mb-4">Autodeclaração</h4>
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Nacionalidade</Label>
@@ -1087,17 +1167,44 @@ export default function MeuCadastro() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Sexo</Label>
-                                  <Input value={socio.sexo} onChange={(e) => updateSocio(idx, "sexo", e.target.value)} placeholder="Ex: Feminino, Masculino" />
+                                  <Select value={socio.sexo} onValueChange={(v) => updateSocio(idx, 'sexo', v)}>
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Masculino">Masculino</SelectItem>
+                                      <SelectItem value="Feminino">Feminino</SelectItem>
+                                      <SelectItem value="Outro">Outro</SelectItem>
+                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {socio.sexo === "Outro" && (
+                                    <Input 
+                                      className="mt-2" 
+                                      value={socio.sexoOutro} 
+                                      onChange={(e) => updateSocio(idx, 'sexoOutro', e.target.value)} 
+                                      placeholder="Qual o outro?" 
+                                    />
+                                  )}
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Gênero</Label>
-                                  <Input value={socio.genero} onChange={(e) => updateSocio(idx, "genero", e.target.value)} placeholder="Ex: Cisgênero, Transgênero..." />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Orientação</Label>
-                                  <Input value={socio.orientacao} onChange={(e) => updateSocio(idx, "orientacao", e.target.value)} placeholder="Ex: Heterossexual, LGBTQIAP+" />
-                                </div>
-                                <div className="space-y-2 md:col-span-2 mt-2">
+                                  <Select value={socio.genero} onValueChange={(v) => updateSocio(idx, 'genero', v)}>
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
+                                      <SelectItem value="Homem trans">Homem trans</SelectItem>
+                                      <SelectItem value="Mulher cis">Mulher cis</SelectItem>
+                                      <SelectItem value="Mulher trans">Mulher trans</SelectItem>
+                                      <SelectItem value="Agênero">Agênero</SelectItem>
+                                      <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>
+                                      <SelectItem value="Não binário">Não binário</SelectItem>
+                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>                                <div className="space-y-2 md:col-span-2 mt-2">
                                   <Label className="text-gray-700 font-medium mb-2 block">Possui algum tipo de deficiência?</Label>
                                   <RadioGroup value={socio.deficiencia} onValueChange={(v) => updateSocio(idx, "deficiencia", v)} className="flex gap-6">
                                     <div className="flex items-center space-x-2">
