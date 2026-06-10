@@ -320,11 +320,23 @@ export default function CadastroGratuito() {
     }
   };
 
-  const buscarDadosCnpj = async (cnpjNumeros: string) => {
+  const buscarDadosCnpj = async (cnpjNumeros: string, cnpjFormatado: string) => {
     if (cnpjNumeros.length !== 14) return;
     setBuscandoCnpj(true);
     setCnpjErro("");
     try {
+      // 1. Verifica se já existe cadastro no banco de dados com este CNPJ
+      const { data: empresaExistente } = await supabase
+        .from('empresas')
+        .select('id')
+        .eq('cnpj', cnpjFormatado)
+        .maybeSingle();
+
+      if (empresaExistente) {
+        throw new Error("CNPJ_JA_CADASTRADO");
+      }
+
+      // 2. Busca os dados na Receita (BrasilAPI)
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjNumeros}`);
       if (!response.ok) throw new Error("CNPJ não encontrado");
       const data = await response.json();
@@ -344,10 +356,14 @@ export default function CadastroGratuito() {
           setSociosData(novosSocios);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setCnpjValido(false);
-      setCnpjErro("CNPJ inválido ou não encontrado. Validar este campo é obrigatório.");
+      if (error.message === "CNPJ_JA_CADASTRADO") {
+        setCnpjErro("Este CNPJ já está cadastrado no sistema. Por favor, faça login.");
+      } else {
+        setCnpjErro("CNPJ inválido ou não encontrado. Validar este campo é obrigatório.");
+      }
     } finally {
       setBuscandoCnpj(false);
     }
@@ -359,7 +375,7 @@ export default function CadastroGratuito() {
     setCnpjValido(false);
     const numeros = formatted.replace(/\D/g, '');
     if (numeros.length === 14) {
-      buscarDadosCnpj(numeros);
+      buscarDadosCnpj(numeros, formatted);
     }
   };
 
