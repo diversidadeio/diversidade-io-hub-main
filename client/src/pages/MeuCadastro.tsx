@@ -6,10 +6,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2, Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2, Sparkles, Info } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import logoImage from "@/assets/logo.png";
+import { DrumDatePicker } from "@/components/ui/drum-date-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
@@ -918,7 +920,7 @@ export default function MeuCadastro() {
                       ) : jucespPreencheu ? (
                         <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
                           <Sparkles className="w-4 h-4" />
-                          Dados do quadro societário parcialmente preenchidos automaticamente! Lembre-se de preencher o restante das informações.
+                          Valor e percentual de participação extraídos e preenchidos no Quadro Societário! Lembre-se de preencher o restante das informações.
                         </span>
                       ) : (
                         <p className="text-gray-700 font-medium text-sm">
@@ -1040,7 +1042,7 @@ export default function MeuCadastro() {
               {/* Sócios */}
               <div className="space-y-6">
                 <div className="space-y-2 border-b pb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">Detalhamento dos Sócios</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">Quadro Societário</h3>
                   <p className="text-gray-600 text-sm">Preencha individualmente o perfil de cada sócio da empresa.</p>
                 </div>
 
@@ -1140,7 +1142,10 @@ export default function MeuCadastro() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-gray-700 font-medium">Data de Nascimento</Label>
-                                <Input maxLength={10} placeholder="DD/MM/AAAA" value={socio.dataNascimento} onChange={(e) => updateSocio(idx, "dataNascimento", formatDateInput(e.target.value))} />
+                                <DrumDatePicker
+                                  value={socio.dataNascimento}
+                                  onChange={(v) => updateSocio(idx, 'dataNascimento', v)}
+                                />
                               </div>
                               <div className="space-y-2 md:col-span-2">
                                 <Label className="text-gray-700 font-medium">CEP</Label>
@@ -1162,8 +1167,30 @@ export default function MeuCadastro() {
                                   <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, "etariedade", e.target.value)} placeholder="Sua faixa etária/idade" />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Raça</Label>
-                                  <Input value={socio.raca} onChange={(e) => updateSocio(idx, "raca", e.target.value)} placeholder="Ex: Parda, Preta, Branca..." />
+                                  <Label className="text-gray-700 font-medium flex items-center gap-1">
+                                    Raça/Cor
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-[300px]">
+                                        <p>Esse termo é utilizado para manter o alinhamento com as classificações oficiais de órgãos governamentais (como IBGE e JUCESP), garantindo a padronização dos dados.</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </Label>
+                                  <Select value={socio.raca} onValueChange={(v) => updateSocio(idx, 'raca', v)}>
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Pardo">Pardo</SelectItem>
+                                      <SelectItem value="Preto">Preto</SelectItem>
+                                      <SelectItem value="Branco">Branco</SelectItem>
+                                      <SelectItem value="Amarelo">Amarelo</SelectItem>
+                                      <SelectItem value="Indígena">Indígena</SelectItem>
+                                      <SelectItem value="Outro">Outro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Sexo</Label>
