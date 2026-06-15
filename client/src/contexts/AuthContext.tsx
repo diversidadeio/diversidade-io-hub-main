@@ -8,14 +8,20 @@ interface UsuarioSessao {
   empresaId: string;
   email: string;
   nomeResponsavel: string;
+  tipoUsuario: 'empresa' | 'adm';
+  senhaTemporaria: boolean;
+  expiraEm: number; // Timestamp em milissegundos
 }
 
 interface AuthContextType {
   usuario: UsuarioSessao | null;
   isLogado: boolean;
+  isAdm: boolean;
+  senhaTemporaria: boolean;
   isCarregando: boolean;
-  login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string }>;
+  login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }>;
   logout: () => void;
+  atualizarSessao: (dados: Partial<UsuarioSessao>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,7 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sessaoSalva = localStorage.getItem(CHAVE_SESSAO);
       if (sessaoSalva) {
         const dadosSessao = JSON.parse(sessaoSalva) as UsuarioSessao;
-        setUsuario(dadosSessao);
+        
+        // Verifica se a sessão expirou
+        if (Date.now() > dadosSessao.expiraEm) {
+          localStorage.removeItem(CHAVE_SESSAO);
+          setUsuario(null);
+        } else {
+          setUsuario(dadosSessao);
+        }
       }
     } catch {
       localStorage.removeItem(CHAVE_SESSAO);
@@ -48,27 +61,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     senha: string
-  ): Promise<{ sucesso: boolean; erro?: string }> => {
+  ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }> => {
     try {
       const { data, error } = await supabase.rpc('autenticar_empresa', {
         p_email: email,
         p_senha: senha
       });
 
-      if (error || !data) {
+      // Como a RPC agora retorna TABLE, o SupabaseJS pode devolver um array.
+      const userData = Array.isArray(data) ? data[0] : data;
+
+      if (error || !userData) {
         return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
       }
 
+      // Define expiração para 8 horas a partir de agora
+      const OITO_HORAS_EM_MS = 8 * 60 * 60 * 1000;
       const sessao: UsuarioSessao = {
-        empresaId: data.id,
-        email: data.email,
-        nomeResponsavel: data.nome_responsavel,
+        empresaId: userData.id,
+        email: userData.email,
+        nomeResponsavel: userData.nome_responsavel,
+        tipoUsuario: userData.tipo_usuario || 'empresa',
+        senhaTemporaria: userData.senha_temporaria || false,
+        expiraEm: Date.now() + OITO_HORAS_EM_MS,
       };
 
       localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
       setUsuario(sessao);
 
-      return { sucesso: true };
+      return { 
+        sucesso: true, 
+        tipoUsuario: sessao.tipoUsuario,
+        senhaTemporaria: sessao.senhaTemporaria
+      };
     } catch (err) {
       console.error("Erro ao realizar login:", err);
       return { sucesso: false, erro: "Ocorreu um erro inesperado. Tente novamente." };
@@ -83,14 +108,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   };
 
+  /**
+   * Atualiza parcialmente os dados da sessão (ex: quando a senha temporária é redefinida)
+   */
+  const atualizarSessao = (dados: Partial<UsuarioSessao>) => {
+    if (!usuario) return;
+    const novaSessao = { ...usuario, ...dados };
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(novaSessao));
+    setUsuario(novaSessao);
+  };
+
   return (
     <AuthContext.Provider
       value={{
         usuario,
         isLogado: !!usuario,
+        isAdm: usuario?.tipoUsuario === 'adm',
+        senhaTemporaria: usuario?.senhaTemporaria || false,
         isCarregando,
         login,
         logout,
+        atualizarSessao,
       }}
     >
       {children}

@@ -28,7 +28,13 @@ export default function Login() {
     const resultado = await login(email, senha);
 
     if (resultado.sucesso) {
-      navigate("/meu-cadastro");
+      if (resultado.tipoUsuario === 'adm') {
+        navigate("/adm");
+      } else if (resultado.senhaTemporaria) {
+        navigate("/trocar-senha");
+      } else {
+        navigate("/meu-cadastro");
+      }
     } else {
       setErro(resultado.erro ?? "Erro ao realizar login.");
       setIsCarregando(false);

@@ -88,12 +88,14 @@ export default function CadastroGratuito() {
   const [sociosData, setSociosData] = useState<SocioData[]>([]);
   const [numeroImpactadasGestores, setNumeroImpactadasGestores] = useState<number | "">("");
   const [gestoresData, setGestoresData] = useState<ImpactadaData[]>([]);
+  const [numeroImpactadasSocios, setNumeroImpactadasSocios] = useState<number | "">("");
+  const [sociosImpactadosData, setSociosImpactadosData] = useState<ImpactadaData[]>([]);
   const [numeroImpactadasColaboradores, setNumeroImpactadasColaboradores] = useState<number | "">("");
   const [colaboradoresData, setColaboradoresData] = useState<ImpactadaData[]>([]);
   
   const [eSocio, setESocio] = useState("");
   const [temNegrosSocios, setTemNegrosSocios] = useState("");
-  const [autorizaCompartilhamento, setAutorizaCompartilhamento] = useState("");
+  const [autorizaCompartilhamento, setAutorizaCompartilhamento] = useState("Não");
 
   const [diversidadeGlobal, setDiversidadeGlobal] = useState({
     "Pessoas Negras": { socios: false, gestores: false, colaboradores: false },
@@ -101,6 +103,13 @@ export default function CadastroGratuito() {
     "60 anos +": { socios: false, gestores: false, colaboradores: false },
     "PCDs": { socios: false, gestores: false, colaboradores: false }
   });
+
+  const hashPassword = async (password: string) => {
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
 
   const handleNumeroSociosChange = (val: string) => {
     const num = val ? parseInt(val, 10) : "";
@@ -135,19 +144,19 @@ export default function CadastroGratuito() {
     const num = val ? parseInt(val, 10) : "";
     setNumeroImpactadasGestores(num);
     if (typeof num === "number" && num > 0) {
-      setGestoresData(prev => {
-        const newData = [...prev];
-        if (newData.length < num) {
-          for (let i = newData.length; i < num; i++) {
-            newData.push({ cep: "", cepEndereco: "", cepValido: false });
-          }
-        } else if (newData.length > num) {
-          newData.length = num;
-        }
-        return newData;
-      });
+      setGestoresData(Array(num).fill({ cep: "", cepValido: false, cepEndereco: "" }));
     } else {
       setGestoresData([]);
+    }
+  };
+
+  const handleNumeroSociosImpactadosChange = (val: string) => {
+    const num = val ? parseInt(val, 10) : "";
+    setNumeroImpactadasSocios(num);
+    if (typeof num === "number" && num > 0) {
+      setSociosImpactadosData(Array(num).fill({ cep: "", cepValido: false, cepEndereco: "" }));
+    } else {
+      setSociosImpactadosData([]);
     }
   };
 
@@ -251,6 +260,22 @@ export default function CadastroGratuito() {
     if (formatted.length === 9) {
       const data = await fetchCepData(formatted);
       setGestoresData(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
+        return updated;
+      });
+    }
+  };
+
+  const handleCepSocioImpactadoChange = async (index: number, val: string) => {
+    const formatted = formatCep(val);
+    const newData = [...sociosImpactadosData];
+    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
+    setSociosImpactadosData(newData);
+    
+    if (formatted.length === 9) {
+      const data = await fetchCepData(formatted);
+      setSociosImpactadosData(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
         return updated;
@@ -405,10 +430,11 @@ export default function CadastroGratuito() {
 
     const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
     const todosCepsGestoresValidos = gestoresData.every(g => !g.cep || g.cepValido);
+    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.cep || s.cepValido);
     const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.cep || c.cepValido);
 
-    if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsColaboradoresValidos) {
-      setSenhaErro("Existem CEPs inválidos preenchidos no formulário. Por favor, verifique os campos com alerta vermelho antes de enviar.");
+    if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos) {
+      setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -430,10 +456,17 @@ export default function CadastroGratuito() {
       return;
     }
 
+    if (autorizaCompartilhamento !== "Sim") {
+      setSenhaErro("É obrigatório dar o consentimento para o tratamento dos dados sensíveis (Opt-in) para prosseguir com o cadastro.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setBuscandoCnpj(true); // Reusing this state to show a general loading spinner later if needed
 
     try {
       const empresaId = crypto.randomUUID();
+      const senhaHasheada = await hashPassword(senha);
 
       // Função auxiliar de upload
       const uploadFile = async (file: File, path: string) => {
@@ -477,7 +510,7 @@ export default function CadastroGratuito() {
         telefone_principal: telefonePrincipal,
         telefone_opcional: telefoneOpcional,
         email: email,
-        senha_hash: senha,
+        senha_hash: senhaHasheada,
         razao_social: razaoSocial,
         nome_fantasia: nomeFantasia,
         cnpj: cnpj,
@@ -534,6 +567,9 @@ export default function CadastroGratuito() {
       const cepsToInsert: any[] = [];
       gestoresData.forEach(g => {
         if(g.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.cep, endereco_validado: g.cepEndereco });
+      });
+      sociosImpactadosData.forEach(s => {
+        if(s.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'SOCIO', cep: s.cep, endereco_validado: s.cepEndereco });
       });
       colaboradoresData.forEach(c => {
         if(c.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR', cep: c.cep, endereco_validado: c.cepEndereco });
@@ -918,6 +954,19 @@ export default function CadastroGratuito() {
                 <h2 className="text-2xl font-semibold text-gray-900">4. Perfil, Sócios e Impacto</h2>
               </div>
 
+              {/* Aviso LGPD para terceiros */}
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-900 mb-6">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+                  <div className="space-y-2">
+                    <p className="font-semibold">Aviso Importante sobre Dados de Terceiros (LGPD)</p>
+                    <p className="text-sm leading-relaxed">
+                      Você está prestes a preencher informações pessoais e dados sensíveis (como raça/etnia e orientação sexual) dos sócios da empresa. Ao prosseguir, <strong>você declara ter coletado o consentimento prévio e expresso de cada titular</strong> para que a Diversidade.io realize o tratamento destes dados, conforme nossa Política de Privacidade.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6 bg-purple-50/50 p-6 rounded-xl border border-purple-100">
                 <div className="space-y-3">
                   <Label className="text-gray-800 font-semibold">Você é sócio da empresa?</Label>
@@ -1170,6 +1219,38 @@ export default function CadastroGratuito() {
 
                 <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
                   <div className="space-y-2">
+                    <h4 className="font-semibold text-gray-800">Impactadas pelo salário do Sócio(a)s</h4>
+                    <Label htmlFor="impactadasSocios" className="text-gray-700 font-medium">Número de pessoas impactadas:</Label>
+                    <Input 
+                      id="impactadasSocios" 
+                      type="number" 
+                      min="1" 
+                      value={numeroImpactadasSocios}
+                      onChange={(e) => handleNumeroSociosImpactadosChange(e.target.value)}
+                      placeholder="Ex: 5" 
+                      className="h-12 bg-white md:w-1/3" 
+                    />
+                  </div>
+
+                  {typeof numeroImpactadasSocios === "number" && numeroImpactadasSocios > 0 && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {sociosImpactadosData.map((socio, idx) => (
+                        <div key={`socios-impactados-${idx}`} className="space-y-2">
+                          <Label htmlFor={`cep-socios-impactados-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
+                          <Input id={`cep-socios-impactados-${idx}`} value={socio.cep} onChange={(e) => handleCepSocioImpactadoChange(idx, e.target.value)} required placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                          {socio.cepEndereco && (
+                            <p className={`text-xs mt-1 ${socio.cepValido ? 'text-gray-500' : 'text-red-500 font-semibold'}`}>
+                              {socio.cepEndereco}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                  <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Impactadas pelo salário do Gestore(a)s</h4>
                     <Label htmlFor="impactadasGestores" className="text-gray-700 font-medium">Número de pessoas impactadas:</Label>
                     <Input 
@@ -1273,20 +1354,54 @@ export default function CadastroGratuito() {
               </div>
 
               {/* Autorizações Finais */}
-              <div className="space-y-4 pt-6 pb-6 bg-gradient-to-r from-purple-50 to-white p-6 rounded-xl border border-purple-100">
-                <Label className="text-gray-900 font-semibold text-lg block mb-4">
-                  Você autoriza que os seus dados e os dados da sua empresa sejam compartilhados com empresas interessadas em avaliar a possibilidade de seu negócio ser um parceiro comercial?
-                </Label>
-                <RadioGroup onValueChange={setAutorizaCompartilhamento} required className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Sim" id="aut-sim" />
-                    <Label htmlFor="aut-sim" className="text-base font-medium">Sim, autorizo</Label>
+              <div className="space-y-6 pt-6 pb-6 bg-gradient-to-r from-purple-50 to-white p-6 rounded-xl border border-purple-100">
+                <div className="space-y-3">
+                  <h3 className="text-lg font-bold text-purple-900">1. Tratamento de Dados (Opt-in)</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed text-justify">
+                    Como titular dos dados, você manifesta seu consentimento livre, expresso e inequívoco para a coleta e o tratamento de seus dados pessoais sensíveis (incluindo raça/etnia e dados biométricos), ciente de que eles serão utilizados para fins de identificação, confirmação de identidade e reconhecimento facial, com o objetivo de viabilizar a participação em ações e programas voltados para empreendedores do ecossistema de diversidade (pessoas negras, mulheres, entre outros), conforme nossa Política de Privacidade.
+                  </p>
+                  <div className="flex items-start gap-3 mt-4 bg-white p-4 rounded-lg border border-purple-100">
+                    <Checkbox
+                      id="opt-in"
+                      checked={autorizaCompartilhamento === "Sim"}
+                      onCheckedChange={(checked) => setAutorizaCompartilhamento(checked ? "Sim" : "Não")}
+                      className="mt-1 w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]"
+                    />
+                    <Label htmlFor="opt-in" className="text-sm font-medium text-gray-800 leading-snug cursor-pointer">
+                      Estou de acordo e dou meu consentimento para o tratamento dos meus dados sensíveis.
+                    </Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Não" id="aut-nao" />
-                    <Label htmlFor="aut-nao" className="text-base font-medium">Não autorizo</Label>
-                  </div>
-                </RadioGroup>
+                </div>
+
+                <div className="border-t border-purple-100 pt-6 space-y-3">
+                  <h3 className="text-lg font-bold text-purple-900">2. Revogação (Opt-out)</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed text-justify">
+                    Você pode revogar o seu consentimento a qualquer momento. Caso não deseje mais que seus dados sejam tratados para estas finalidades, clique no botão abaixo ou entre em contato com nosso Encarregado de Dados pelo e-mail: <a href="mailto:adm@diversidade.io" className="text-[#7030A0] font-semibold hover:underline">adm@diversidade.io</a>.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
+                    onClick={() => {
+                      setAutorizaCompartilhamento("Não");
+                      alert("Seu consentimento foi revogado. A caixa de seleção acima foi desmarcada.");
+                    }}
+                  >
+                    Revogar meu Consentimento
+                  </Button>
+                </div>
+
+                <div className="border-t border-purple-100 pt-6 space-y-3">
+                  <h3 className="text-lg font-bold text-purple-900">3. Tenho dúvidas</h3>
+                  <p className="text-sm text-gray-700">
+                    Ficou com alguma dúvida sobre o uso dos seus dados?
+                  </p>
+                  <Button asChild variant="outline" className="border-purple-200 text-[#7030A0] hover:bg-purple-50 font-medium">
+                    <a href="mailto:suporte@diversidade.io">
+                      Entrar em contato
+                    </a>
+                  </Button>
+                </div>
               </div>
 
             </section>
