@@ -727,8 +727,8 @@ export default function CadastroGratuito() {
                   <input type="file" id="logoEmp" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files && e.target.files[0]) setLogoEmpresaFile(e.target.files[0]) }} />
                   <label htmlFor="logoEmp" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
                     {logoEmpresaFile ? (
-                      <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-blue-600 shadow-md">
-                        <img src={URL.createObjectURL(logoEmpresaFile)} alt="Preview Logo" className="w-full h-full object-cover" />
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-blue-600 shadow-md bg-white flex items-center justify-center p-1">
+                        <img src={URL.createObjectURL(logoEmpresaFile)} alt="Preview Logo" className="max-w-full max-h-full object-contain" />
                       </div>
                     ) : (
                       <div className="w-20 h-20 rounded-2xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">

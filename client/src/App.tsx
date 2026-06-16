@@ -12,6 +12,7 @@ import MeuCadastro from "./pages/MeuCadastro";
 import TrocarSenha from "./pages/TrocarSenha";
 import DashboardAdm from "./pages/adm/Dashboard";
 import CadastrosAdm from "./pages/adm/Cadastros";
+import DetalhesCadastroAdm from "./pages/adm/DetalhesCadastro";
 import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
 import { useAuth } from "./contexts/AuthContext";
@@ -67,7 +68,7 @@ function Router() {
       {/* Rotas ADM */}
       <RotaProtegidaAdm path={"/adm"} component={DashboardAdm} />
       <RotaProtegidaAdm path={"/adm/cadastros"} component={CadastrosAdm} />
-      <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={() => <div className="p-8">Detalhes do Cadastro (Em desenvolvimento)</div>} />
+      <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={DetalhesCadastroAdm} />
       <RotaProtegidaAdm path={"/adm/exclusoes"} component={ExclusoesAdm} />
       <RotaProtegidaAdm path={"/adm/logs"} component={LogsAdm} />
 

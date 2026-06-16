@@ -19,22 +19,29 @@ export default function DashboardAdm() {
     async function carregarDados() {
       try {
         // Total
-        const { count: total } = await supabase.from('empresas').select('*', { count: 'exact', head: true });
+        const { count: total } = await supabase.from('empresas')
+          .select('*', { count: 'exact', head: true })
+          .neq('tipo_usuario', 'adm');
         
         // Optin
-        const { count: optin } = await supabase.from('empresas').select('*', { count: 'exact', head: true }).eq('autoriza_compartilhamento', 'Sim');
+        const { count: optin } = await supabase.from('empresas')
+          .select('*', { count: 'exact', head: true })
+          .eq('autoriza_compartilhamento', 'Sim')
+          .neq('tipo_usuario', 'adm');
         
         // 7 dias
         const umaSemanaAtras = new Date();
         umaSemanaAtras.setDate(umaSemanaAtras.getDate() - 7);
         const { count: novos } = await supabase.from('empresas')
           .select('*', { count: 'exact', head: true })
-          .gte('data_cadastro', umaSemanaAtras.toISOString());
+          .gte('created_at', umaSemanaAtras.toISOString())
+          .neq('tipo_usuario', 'adm');
           
         // Recentes
         const { data: rec } = await supabase.from('empresas')
-          .select('id, razao_social, cnpj, data_cadastro, email')
-          .order('data_cadastro', { ascending: false })
+          .select('id, razao_social, cnpj, created_at, email')
+          .neq('tipo_usuario', 'adm')
+          .order('created_at', { ascending: false })
           .limit(10);
 
         setMetricas({
@@ -143,7 +150,7 @@ export default function DashboardAdm() {
                         <td className="px-4 py-3 text-gray-600">{emp.cnpj || 'N/A'}</td>
                         <td className="px-4 py-3 text-gray-600 truncate max-w-[200px]">{emp.email}</td>
                         <td className="px-4 py-3 text-gray-600">
-                          {emp.data_cadastro ? new Date(emp.data_cadastro).toLocaleDateString('pt-BR') : 'N/A'}
+                          {emp.created_at ? new Date(emp.created_at).toLocaleDateString('pt-BR') : 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Link href={`/adm/cadastros/${emp.id}`}>
