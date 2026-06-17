@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 export default function DetalhesCadastroAdm() {
@@ -19,6 +20,7 @@ export default function DetalhesCadastroAdm() {
   const [gerandoSenha, setGerandoSenha] = useState(false);
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [dialogoSalaAberta, setDialogoSalaAberta] = useState(false);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
 
   useEffect(() => {
     async function carregar() {
@@ -187,7 +189,22 @@ export default function DetalhesCadastroAdm() {
           )}
 
           {/* Sessão 5: Pessoas Impactadas (CEPs) */}
-          {renderSectionTitle(FileText, "Pessoas Impactadas (Endereços)")}
+          <div className="flex items-center justify-between mt-12 mb-6 border-b border-gray-100 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-purple-100 p-2 rounded-lg text-purple-700">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">Pessoas Impactadas (Endereços)</h3>
+            </div>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2 border-purple-200 text-purple-700 hover:bg-purple-50 h-9"
+              onClick={() => setMostrarMapa(!mostrarMapa)}
+            >
+              <MapPin className="w-4 h-4" />
+              {mostrarMapa ? "Ocultar Mapa" : "Ver no Mapa"}
+            </Button>
+          </div>
           {ceps.length === 0 ? (
             <p className="text-gray-500 italic text-sm mb-4">Nenhum CEP de pessoa impactada registrado.</p>
           ) : (
@@ -220,6 +237,10 @@ export default function DetalhesCadastroAdm() {
                 </ul>
               </div>
             </div>
+          )}
+
+          {mostrarMapa && ceps.length > 0 && (
+            <MapaImpactados ceps={ceps} />
           )}
           
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 bg-purple-50 p-6 rounded-2xl border border-purple-100">
