@@ -140,10 +140,12 @@ export default function MeuCadastro() {
   const [autorizaCompartilhamento, setAutorizaCompartilhamento] = useState("");
 
   const [diversidadeGlobal, setDiversidadeGlobal] = useState({
-    "Pessoas Negras": { socios: false, gestores: false, colaboradores: false },
-    "Mulheres": { socios: false, gestores: false, colaboradores: false },
-    "60 anos +": { socios: false, gestores: false, colaboradores: false },
-    "PCDs": { socios: false, gestores: false, colaboradores: false },
+    "Total de Pessoas": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas Negras (pretas e pardas)": { socios: "", gestores: "", colaboradores: "" },
+    "Mulheres": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas com Deficiência (PCD)": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas 60+": { socios: "", gestores: "", colaboradores: "" },
+    "Dependentes financeiros (não entram no Score RIS)": { socios: "", gestores: "", colaboradores: "" }
   });
 
   // Redireciona se não estiver logado após carregar auth
@@ -225,7 +227,15 @@ export default function MeuCadastro() {
         setESocio(empresa.e_socio ?? "");
         setTemNegrosSocios(empresa.tem_negros_socios ?? "");
         setAutorizaCompartilhamento(empresa.autoriza_compartilhamento ?? "");
-        if (empresa.diversidade_global) setDiversidadeGlobal(empresa.diversidade_global);
+        if (empresa.diversidade_global) {
+          const data = empresa.diversidade_global;
+          // Se for o formato antigo (baseado em booleans), ignora para forçar o preenchimento do novo
+          if (data["Pessoas Negras"] || typeof data["Mulheres"]?.socios === "boolean") {
+            // Mantém o estado default (vazio)
+          } else {
+            setDiversidadeGlobal(data);
+          }
+        }
 
         // Busca sócios
         const { data: socios } = await supabase
@@ -546,10 +556,12 @@ export default function MeuCadastro() {
   const handleRecebimentoToggle = (forma: string) =>
     setFormasRecebimento((prev) => prev.includes(forma) ? prev.filter((f) => f !== forma) : [...prev, forma]);
 
-  const handleDiversidadeToggle = (categoria: string, grupo: "socios" | "gestores" | "colaboradores") => {
+  const handleDiversidadeQtdChange = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores', valor: string) => {
+    if (valor !== "" && !/^\d+$/.test(valor)) return;
+    
     setDiversidadeGlobal((prev) => ({
       ...prev,
-      [categoria]: { ...prev[categoria as keyof typeof prev], [grupo]: !prev[categoria as keyof typeof prev][grupo] },
+      [categoria]: { ...prev[categoria as keyof typeof prev], [grupo]: valor },
     }));
   };
 
@@ -684,13 +696,13 @@ export default function MeuCadastro() {
       await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
       const cepsToInsert: any[] = [];
       gestoresData.forEach((g) => {
-        if (g.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "GESTOR", cep: g.codigoPostal, codigo_postal: g.codigoPostal, pais: g.pais, endereco_validado: g.cepEndereco });
+        if (g.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "GESTOR", cep: g.codigoPostal, endereco_validado: g.cepEndereco });
       });
       sociosImpactadosData.forEach((s) => {
-        if (s.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "SOCIO", cep: s.codigoPostal, codigo_postal: s.codigoPostal, pais: s.pais, endereco_validado: s.cepEndereco });
+        if (s.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "SOCIO", cep: s.codigoPostal, endereco_validado: s.cepEndereco });
       });
       colaboradoresData.forEach((c) => {
-        if (c.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "COLABORADOR", cep: c.codigoPostal, codigo_postal: c.codigoPostal, pais: c.pais, endereco_validado: c.cepEndereco });
+        if (c.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "COLABORADOR", cep: c.codigoPostal, endereco_validado: c.cepEndereco });
       });
       if (cepsToInsert.length > 0) {
         const { error: erroCeps } = await supabase.from("ceps_impactados").insert(cepsToInsert);
@@ -1436,7 +1448,7 @@ export default function MeuCadastro() {
                   <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Impactadas pelo salário do Sócio(a)s</h4>
                     <Label htmlFor="impactadasSocios" className="text-gray-700 font-medium">Número de pessoas impactadas:</Label>
-                    <Input id="impactadasSocios" type="number" min="1" value={numeroImpactadasSocios}
+                    <Input id="impactadasSocios" type="number" min="0" value={numeroImpactadasSocios}
                       onChange={(e) => handleNumeroSociosImpactadosChange(e.target.value)} placeholder="Ex: 5" className="h-12 bg-white md:w-1/3" />
                   </div>
                   {typeof numeroImpactadasSocios === "number" && numeroImpactadasSocios > 0 && (
@@ -1470,7 +1482,7 @@ export default function MeuCadastro() {
                   <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Impactadas pelo salário do Gestore(a)s</h4>
                     <Label htmlFor="impactadasGestores" className="text-gray-700 font-medium">Número de pessoas impactadas:</Label>
-                    <Input id="impactadasGestores" type="number" min="1" value={numeroImpactadasGestores}
+                    <Input id="impactadasGestores" type="number" min="0" value={numeroImpactadasGestores}
                       onChange={(e) => handleNumeroGestoresChange(e.target.value)} placeholder="Ex: 5" className="h-12 bg-white md:w-1/3" />
                   </div>
                   {typeof numeroImpactadasGestores === "number" && numeroImpactadasGestores > 0 && (
@@ -1504,7 +1516,7 @@ export default function MeuCadastro() {
                   <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Impactadas pelo salário do Colaboradore(a)s</h4>
                     <Label htmlFor="impactadasColab" className="text-gray-700 font-medium">Número de pessoas impactadas:</Label>
-                    <Input id="impactadasColab" type="number" min="1" value={numeroImpactadasColaboradores}
+                    <Input id="impactadasColab" type="number" min="0" value={numeroImpactadasColaboradores}
                       onChange={(e) => handleNumeroColaboradoresChange(e.target.value)} placeholder="Ex: 5" className="h-12 bg-white md:w-1/3" />
                   </div>
                   {typeof numeroImpactadasColaboradores === "number" && numeroImpactadasColaboradores > 0 && (
@@ -1537,36 +1549,119 @@ export default function MeuCadastro() {
 
               {/* Diversidade Global */}
               <div className="space-y-6 pt-6">
-                <div className="space-y-2 border-b pb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">Recortes da Diversidade Global</h3>
-                  <p className="text-gray-600 text-sm">Marque as opções que correspondem a mais de 50% em cada grupo da empresa.</p>
+                <div className="space-y-2 border-b pb-2 flex items-center gap-2">
+                  <Users className="w-6 h-6 text-[#7030A0]" />
+                  <h3 className="text-xl font-semibold text-gray-900">Recortes de Diversidade — RIS v1.0</h3>
                 </div>
+                <p className="text-gray-600 text-sm">
+                  Informe o total de pessoas por cargo e a quantidade em cada recorte. Os percentuais são calculados automaticamente.
+                </p>
 
                 <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="p-4 font-semibold text-gray-700">Categoria</th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Sócio(a)s<br /><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Gestore(a)s<br /><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Colaboradore(a)s<br /><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
+                      <tr className="border-b border-gray-200 bg-white">
+                        <th className="p-4 font-bold text-gray-700">Recorte</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Sócios</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Gestores</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Colaboradores</th>
+                      </tr>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-xs">
+                        <th className="p-2 font-semibold text-gray-700"></th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {["Pessoas Negras", "Mulheres", "60 anos +", "PCDs"].map((row, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="p-4 font-medium text-gray-800">{row}</td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`socio-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].socios} onCheckedChange={() => handleDiversidadeToggle(row, "socios")} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`gestor-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].gestores} onCheckedChange={() => handleDiversidadeToggle(row, "gestores")} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`colab-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].colaboradores} onCheckedChange={() => handleDiversidadeToggle(row, "colaboradores")} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(() => {
+                        const recortes = [
+                          { label: "Total de Pessoas", bg: "bg-blue-50/50", labelColor: "text-blue-700 font-semibold" },
+                          { label: "Pessoas Negras (pretas e pardas)", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Mulheres", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Pessoas com Deficiência (PCD)", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Pessoas 60+", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Dependentes financeiros (não entram no Score RIS)", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
+                        ];
+
+                        const calcPercent = (qtdStr: string, totalStr: string) => {
+                          const qtd = parseInt(qtdStr);
+                          const total = parseInt(totalStr);
+                          if (isNaN(qtd) || isNaN(total) || total === 0) return "0.0%";
+                          return ((qtd / total) * 100).toFixed(1) + "%";
+                        };
+
+                        return recortes.map((recorte, idx) => {
+                          const isTotal = recorte.label === "Total de Pessoas";
+                          const isDep = recorte.label === "Dependentes financeiros (não entram no Score RIS)";
+                          
+                          const key = recorte.label as keyof typeof diversidadeGlobal;
+                          const totalSocios = diversidadeGlobal["Total de Pessoas"].socios;
+                          const totalGestores = diversidadeGlobal["Total de Pessoas"].gestores;
+                          const totalColab = diversidadeGlobal["Total de Pessoas"].colaboradores;
+
+                          return (
+                            <tr key={idx} className={`${recorte.bg} transition-colors`}>
+                              <td className={`p-4 ${recorte.labelColor}`}>
+                                {recorte.label.includes("(") && !isDep && !recorte.label.includes("Total") ? (
+                                  <>
+                                    {recorte.label.split(" (")[0]}
+                                    <br/>
+                                    <span className="text-xs text-gray-500 font-normal">({recorte.label.split(" (")[1]}</span>
+                                  </>
+                                ) : isDep ? (
+                                  <>
+                                    Dependentes financeiros
+                                    <br/>
+                                    <span className="text-xs font-normal opacity-70">(não entram no Score RIS)</span>
+                                  </>
+                                ) : (
+                                  recorte.label
+                                )}
+                              </td>
+                              
+                              {/* Sócios */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.socios || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
+                              </td>
+
+                              {/* Gestores */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.gestores || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
+                              </td>
+
+                              {/* Colaboradores */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.colaboradores || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>

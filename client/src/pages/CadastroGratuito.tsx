@@ -607,13 +607,13 @@ export default function CadastroGratuito() {
 
       const cepsToInsert: any[] = [];
       gestoresData.forEach(g => {
-        if(g.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.codigoPostal, codigo_postal: g.codigoPostal, pais: g.pais, endereco_validado: g.cepEndereco });
+        if(g.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.codigoPostal, endereco_validado: g.cepEndereco });
       });
       sociosImpactadosData.forEach(s => {
-        if(s.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'SOCIO', cep: s.codigoPostal, codigo_postal: s.codigoPostal, pais: s.pais, endereco_validado: s.cepEndereco });
+        if(s.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'SOCIO', cep: s.codigoPostal, endereco_validado: s.cepEndereco });
       });
       colaboradoresData.forEach(c => {
-        if(c.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR', cep: c.codigoPostal, codigo_postal: c.codigoPostal, pais: c.pais, endereco_validado: c.cepEndereco });
+        if(c.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR', cep: c.codigoPostal, endereco_validado: c.cepEndereco });
       });
       
       if (cepsToInsert.length > 0) {
