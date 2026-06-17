@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Eye, EyeOff, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import logoImage from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -17,8 +24,55 @@ export default function Login() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState("");
   const [isCarregando, setIsCarregando] = useState(false);
+  const [mostrarModalRecuperacao, setMostrarModalRecuperacao] = useState(false);
+  const [emailRecuperacao, setEmailRecuperacao] = useState("");
+  const [isRecuperando, setIsRecuperando] = useState(false);
+  const [mensagemRecuperacao, setMensagemRecuperacao] = useState<{ tipo: "sucesso" | "erro", texto: string } | null>(null);
+  
   const { login } = useAuth();
   const [, navigate] = useLocation();
+
+  const handleRecuperarSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailRecuperacao) return;
+
+    setIsRecuperando(true);
+    setMensagemRecuperacao(null);
+
+    try {
+      const res = await fetch("/api/recuperar-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailRecuperacao }),
+      });
+
+      const textData = await res.text();
+      let data;
+      try {
+        data = JSON.parse(textData);
+      } catch (parseError) {
+        console.error("Resposta do servidor não é JSON:", textData);
+        throw new Error(`Erro inesperado do servidor (Status ${res.status}). Resposta: ${textData.substring(0, 50)}...`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.erro || "Erro ao solicitar recuperação de senha.");
+      }
+
+      setMensagemRecuperacao({
+        tipo: "sucesso",
+        texto: "Senha temporária enviada com sucesso para o seu e-mail.",
+      });
+      setEmailRecuperacao("");
+    } catch (err: any) {
+      setMensagemRecuperacao({
+        tipo: "erro",
+        texto: err.message || "Ocorreu um erro ao tentar recuperar a senha.",
+      });
+    } finally {
+      setIsRecuperando(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +178,15 @@ export default function Login() {
                     )}
                   </button>
                 </div>
+                <div className="flex justify-end mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalRecuperacao(true)}
+                    className="text-xs text-purple-700 hover:text-purple-900 font-medium transition-colors"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
               </div>
 
               {/* Botão Entrar */}
@@ -179,6 +242,48 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      {/* Modal de Recuperação de Senha */}
+      <Dialog open={mostrarModalRecuperacao} onOpenChange={setMostrarModalRecuperacao}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900" style={{ color: "#7030A0" }}>Recuperar Senha</DialogTitle>
+            <DialogDescription>
+              Digite seu e-mail abaixo e enviaremos uma nova senha para você acessar sua conta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRecuperarSenha} className="space-y-4 mt-4">
+            {mensagemRecuperacao && (
+              <div className={`p-3 rounded-lg text-sm ${mensagemRecuperacao.tipo === "sucesso" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                {mensagemRecuperacao.texto}
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="email-recuperacao">E-mail</Label>
+              <Input
+                id="email-recuperacao"
+                type="email"
+                placeholder="seu@email.com"
+                value={emailRecuperacao}
+                onChange={(e) => setEmailRecuperacao(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+            
+            <Button
+              type="submit"
+              disabled={isRecuperando || !emailRecuperacao}
+              className="w-full h-11 text-white font-medium hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: "#7030A0" }}
+            >
+              {isRecuperando ? "Enviando..." : "Enviar nova senha"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

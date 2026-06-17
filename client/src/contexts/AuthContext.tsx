@@ -54,6 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const hashPassword = async (password: string) => {
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   /**
    * Realiza o login buscando o usuário na tabela 'empresas' pelo e-mail e senha.
    * Em caso de sucesso, persiste a sessão no localStorage.
@@ -63,9 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     senha: string
   ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }> => {
     try {
+      const senhaHasheada = await hashPassword(senha);
       const { data, error } = await supabase.rpc('autenticar_empresa', {
         p_email: email,
-        p_senha: senha
+        p_senha: senhaHasheada
       });
 
       // Como a RPC agora retorna TABLE, o SupabaseJS pode devolver um array.

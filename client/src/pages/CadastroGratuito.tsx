@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, Loader2, Sparkles, Info } from "lucide-react";
 import { Link } from "wouter";
@@ -37,8 +37,39 @@ interface SocioData {
   deficiencia: string;
 }
 
+// Lista de países com código ISO e emoji de bandeira
+const PAISES = [
+  { codigo: "BR", nome: "🇧🇷 Brasil" },
+  { codigo: "US", nome: "🇺🇸 Estados Unidos" },
+  { codigo: "AR", nome: "🇦🇷 Argentina" },
+  { codigo: "UY", nome: "🇺🇾 Uruguai" },
+  { codigo: "PY", nome: "🇵🇾 Paraguai" },
+  { codigo: "BO", nome: "🇧🇴 Bolívia" },
+  { codigo: "PE", nome: "🇵🇪 Peru" },
+  { codigo: "CO", nome: "🇨🇴 Colômbia" },
+  { codigo: "VE", nome: "🇻🇪 Venezuela" },
+  { codigo: "CL", nome: "🇨🇱 Chile" },
+  { codigo: "EC", nome: "🇪🇨 Equador" },
+  { codigo: "PT", nome: "🇵🇹 Portugal" },
+  { codigo: "ES", nome: "🇪🇸 Espanha" },
+  { codigo: "FR", nome: "🇫🇷 França" },
+  { codigo: "DE", nome: "🇩🇪 Alemanha" },
+  { codigo: "IT", nome: "🇮🇹 Itália" },
+  { codigo: "GB", nome: "🇬🇧 Reino Unido" },
+  { codigo: "CA", nome: "🇨🇦 Canadá" },
+  { codigo: "MX", nome: "🇲🇽 México" },
+  { codigo: "JP", nome: "🇯🇵 Japão" },
+  { codigo: "CN", nome: "🇨🇳 China" },
+  { codigo: "IN", nome: "🇮🇳 Índia" },
+  { codigo: "AU", nome: "🇦🇺 Austrália" },
+  { codigo: "ZA", nome: "🇿🇦 África do Sul" },
+  { codigo: "AO", nome: "🇦🇴 Angola" },
+  { codigo: "MZ", nome: "🇲🇿 Moçambique" },
+];
+
 interface ImpactadaData {
-  cep: string;
+  pais: string;
+  codigoPostal: string;
   cepEndereco: string;
   cepValido: boolean;
 }
@@ -98,10 +129,12 @@ export default function CadastroGratuito() {
   const [autorizaCompartilhamento, setAutorizaCompartilhamento] = useState("Não");
 
   const [diversidadeGlobal, setDiversidadeGlobal] = useState({
-    "Pessoas Negras": { socios: false, gestores: false, colaboradores: false },
-    "Mulheres": { socios: false, gestores: false, colaboradores: false },
-    "60 anos +": { socios: false, gestores: false, colaboradores: false },
-    "PCDs": { socios: false, gestores: false, colaboradores: false }
+    "Total de Pessoas": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas Negras (pretas e pardas)": { socios: "", gestores: "", colaboradores: "" },
+    "Mulheres": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas com Deficiência (PCD)": { socios: "", gestores: "", colaboradores: "" },
+    "Pessoas 60+": { socios: "", gestores: "", colaboradores: "" },
+    "Dependentes financeiros (não entram no Score RIS)": { socios: "", gestores: "", colaboradores: "" }
   });
 
   const hashPassword = async (password: string) => {
@@ -144,7 +177,7 @@ export default function CadastroGratuito() {
     const num = val ? parseInt(val, 10) : "";
     setNumeroImpactadasGestores(num);
     if (typeof num === "number" && num > 0) {
-      setGestoresData(Array(num).fill({ cep: "", cepValido: false, cepEndereco: "" }));
+      setGestoresData(Array(num).fill({ pais: "BR", codigoPostal: "", cepValido: false, cepEndereco: "" }));
     } else {
       setGestoresData([]);
     }
@@ -154,7 +187,7 @@ export default function CadastroGratuito() {
     const num = val ? parseInt(val, 10) : "";
     setNumeroImpactadasSocios(num);
     if (typeof num === "number" && num > 0) {
-      setSociosImpactadosData(Array(num).fill({ cep: "", cepValido: false, cepEndereco: "" }));
+      setSociosImpactadosData(Array(num).fill({ pais: "BR", codigoPostal: "", cepValido: false, cepEndereco: "" }));
     } else {
       setSociosImpactadosData([]);
     }
@@ -168,7 +201,7 @@ export default function CadastroGratuito() {
         const newData = [...prev];
         if (newData.length < num) {
           for (let i = newData.length; i < num; i++) {
-            newData.push({ cep: "", cepEndereco: "", cepValido: false });
+            newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
           }
         } else if (newData.length > num) {
           newData.length = num;
@@ -219,31 +252,16 @@ export default function CadastroGratuito() {
     }
   };
 
-  const fetchCepData = async (cep: string) => {
-    const cleanCep = cep.replace(/\D/g, '');
-    if (cleanCep.length !== 8) return { valido: false, endereco: "" };
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-      const data = await response.json();
-      if (data.erro) return { valido: false, endereco: "CEP inválido ou não encontrado." };
-      return { valido: true, endereco: `${data.logradouro}, ${data.bairro} - ${data.uf}` };
-    } catch (err) {
-      return { valido: false, endereco: "Erro ao buscar CEP." };
-    }
-  };
-
   const handleCepSocioChange = async (index: number, val: string) => {
     const formatted = formatCep(val);
-    
-    setSociosData(prev => {
+    setSociosData((prev) => {
       const newData = [...prev];
       newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
       return newData;
     });
-
     if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setSociosData(prev => {
+      const data = await fetchPostalData("BR", formatted);
+      setSociosData((prev) => {
         const updated = [...prev];
         updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
         return updated;
@@ -251,15 +269,53 @@ export default function CadastroGratuito() {
     }
   };
 
-  const handleCepGestorChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...gestoresData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setGestoresData(newData);
-    
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setGestoresData(prev => {
+  /**
+   * Busca dados de endereço por código postal.
+   * Usa ViaCEP para o Brasil e Zippopotam.us para os demais países (sem chave de API).
+   */
+  const fetchPostalData = async (pais: string, codigo: string) => {
+    const clean = codigo.replace(/\D/g, "");
+    try {
+      if (pais === "BR") {
+        if (clean.length !== 8) return { valido: false, endereco: "" };
+        const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+        const d = await res.json();
+        if (d.erro) return { valido: false, endereco: "CEP inválido ou não encontrado." };
+        return { valido: true, endereco: `${d.logradouro ?? ""}, ${d.bairro ?? ""} - ${d.uf ?? ""}`.trim() };
+      } else {
+        if (clean.length < 3) return { valido: false, endereco: "" };
+        const res = await fetch(`https://api.zippopotam.us/${pais}/${clean}`);
+        if (!res.ok) return { valido: false, endereco: "Código postal inválido ou não encontrado." };
+        const d = await res.json();
+        const place = d.places?.[0];
+        if (!place) return { valido: false, endereco: "Localidade não encontrada." };
+        return { valido: true, endereco: `${place["place name"]}, ${place["state"]} - ${d["country"]}` };
+      }
+    } catch {
+      return { valido: false, endereco: "Erro ao buscar código postal." };
+    }
+  };
+
+  /**
+   * Handler genérico para alteração do código postal em qualquer lista de impactadas.
+   */
+  const handleCodigoPostalChange = async (
+    setter: React.Dispatch<React.SetStateAction<ImpactadaData[]>>,
+    lista: ImpactadaData[],
+    index: number,
+    val: string
+  ) => {
+    const pais = lista[index]?.pais ?? "BR";
+    const codigo = pais === "BR" ? formatCep(val) : val;
+    setter(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], codigoPostal: codigo, cepValido: false, cepEndereco: "" };
+      return updated;
+    });
+    const minLen = pais === "BR" ? 9 : 3;
+    if (codigo.length >= minLen) {
+      const data = await fetchPostalData(pais, codigo);
+      setter(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
         return updated;
@@ -267,36 +323,19 @@ export default function CadastroGratuito() {
     }
   };
 
-  const handleCepSocioImpactadoChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...sociosImpactadosData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setSociosImpactadosData(newData);
-    
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setSociosImpactadosData(prev => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
-        return updated;
-      });
-    }
-  };
-
-  const handleCepColaboradorChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...colaboradoresData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setColaboradoresData(newData);
-    
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setColaboradoresData(prev => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
-        return updated;
-      });
-    }
+  /**
+   * Handler genérico para alteração do país em qualquer lista de impactadas.
+   */
+  const handlePaisChange = (
+    setter: React.Dispatch<React.SetStateAction<ImpactadaData[]>>,
+    index: number,
+    novoPais: string
+  ) => {
+    setter(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], pais: novoPais, codigoPostal: "", cepValido: false, cepEndereco: "" };
+      return updated;
+    });
   };
 
   const validatePassword = (pass: string) => {
@@ -414,12 +453,14 @@ export default function CadastroGratuito() {
     setFormasRecebimento(prev => prev.includes(forma) ? prev.filter(f => f !== forma) : [...prev, forma]);
   };
 
-  const handleDiversidadeToggle = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores') => {
+  const handleDiversidadeQtdChange = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores', valor: string) => {
+    if (valor !== "" && !/^\d+$/.test(valor)) return;
+
     setDiversidadeGlobal(prev => ({
       ...prev,
       [categoria]: {
         ...prev[categoria as keyof typeof prev],
-        [grupo]: !prev[categoria as keyof typeof prev][grupo]
+        [grupo]: valor
       }
     }));
   };
@@ -429,9 +470,9 @@ export default function CadastroGratuito() {
     setSenhaErro("");
 
     const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
-    const todosCepsGestoresValidos = gestoresData.every(g => !g.cep || g.cepValido);
-    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.cep || s.cepValido);
-    const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.cep || c.cepValido);
+    const todosCepsGestoresValidos = gestoresData.every(g => !g.codigoPostal || g.cepValido);
+    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.codigoPostal || s.cepValido);
+    const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.codigoPostal || c.cepValido);
 
     if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos) {
       setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
@@ -566,13 +607,13 @@ export default function CadastroGratuito() {
 
       const cepsToInsert: any[] = [];
       gestoresData.forEach(g => {
-        if(g.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.cep, endereco_validado: g.cepEndereco });
+        if(g.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.codigoPostal, codigo_postal: g.codigoPostal, pais: g.pais, endereco_validado: g.cepEndereco });
       });
       sociosImpactadosData.forEach(s => {
-        if(s.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'SOCIO', cep: s.cep, endereco_validado: s.cepEndereco });
+        if(s.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'SOCIO', cep: s.codigoPostal, codigo_postal: s.codigoPostal, pais: s.pais, endereco_validado: s.cepEndereco });
       });
       colaboradoresData.forEach(c => {
-        if(c.cep) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR', cep: c.cep, endereco_validado: c.cepEndereco });
+        if(c.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR', cep: c.codigoPostal, codigo_postal: c.codigoPostal, pais: c.pais, endereco_validado: c.cepEndereco });
       });
       
       if (cepsToInsert.length > 0) {
@@ -1200,6 +1241,13 @@ export default function CadastroGratuito() {
                                 </div>
                               </div>
                             </div>
+                            <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
+                              <DialogClose asChild>
+                                <Button className="bg-[#7030A0] hover:bg-[#5a2680] text-white">
+                                  Confirmar Informações
+                                </Button>
+                              </DialogClose>
+                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -1224,7 +1272,7 @@ export default function CadastroGratuito() {
                     <Input 
                       id="impactadasSocios" 
                       type="number" 
-                      min="1" 
+                      min="0" 
                       value={numeroImpactadasSocios}
                       onChange={(e) => handleNumeroSociosImpactadosChange(e.target.value)}
                       placeholder="Ex: 5" 
@@ -1235,12 +1283,22 @@ export default function CadastroGratuito() {
                   {typeof numeroImpactadasSocios === "number" && numeroImpactadasSocios > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {sociosImpactadosData.map((socio, idx) => (
-                        <div key={`socios-impactados-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-socios-impactados-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-socios-impactados-${idx}`} value={socio.cep} onChange={(e) => handleCepSocioImpactadoChange(idx, e.target.value)} required placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`socios-impactados-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={socio.pais || "BR"} onValueChange={(v) => handlePaisChange(setSociosImpactadosData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-socios-impactados-${idx}`} className="text-gray-600 text-xs">{socio.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-socios-impactados-${idx}`} value={socio.codigoPostal} onChange={(e) => handleCodigoPostalChange(setSociosImpactadosData, sociosImpactadosData, idx, e.target.value)} placeholder={socio.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {socio.cepEndereco && (
-                            <p className={`text-xs mt-1 ${socio.cepValido ? 'text-gray-500' : 'text-red-500 font-semibold'}`}>
-                              {socio.cepEndereco}
+                            <p className={`text-xs flex items-center gap-1 ${socio.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {socio.cepValido ? '✅' : '❌'} {socio.cepEndereco}
                             </p>
                           )}
                         </div>
@@ -1256,7 +1314,7 @@ export default function CadastroGratuito() {
                     <Input 
                       id="impactadasGestores" 
                       type="number" 
-                      min="1" 
+                      min="0" 
                       value={numeroImpactadasGestores}
                       onChange={(e) => handleNumeroGestoresChange(e.target.value)}
                       placeholder="Ex: 5" 
@@ -1267,12 +1325,22 @@ export default function CadastroGratuito() {
                   {typeof numeroImpactadasGestores === "number" && numeroImpactadasGestores > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {gestoresData.map((gestor, idx) => (
-                        <div key={`gestores-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-gestores-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-gestores-${idx}`} value={gestor.cep} onChange={(e) => handleCepGestorChange(idx, e.target.value)} required placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`gestores-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={gestor.pais || "BR"} onValueChange={(v) => handlePaisChange(setGestoresData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-gestores-${idx}`} className="text-gray-600 text-xs">{gestor.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-gestores-${idx}`} value={gestor.codigoPostal} onChange={(e) => handleCodigoPostalChange(setGestoresData, gestoresData, idx, e.target.value)} placeholder={gestor.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {gestor.cepEndereco && (
-                            <p className={`text-xs mt-1 ${gestor.cepValido ? 'text-gray-500' : 'text-red-500 font-semibold'}`}>
-                              {gestor.cepEndereco}
+                            <p className={`text-xs flex items-center gap-1 ${gestor.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {gestor.cepValido ? '✅' : '❌'} {gestor.cepEndereco}
                             </p>
                           )}
                         </div>
@@ -1288,7 +1356,7 @@ export default function CadastroGratuito() {
                     <Input 
                       id="impactadasColab" 
                       type="number" 
-                      min="1" 
+                      min="0" 
                       value={numeroImpactadasColaboradores}
                       onChange={(e) => handleNumeroColaboradoresChange(e.target.value)}
                       placeholder="Ex: 5" 
@@ -1299,12 +1367,22 @@ export default function CadastroGratuito() {
                   {typeof numeroImpactadasColaboradores === "number" && numeroImpactadasColaboradores > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {colaboradoresData.map((colaborador, idx) => (
-                        <div key={`colab-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-colab-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-colab-${idx}`} value={colaborador.cep} onChange={(e) => handleCepColaboradorChange(idx, e.target.value)} required placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`colab-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={colaborador.pais || "BR"} onValueChange={(v) => handlePaisChange(setColaboradoresData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-colab-${idx}`} className="text-gray-600 text-xs">{colaborador.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-colab-${idx}`} value={colaborador.codigoPostal} onChange={(e) => handleCodigoPostalChange(setColaboradoresData, colaboradoresData, idx, e.target.value)} placeholder={colaborador.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {colaborador.cepEndereco && (
-                            <p className={`text-xs mt-1 ${colaborador.cepValido ? 'text-gray-500' : 'text-red-500 font-semibold'}`}>
-                              {colaborador.cepEndereco}
+                            <p className={`text-xs flex items-center gap-1 ${colaborador.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {colaborador.cepValido ? '✅' : '❌'} {colaborador.cepEndereco}
                             </p>
                           )}
                         </div>
@@ -1316,38 +1394,119 @@ export default function CadastroGratuito() {
 
               {/* Recortes de Diversidade Tabela Geral */}
               <div className="space-y-6 pt-6">
-                <div className="space-y-2 border-b pb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">Recortes da Diversidade Global</h3>
-                  <p className="text-gray-600 text-sm">
-                    Marque as opções que correspondem a mais de 50% em cada grupo da empresa.
-                  </p>
+                <div className="space-y-2 border-b pb-2 flex items-center gap-2">
+                  <Users className="w-6 h-6 text-[#7030A0]" />
+                  <h3 className="text-xl font-semibold text-gray-900">Recortes de Diversidade — RIS v1.0</h3>
                 </div>
+                <p className="text-gray-600 text-sm">
+                  Informe o total de pessoas por cargo e a quantidade em cada recorte. Os percentuais são calculados automaticamente.
+                </p>
                 
                 <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="p-4 font-semibold text-gray-700">Categoria</th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Sócio(a)s<br/><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Gestore(a)s<br/><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
-                        <th className="p-4 font-semibold text-gray-700 text-center">Colaboradore(a)s<br/><span className="text-xs text-gray-500 font-normal">(Mais de 50%)</span></th>
+                      <tr className="border-b border-gray-200 bg-white">
+                        <th className="p-4 font-bold text-gray-700">Recorte</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Sócios</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Gestores</th>
+                        <th colSpan={2} className="p-4 font-bold text-[#7030A0] text-center border-l border-gray-100">Colaboradores</th>
+                      </tr>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-xs">
+                        <th className="p-2 font-semibold text-gray-700"></th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center border-l border-gray-100">Qtd</th>
+                        <th className="p-2 font-semibold text-gray-700 text-center">%</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {["Pessoas Negras", "Mulheres", "60 anos +", "PCDs"].map((row, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="p-4 font-medium text-gray-800">{row}</td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`socio-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].socios} onCheckedChange={() => handleDiversidadeToggle(row, 'socios')} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`gestor-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].gestores} onCheckedChange={() => handleDiversidadeToggle(row, 'gestores')} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                          <td className="p-4 text-center">
-                            <Checkbox id={`colab-geral-${idx}`} checked={diversidadeGlobal[row as keyof typeof diversidadeGlobal].colaboradores} onCheckedChange={() => handleDiversidadeToggle(row, 'colaboradores')} className="w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]" />
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(() => {
+                        const recortes = [
+                          { label: "Total de Pessoas", bg: "bg-blue-50/50", labelColor: "text-blue-700 font-semibold" },
+                          { label: "Pessoas Negras (pretas e pardas)", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Mulheres", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Pessoas com Deficiência (PCD)", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Pessoas 60+", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
+                          { label: "Dependentes financeiros (não entram no Score RIS)", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
+                        ];
+
+                        const calcPercent = (qtdStr: string, totalStr: string) => {
+                          const qtd = parseInt(qtdStr);
+                          const total = parseInt(totalStr);
+                          if (isNaN(qtd) || isNaN(total) || total === 0) return "0.0%";
+                          return ((qtd / total) * 100).toFixed(1) + "%";
+                        };
+
+                        return recortes.map((recorte, idx) => {
+                          const isTotal = recorte.label === "Total de Pessoas";
+                          const isDep = recorte.label === "Dependentes financeiros (não entram no Score RIS)";
+                          
+                          const key = recorte.label as keyof typeof diversidadeGlobal;
+                          const totalSocios = diversidadeGlobal["Total de Pessoas"].socios;
+                          const totalGestores = diversidadeGlobal["Total de Pessoas"].gestores;
+                          const totalColab = diversidadeGlobal["Total de Pessoas"].colaboradores;
+
+                          return (
+                            <tr key={idx} className={`${recorte.bg} transition-colors`}>
+                              <td className={`p-4 ${recorte.labelColor}`}>
+                                {recorte.label.includes("(") && !isDep && !recorte.label.includes("Total") ? (
+                                  <>
+                                    {recorte.label.split(" (")[0]}
+                                    <br/>
+                                    <span className="text-xs text-gray-500 font-normal">({recorte.label.split(" (")[1]}</span>
+                                  </>
+                                ) : isDep ? (
+                                  <>
+                                    Dependentes financeiros
+                                    <br/>
+                                    <span className="text-xs font-normal opacity-70">(não entram no Score RIS)</span>
+                                  </>
+                                ) : (
+                                  recorte.label
+                                )}
+                              </td>
+                              
+                              {/* Sócios */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.socios || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
+                              </td>
+
+                              {/* Gestores */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.gestores || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
+                              </td>
+
+                              {/* Colaboradores */}
+                              <td className="p-3 text-center border-l border-gray-100">
+                                <Input 
+                                  className="w-20 mx-auto text-center h-10" 
+                                  value={diversidadeGlobal[key]?.colaboradores || ""}
+                                  onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
+                                />
+                              </td>
+                              <td className="p-3 text-center font-bold text-[#7030A0]">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>

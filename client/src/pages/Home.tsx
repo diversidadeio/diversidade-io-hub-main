@@ -62,7 +62,7 @@ export default function Home() {
 
           <Button asChild className="text-white flex items-center gap-2" style={{backgroundColor: '#502273'}}>
             <Link href="/login">
-              <LogIn className="w-4 h-4" /> Login
+              <LogIn className="w-4 h-4" /> Login/Cadastre-se
             </Link>
           </Button>
         </div>

@@ -3,8 +3,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
-import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { defineConfig, loadEnv, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+import express from "express";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -203,7 +204,36 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
+function vitePluginLocalApi(): Plugin {
+  return {
+    name: "manus-local-api",
+    config(config, env) {
+      // Injeta as variáveis de ambiente do .env local no process.env 
+      const loadedEnv = loadEnv(env.mode, config.envDir || process.cwd(), "");
+      Object.assign(process.env, loadedEnv);
+    },
+    configureServer(server: ViteDevServer) {
+      const app = express();
+      app.use(express.json());
+      
+      // Carrega o roteador da API no modo de desenvolvimento
+      app.use(async (req, res, next) => {
+        try {
+          const apiPath = path.resolve(import.meta.dirname, "server/api.ts");
+          const { apiRouter } = await server.ssrLoadModule(apiPath);
+          apiRouter(req, res, next);
+        } catch (err) {
+          console.error("Erro ao carregar a API:", err);
+          next(err);
+        }
+      });
+
+      server.middlewares.use("/api", app);
+    },
+  };
+}
+
+const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy(), vitePluginLocalApi()];
 
 export default defineConfig({
   plugins,

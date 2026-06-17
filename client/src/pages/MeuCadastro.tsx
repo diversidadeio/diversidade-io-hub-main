@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2, Sparkles, Info } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -40,8 +40,39 @@ interface SocioData {
   deficiencia: string;
 }
 
+// Lista de países com código ISO e emoji de bandeira
+const PAISES = [
+  { codigo: "BR", nome: "🇧🇷 Brasil" },
+  { codigo: "US", nome: "🇺🇸 Estados Unidos" },
+  { codigo: "AR", nome: "🇦🇷 Argentina" },
+  { codigo: "UY", nome: "🇺🇾 Uruguai" },
+  { codigo: "PY", nome: "🇵🇾 Paraguai" },
+  { codigo: "BO", nome: "🇧🇴 Bolívia" },
+  { codigo: "PE", nome: "🇵🇪 Peru" },
+  { codigo: "CO", nome: "🇨🇴 Colômbia" },
+  { codigo: "VE", nome: "🇻🇪 Venezuela" },
+  { codigo: "CL", nome: "🇨🇱 Chile" },
+  { codigo: "EC", nome: "🇪🇨 Equador" },
+  { codigo: "PT", nome: "🇵🇹 Portugal" },
+  { codigo: "ES", nome: "🇪🇸 Espanha" },
+  { codigo: "FR", nome: "🇫🇷 França" },
+  { codigo: "DE", nome: "🇩🇪 Alemanha" },
+  { codigo: "IT", nome: "🇮🇹 Itália" },
+  { codigo: "GB", nome: "🇬🇧 Reino Unido" },
+  { codigo: "CA", nome: "🇨🇦 Canadá" },
+  { codigo: "MX", nome: "🇲🇽 México" },
+  { codigo: "JP", nome: "🇯🇵 Japão" },
+  { codigo: "CN", nome: "🇨🇳 China" },
+  { codigo: "IN", nome: "🇮🇳 Índia" },
+  { codigo: "AU", nome: "🇦🇺 Austrália" },
+  { codigo: "ZA", nome: "🇿🇦 África do Sul" },
+  { codigo: "AO", nome: "🇦🇴 Angola" },
+  { codigo: "MZ", nome: "🇲🇿 Moçambique" },
+];
+
 interface ImpactadaData {
-  cep: string;
+  pais: string;
+  codigoPostal: string;
   cepEndereco: string;
   cepValido: boolean;
 }
@@ -173,7 +204,7 @@ export default function MeuCadastro() {
           }
         });
 
-        setAcessoTipo([...new Set(selectedTipos)]);
+        setAcessoTipo(Array.from(new Set(selectedTipos)));
         setAcessoTipoOutro(outroValue);
 
         setAreaEmpresa(empresa.area_empresa ?? "");
@@ -244,7 +275,8 @@ export default function MeuCadastro() {
             setNumeroImpactadasGestores(gestores.length);
             setGestoresData(
               gestores.map((g: any) => ({
-                cep: g.cep ?? "",
+                codigoPostal: g.codigo_postal ?? g.cep ?? "",
+                pais: g.pais ?? "BR",
                 cepEndereco: g.endereco_validado ?? "",
                 cepValido: true,
               }))
@@ -254,7 +286,8 @@ export default function MeuCadastro() {
             setNumeroImpactadasSocios(socios.length);
             setSociosImpactadosData(
               socios.map((s: any) => ({
-                cep: s.cep ?? "",
+                codigoPostal: s.codigo_postal ?? s.cep ?? "",
+                pais: s.pais ?? "BR",
                 cepEndereco: s.endereco_validado ?? "",
                 cepValido: true,
               }))
@@ -264,7 +297,8 @@ export default function MeuCadastro() {
             setNumeroImpactadasColaboradores(colaboradores.length);
             setColaboradoresData(
               colaboradores.map((c: any) => ({
-                cep: c.cep ?? "",
+                codigoPostal: c.codigo_postal ?? c.cep ?? "",
+                pais: c.pais ?? "BR",
                 cepEndereco: c.endereco_validado ?? "",
                 cepValido: true,
               }))
@@ -371,7 +405,7 @@ export default function MeuCadastro() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: "", fonteImagem: ""           });
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""           });
           }
         } else {
           newData.length = num;
@@ -383,6 +417,23 @@ export default function MeuCadastro() {
     }
   };
 
+  const handleCepSocioChange = async (index: number, val: string) => {
+    const formatted = formatCep(val);
+    setSociosData((prev) => {
+      const newData = [...prev];
+      newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
+      return newData;
+    });
+    if (formatted.length === 9) {
+      const data = await fetchPostalData("BR", formatted);
+      setSociosData((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
+        return updated;
+      });
+    }
+  };
+
   const handleNumeroGestoresChange = (val: string) => {
     const num = val ? parseInt(val, 10) : "";
     setNumeroImpactadasGestores(num);
@@ -390,7 +441,7 @@ export default function MeuCadastro() {
       setGestoresData((prev) => {
         const newData = [...prev];
         if (newData.length < num) {
-          for (let i = newData.length; i < num; i++) newData.push({ cep: "", cepEndereco: "", cepValido: false });
+          for (let i = newData.length; i < num; i++) newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
         } else newData.length = num;
         return newData;
       });
@@ -404,7 +455,7 @@ export default function MeuCadastro() {
       setSociosImpactadosData((prev) => {
         const newData = [...prev];
         if (newData.length < num) {
-          for (let i = newData.length; i < num; i++) newData.push({ cep: "", cepEndereco: "", cepValido: false });
+          for (let i = newData.length; i < num; i++) newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
         } else newData.length = num;
         return newData;
       });
@@ -418,23 +469,57 @@ export default function MeuCadastro() {
       setColaboradoresData((prev) => {
         const newData = [...prev];
         if (newData.length < num) {
-          for (let i = newData.length; i < num; i++) newData.push({ cep: "", cepEndereco: "", cepValido: false });
+          for (let i = newData.length; i < num; i++) newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
         } else newData.length = num;
         return newData;
       });
     } else setColaboradoresData([]);
   };
 
-  const handleCepSocioChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    setSociosData((prev) => {
-      const newData = [...prev];
-      newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-      return newData;
+  /**
+   * Busca dados de endereço por código postal.
+   * Usa ViaCEP para o Brasil e Zippopotam.us para os demais países.
+   */
+  const fetchPostalData = async (pais: string, codigo: string) => {
+    const clean = codigo.replace(/\D/g, "");
+    try {
+      if (pais === "BR") {
+        if (clean.length !== 8) return { valido: false, endereco: "" };
+        const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+        const d = await res.json();
+        if (d.erro) return { valido: false, endereco: "CEP inválido ou não encontrado." };
+        return { valido: true, endereco: `${d.logradouro ?? ""}, ${d.bairro ?? ""} - ${d.uf ?? ""}`.trim() };
+      } else {
+        if (clean.length < 3) return { valido: false, endereco: "" };
+        const res = await fetch(`https://api.zippopotam.us/${pais}/${clean}`);
+        if (!res.ok) return { valido: false, endereco: "Código postal inválido ou não encontrado." };
+        const d = await res.json();
+        const place = d.places?.[0];
+        if (!place) return { valido: false, endereco: "Localidade não encontrada." };
+        return { valido: true, endereco: `${place["place name"]}, ${place["state"]} - ${d["country"]}` };
+      }
+    } catch {
+      return { valido: false, endereco: "Erro ao buscar código postal." };
+    }
+  };
+
+  const handleCodigoPostalChange = async (
+    setter: React.Dispatch<React.SetStateAction<ImpactadaData[]>>,
+    lista: ImpactadaData[],
+    index: number,
+    val: string
+  ) => {
+    const pais = lista[index]?.pais ?? "BR";
+    const codigo = pais === "BR" ? formatCep(val) : val;
+    setter(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], codigoPostal: codigo, cepValido: false, cepEndereco: "" };
+      return updated;
     });
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setSociosData((prev) => {
+    const minLen = pais === "BR" ? 9 : 3;
+    if (codigo.length >= minLen) {
+      const data = await fetchPostalData(pais, codigo);
+      setter(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
         return updated;
@@ -442,50 +527,18 @@ export default function MeuCadastro() {
     }
   };
 
-  const handleCepGestorChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...gestoresData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setGestoresData(newData);
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setGestoresData((prev) => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
-        return updated;
-      });
-    }
+  const handlePaisChange = (
+    setter: React.Dispatch<React.SetStateAction<ImpactadaData[]>>,
+    index: number,
+    novoPais: string
+  ) => {
+    setter(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], pais: novoPais, codigoPostal: "", cepValido: false, cepEndereco: "" };
+      return updated;
+    });
   };
 
-  const handleCepSocioImpactadoChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...sociosImpactadosData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setSociosImpactadosData(newData);
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setSociosImpactadosData((prev) => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
-        return updated;
-      });
-    }
-  };
-
-  const handleCepColaboradorChange = async (index: number, val: string) => {
-    const formatted = formatCep(val);
-    const newData = [...colaboradoresData];
-    newData[index] = { ...newData[index], cep: formatted, cepValido: false, cepEndereco: "" };
-    setColaboradoresData(newData);
-    if (formatted.length === 9) {
-      const data = await fetchCepData(formatted);
-      setColaboradoresData((prev) => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], cepValido: data.valido, cepEndereco: data.endereco };
-        return updated;
-      });
-    }
-  };
 
   const handlePagamentoToggle = (forma: string) =>
     setFormasPagamento((prev) => prev.includes(forma) ? prev.filter((f) => f !== forma) : [...prev, forma]);
@@ -512,9 +565,9 @@ export default function MeuCadastro() {
     setSalvoComSucesso(false);
 
     const todosCepsSociosValidos = sociosData.every((s) => !s.cep || s.cepValido);
-    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every((s) => !s.cep || s.cepValido);
-    const todosCepsGestoresValidos = gestoresData.every((g) => !g.cep || g.cepValido);
-    const todosCepsColaboradoresValidos = colaboradoresData.every((c) => !c.cep || c.cepValido);
+    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every((s) => !s.codigoPostal || s.cepValido);
+    const todosCepsGestoresValidos = gestoresData.every((g) => !g.codigoPostal || g.cepValido);
+    const todosCepsColaboradoresValidos = colaboradoresData.every((c) => !c.codigoPostal || c.cepValido);
 
     if (!todosCepsSociosValidos || !todosCepsSociosImpactadosValidos || !todosCepsGestoresValidos || !todosCepsColaboradoresValidos) {
       setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
@@ -631,13 +684,13 @@ export default function MeuCadastro() {
       await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
       const cepsToInsert: any[] = [];
       gestoresData.forEach((g) => {
-        if (g.cep) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "GESTOR", cep: g.cep, endereco_validado: g.cepEndereco });
+        if (g.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "GESTOR", cep: g.codigoPostal, codigo_postal: g.codigoPostal, pais: g.pais, endereco_validado: g.cepEndereco });
       });
       sociosImpactadosData.forEach((s) => {
-        if (s.cep) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "SOCIO", cep: s.cep, endereco_validado: s.cepEndereco });
+        if (s.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "SOCIO", cep: s.codigoPostal, codigo_postal: s.codigoPostal, pais: s.pais, endereco_validado: s.cepEndereco });
       });
       colaboradoresData.forEach((c) => {
-        if (c.cep) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "COLABORADOR", cep: c.cep, endereco_validado: c.cepEndereco });
+        if (c.codigoPostal) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "COLABORADOR", cep: c.codigoPostal, codigo_postal: c.codigoPostal, pais: c.pais, endereco_validado: c.cepEndereco });
       });
       if (cepsToInsert.length > 0) {
         const { error: erroCeps } = await supabase.from("ceps_impactados").insert(cepsToInsert);
@@ -1355,6 +1408,13 @@ export default function MeuCadastro() {
                                 </div>
                               </div>
                             </div>
+                            <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
+                              <DialogClose asChild>
+                                <Button className="bg-[#7030A0] hover:bg-[#5a2680] text-white">
+                                  Confirmar Informações
+                                </Button>
+                              </DialogClose>
+                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -1382,12 +1442,22 @@ export default function MeuCadastro() {
                   {typeof numeroImpactadasSocios === "number" && numeroImpactadasSocios > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {sociosImpactadosData.map((socio, idx) => (
-                        <div key={`socios-impactados-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-socios-impactados-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-socios-impactados-${idx}`} value={socio.cep} onChange={(e) => handleCepSocioImpactadoChange(idx, e.target.value)} required placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`socios-impactados-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={socio.pais || "BR"} onValueChange={(v) => handlePaisChange(setSociosImpactadosData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-socios-impactados-${idx}`} className="text-gray-600 text-xs">{socio.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-socios-impactados-${idx}`} value={socio.codigoPostal} onChange={(e) => handleCodigoPostalChange(setSociosImpactadosData, sociosImpactadosData, idx, e.target.value)} placeholder={socio.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {socio.cepEndereco && (
-                            <p className={`text-xs mt-1 ${socio.cepValido ? "text-gray-500" : "text-red-500 font-semibold"}`}>
-                              {socio.cepEndereco}
+                            <p className={`text-xs flex items-center gap-1 ${socio.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {socio.cepValido ? '✅' : '❌'} {socio.cepEndereco}
                             </p>
                           )}
                         </div>
@@ -1406,11 +1476,23 @@ export default function MeuCadastro() {
                   {typeof numeroImpactadasGestores === "number" && numeroImpactadasGestores > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {gestoresData.map((gestor, idx) => (
-                        <div key={`gestores-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-gestores-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-gestores-${idx}`} value={gestor.cep} onChange={(e) => handleCepGestorChange(idx, e.target.value)} placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`gestores-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={gestor.pais || "BR"} onValueChange={(v) => handlePaisChange(setGestoresData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-gestores-${idx}`} className="text-gray-600 text-xs">{gestor.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-gestores-${idx}`} value={gestor.codigoPostal} onChange={(e) => handleCodigoPostalChange(setGestoresData, gestoresData, idx, e.target.value)} placeholder={gestor.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {gestor.cepEndereco && (
-                            <p className={`text-xs mt-1 ${gestor.cepValido ? "text-gray-500" : "text-red-500 font-semibold"}`}>{gestor.cepEndereco}</p>
+                            <p className={`text-xs flex items-center gap-1 ${gestor.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {gestor.cepValido ? '✅' : '❌'} {gestor.cepEndereco}
+                            </p>
                           )}
                         </div>
                       ))}
@@ -1428,11 +1510,23 @@ export default function MeuCadastro() {
                   {typeof numeroImpactadasColaboradores === "number" && numeroImpactadasColaboradores > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {colaboradoresData.map((colaborador, idx) => (
-                        <div key={`colab-${idx}`} className="space-y-2">
-                          <Label htmlFor={`cep-colab-${idx}`} className="text-gray-700 font-medium">Cep da pessoa {idx + 1}</Label>
-                          <Input id={`cep-colab-${idx}`} value={colaborador.cep} onChange={(e) => handleCepColaboradorChange(idx, e.target.value)} placeholder="00000-000" className="h-12 bg-white" maxLength={9} />
+                        <div key={`colab-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Pessoa {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={colaborador.pais || "BR"} onValueChange={(v) => handlePaisChange(setColaboradoresData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-colab-${idx}`} className="text-gray-600 text-xs">{colaborador.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-colab-${idx}`} value={colaborador.codigoPostal} onChange={(e) => handleCodigoPostalChange(setColaboradoresData, colaboradoresData, idx, e.target.value)} placeholder={colaborador.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
                           {colaborador.cepEndereco && (
-                            <p className={`text-xs mt-1 ${colaborador.cepValido ? "text-gray-500" : "text-red-500 font-semibold"}`}>{colaborador.cepEndereco}</p>
+                            <p className={`text-xs flex items-center gap-1 ${colaborador.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {colaborador.cepValido ? '✅' : '❌'} {colaborador.cepEndereco}
+                            </p>
                           )}
                         </div>
                       ))}

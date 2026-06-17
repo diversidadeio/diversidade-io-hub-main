@@ -139,9 +139,9 @@ function extrairFichaCadastralSimplificada(texto: string, capitalTotal: number):
     
     // Pega a última ocorrência (mais perto do CPF)
     let nome = '';
-    const todasOcurrencias = [...antesDocCpf.matchAll(
+    const todasOcurrencias = Array.from(antesDocCpf.matchAll(
       /([A-ZÁÀÃÂÉÈÊÍÓÔÕÚÇ][A-ZÁÀÃÂÉÈÊÍÓÔÕÚÇ\s]{5,}?),\s*(?:RAÇ[AÃ]\/COR|NACIONALIDADE)/gi
-    )];
+    ));
     if (todasOcurrencias.length > 0) {
       nome = todasOcurrencias[todasOcurrencias.length - 1][1].trim();
     }
