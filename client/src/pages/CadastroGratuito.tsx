@@ -1555,9 +1555,9 @@ export default function CadastroGratuito() {
                   <p className="text-sm text-gray-700">
                     Ficou com alguma dúvida sobre o uso dos seus dados?
                   </p>
-                  <Button asChild variant="outline" className="border-purple-200 text-[#7030A0] hover:bg-purple-50 font-medium">
-                    <a href="mailto:suporte@diversidade.io">
-                      Entrar em contato
+                  <Button asChild variant="outline" className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 font-medium">
+                    <a href="https://wa.me/5511989832953?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20uso%20dos%20meus%20dados." target="_blank" rel="noopener noreferrer">
+                      Chamar no WhatsApp
                     </a>
                   </Button>
                 </div>
