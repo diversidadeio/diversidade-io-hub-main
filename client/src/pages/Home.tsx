@@ -175,8 +175,8 @@ export default function Home() {
 
       {/* Section: Ecossistema de Plataformas */}
       <section id="platforms" className="py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center mb-16">
+        <div className="container mx-auto px-4 max-w-5xl">
+          <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{color: '#7030A0'}}>
               Cinco plataformas. Uma jornada integrada.
             </h2>
@@ -185,139 +185,167 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Platform Cards Grid */}
-          <div className="grid md:grid-cols-2 gap-8 mb-8">
-            {/* Card 1: Impacto Social */}
-            <div className="group bg-white border-l-4 border-blue-700 rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <BarChart3 className="w-6 h-6 text-blue-700" />
+          <div className="space-y-16">
+            {/* Stage 1: Descoberta */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold" style={{backgroundColor: '#7030A0'}}>1</div>
+                  <h3 className="text-2xl font-bold" style={{color: '#7030A0'}}>Descoberta</h3>
                 </div>
-                <h3 className="text-2xl font-bold text-blue-900">Impacto Social</h3>
+                <span className="text-sm text-gray-500 hidden md:block">Encontre fornecedores qualificados</span>
               </div>
-              <p className="text-gray-600 mb-6">
-                Plataforma para registrar, medir e comprovar o impacto social de negócios, programas, ações afirmativas, compras inclusivas, capacitações, eventos e iniciativas com empreendimentos diversos.
-              </p>
-              <ul className="space-y-2 mb-8 text-sm text-gray-700">
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-700 rounded-full"></span>Mensuração de impacto econômico e social</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-700 rounded-full"></span>Recortes por etnia, gênero, etariedade, PCDs</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-700 rounded-full"></span>Impacto georreferenciado</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-700 rounded-full"></span>Relatórios para governança, ESG e DE&I</li>
-              </ul>
-              <Button asChild className="w-full bg-blue-700 hover:bg-blue-800 text-white">
-                <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
-                  Acessar Impacto Social
-                </a>
-              </Button>
-            </div>
-
-            {/* Card 2: Reconhecimento Racial */}
-            <div className="group bg-white border-l-4 border-green-600 rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-blue-900">Reconhecimento Racial</h3>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Plataforma de apoio à validação racial e aos processos de heteroidentificação, com uso de inteligência artificial, machine learning, governança e registro estruturado de evidências.
-              </p>
-              <ul className="space-y-2 mb-8 text-sm text-gray-700">
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Apoio técnico a processos de heteroidentificação</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Padronização de análise</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Redução de subjetividade excessiva</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Apoio à governança e auditoria</li>
-              </ul>
-              <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
-                <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
-                  Acessar Reconhecimento Racial
-                </a>
-              </Button>
-            </div>
-
-            {/* Card 3: Evento Sustentável */}
-            <div className="group bg-white border-l-4 border-orange-600 rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Leaf className="w-6 h-6 text-orange-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-blue-900">Evento Sustentável</h3>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Plataforma para gestão, curadoria e medição de ecoeficiência em eventos, feiras, ativações, encontros corporativos e experiências presenciais.
-              </p>
-              <ul className="space-y-2 mb-8 text-sm text-gray-700">
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Gestão antes, durante e depois do evento</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Indicadores de resíduos, água, energia, mobilidade</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Relatórios executivos de sustentabilidade</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>Apoio à governança ambiental e reputacional</li>
-              </ul>
-              <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
-                  Acessar Evento Sustentável
-                </a>
-              </Button>
-            </div>
-
-            {/* Card 4: Curadoria de Fornecedores */}
-            <div className="group bg-white border-l-4 border-purple-600 rounded-xl p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Network className="w-6 h-6 text-purple-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-blue-900">Curadoria de Fornecedores Diversos</h3>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Solução central da Diversidade.io para busca, curadoria, homologação, certificação e conexão de fornecedores diversos com grandes empresas, áreas de compras, programas de ESG e DE&I.
-              </p>
-              <ul className="space-y-2 mb-8 text-sm text-gray-700">
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Base qualificada de empreendedores diversos</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Busca por atividade, região, CNAE, porte</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Curadoria técnica e comercial</li>
-                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Conexão com grandes empresas e compradores</li>
-              </ul>
-              <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer">
-                  Conhecer Diversidade.io
-                </a>
-              </Button>
-            </div>
-          </div>
-
-          {/* Card 5: Rodadas Inclusivas - Featured */}
-          <div className="bg-gradient-to-br from-blue-700 to-blue-900 text-white rounded-xl p-10 shadow-2xl">
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div>
+              <div className="bg-white border-l-4 border-purple-600 rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Handshake className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Network className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h3 className="text-3xl font-bold">Rodadas Inclusivas</h3>
+                  <h4 className="text-2xl font-bold text-blue-900">Curadoria de Fornecedores Diversos</h4>
                 </div>
-                <p className="text-blue-100 mb-6 text-lg">
-                  Plataforma digital para organizar rodadas de negócios, apresentações comerciais, pitchs e encontros estruturados entre empreendedores diversos e compradores ou decisores de compra.
+                <p className="text-gray-600 mb-6">
+                  Solução central da Diversidade.io para busca, curadoria, homologação, certificação e conexão de fornecedores diversos com grandes empresas, áreas de compras, programas de ESG e DE&I.
                 </p>
-                <ul className="space-y-3 mb-8 text-blue-50">
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Organização de rodadas de negócios 1x1</li>
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Matching entre empreendedores e empresas</li>
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Cronômetro em tempo real para controle</li>
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Dashboard de impacto pós-evento</li>
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-white rounded-full"></span>Acompanhamento por status: negociação, pedido, nota fiscal</li>
+                <ul className="space-y-2 mb-8 text-sm text-gray-700">
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Base qualificada de empreendedores diversos</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Busca por atividade, região, CNAE, porte</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Curadoria técnica e comercial</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>Conexão com grandes empresas e compradores</li>
                 </ul>
-                <Button asChild className="bg-white text-blue-700 hover:bg-gray-100">
-                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
-                    Acessar Rodadas Inclusivas <ArrowRight className="w-4 h-4 ml-2" />
+                <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                  <a href="https://www.diversidade.io" target="_blank" rel="noopener noreferrer">
+                    Conhecer Diversidade.io
                   </a>
                 </Button>
               </div>
-              <div className="hidden md:block">
-                <img
-                  src="https://d2xsxph8kpxj0f.cloudfront.net/310419663028736640/fj5hvLQNAskbvkdGiCiGce/platform-icons-abstract-MAU5rPVmdgARHwXNzDtvT2.webp"
-                  alt="Rodadas Inclusivas"
-                  className="w-full h-auto rounded-lg opacity-90"
-                />
+            </div>
+
+            {/* Stage 2: Validação */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold" style={{backgroundColor: '#F59E0B'}}>2</div>
+                  <h3 className="text-2xl font-bold" style={{color: '#7030A0'}}>Validação</h3>
+                </div>
+                <span className="text-sm text-gray-500 hidden md:block">Valide identidades e sustentabilidade</span>
+              </div>
+              <div className="bg-white border-l-4 border-green-600 rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h4 className="text-2xl font-bold text-blue-900">Reconhecimento Racial</h4>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Plataforma de apoio à validação racial e aos processos de heteroidentificação, com uso de inteligência artificial, machine learning, governança e registro estruturado de evidências.
+                </p>
+                <ul className="space-y-2 mb-8 text-sm text-gray-700">
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Apoio técnico a processos de heteroidentificação</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Padronização de análise</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Redução de subjetividade excessiva</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>Apoio à governança e auditoria</li>
+                </ul>
+                <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
+                  <a href="https://www.reconhecimentoracial.com.br" target="_blank" rel="noopener noreferrer">
+                    Acessar Reconhecimento Racial
+                  </a>
+                </Button>
               </div>
             </div>
+
+            {/* Stage 3: Conversão */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold" style={{backgroundColor: '#7030A0'}}>3</div>
+                  <h3 className="text-2xl font-bold" style={{color: '#7030A0'}}>Conversão</h3>
+                </div>
+                <span className="text-sm text-gray-500 hidden md:block">Conecte e negocie</span>
+              </div>
+              <div className="bg-white border-l-4 border-purple-500 rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Handshake className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h4 className="text-2xl font-bold text-blue-900">Rodadas Inclusivas</h4>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Plataforma digital para organizar rodadas de negócios, apresentações comerciais, pitchs e encontros estruturados entre empreendedores diversos e compradores ou decisores de compra.
+                </p>
+                <ul className="space-y-2 mb-8 text-sm text-gray-700">
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>Organização de rodadas de negócios 1x1</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>Matching entre empreendedores e empresas</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>Cronômetro em tempo real para controle</li>
+                  <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>Dashboard de impacto pós-evento</li>
+                </ul>
+                <Button asChild className="w-full bg-purple-500 hover:bg-purple-600 text-white">
+                  <a href="https://rodadasinclusivas.com.br" target="_blank" rel="noopener noreferrer">
+                    Acessar Rodadas Inclusivas
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            {/* Stage 4: Comprovação */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold" style={{backgroundColor: '#7030A0'}}>4</div>
+                  <h3 className="text-2xl font-bold" style={{color: '#7030A0'}}>Comprovação</h3>
+                </div>
+                <span className="text-sm text-gray-500 hidden md:block">Meça e comprove impacto</span>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Impacto Social */}
+                <div className="bg-white border-l-4 border-blue-600 rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <BarChart3 className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-blue-900">Impacto Social</h4>
+                  </div>
+                  <p className="text-gray-600 mb-6 flex-grow">
+                    Plataforma para registrar, medir e comprovar o impacto social de negócios, programas, ações afirmativas, compras inclusivas, capacitações, eventos e iniciativas com empreendimentos diversos.
+                  </p>
+                  <ul className="space-y-2 mb-8 text-sm text-gray-700">
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>Mensuração de impacto econômico e social</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>Recortes por etnia, gênero, etariedade, PCDs</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>Impacto georreferenciado</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>Relatórios para governança, ESG e DE&I</li>
+                  </ul>
+                  <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-auto">
+                    <a href="https://www.impactosocial.com.br" target="_blank" rel="noopener noreferrer">
+                      Acessar Impacto Social
+                    </a>
+                  </Button>
+                </div>
+
+                {/* Evento Sustentável */}
+                <div className="bg-white border-l-4 border-orange-500 rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Leaf className="w-6 h-6 text-orange-500" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-blue-900">Evento Sustentável</h4>
+                  </div>
+                  <p className="text-gray-600 mb-6 flex-grow">
+                    Plataforma para gestão, curadoria e medição de ecoeficiência em eventos, feiras, ativações, encontros corporativos e experiências presenciais.
+                  </p>
+                  <ul className="space-y-2 mb-8 text-sm text-gray-700">
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>Gestão antes, durante e depois do evento</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>Indicadores de resíduos, água, energia, mobilidade</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>Relatórios executivos de sustentabilidade</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>Apoio à governança ambiental e reputacional</li>
+                  </ul>
+                  <Button asChild className="w-full bg-orange-500 hover:bg-orange-600 text-white mt-auto">
+                    <a href="https://eventosustentavel.com.br" target="_blank" rel="noopener noreferrer">
+                      Acessar Evento Sustentável
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
