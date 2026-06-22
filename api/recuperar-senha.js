@@ -3,9 +3,9 @@ import { Resend } from "resend";
 
 /**
  * Serverless Function do Vercel para recuperação de senha.
- * Gera uma senha temporária via Supabase RPC e envia por e-mail usando o Resend.
+ * Escrita em JavaScript puro para evitar problemas de compilação TypeScript no Vercel.
  */
-export default async function handler(req: any, res: any) {
+export default async function handler(req, res) {
   // Apenas aceita o método POST
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
@@ -60,7 +60,9 @@ export default async function handler(req: any, res: any) {
       console.warn(
         "AVISO: RESEND_API_KEY não configurada. Modo simulado ativado."
       );
-      console.log(`[E-mail Simulado] Para: ${email} | Nova Senha: ${novaSenha}`);
+      console.log(
+        "[E-mail Simulado] Para: " + email + " | Nova Senha: " + novaSenha
+      );
       return res.json({
         sucesso: true,
         mensagem: "E-mail simulado (RESEND_API_KEY não configurada).",
@@ -81,7 +83,7 @@ export default async function handler(req: any, res: any) {
           Sua nova senha de acesso temporária é:
         </p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; text-align: center; margin: 20px 0;">
-          <strong style="font-size: 24px; color: #7030A0; letter-spacing: 2px;">${novaSenha}</strong>
+          <strong style="font-size: 24px; color: #7030A0;">${novaSenha}</strong>
         </div>
         <p style="color: #4b5563; line-height: 1.5;">
           Por motivos de segurança, recomendamos que você altere essa senha assim que fizer o login no sistema.
@@ -110,7 +112,7 @@ export default async function handler(req: any, res: any) {
     }
 
     return res.json({ sucesso: true, mensagem: "E-mail enviado com sucesso." });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no endpoint /api/recuperar-senha:", err);
     return res.status(500).json({ erro: "Erro interno do servidor." });
   }
