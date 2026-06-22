@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
+/**
+ * Serverless Function do Vercel para recuperação de senha.
+ * Gera uma senha temporária via Supabase RPC e envia por e-mail usando o Resend.
+ */
 export default async function handler(req: any, res: any) {
+  // Apenas aceita o método POST
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
   }
@@ -12,39 +17,57 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ erro: "E-mail é obrigatório." });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-    
+    // Lê as variáveis de ambiente do Supabase
+    const supabaseUrl =
+      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+    const supabaseAnonKey =
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      "";
+
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error("Variáveis de ambiente do Supabase não configuradas.");
-      return res.status(500).json({ erro: "Erro de configuração do servidor." });
+      return res
+        .status(500)
+        .json({ erro: "Erro de configuração do servidor (Supabase)." });
     }
 
+    // Cria o cliente Supabase e chama a RPC para gerar a senha temporária
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data: novaSenha, error } = await supabase.rpc("solicitar_recuperacao_senha", {
-      p_email: email,
-    });
+    const { data: novaSenha, error } = await supabase.rpc(
+      "solicitar_recuperacao_senha",
+      { p_email: email }
+    );
 
     if (error) {
       console.error("Erro na RPC solicitar_recuperacao_senha:", error);
-      return res.status(500).json({ erro: "Erro ao consultar o banco de dados." });
+      return res
+        .status(500)
+        .json({ erro: "Erro ao consultar o banco de dados." });
     }
 
     if (!novaSenha) {
-      return res.status(404).json({ erro: "Este e-mail não está cadastrado em nosso sistema." });
+      return res
+        .status(404)
+        .json({ erro: "Este e-mail não está cadastrado em nosso sistema." });
     }
 
-    const SMTP_HOST = process.env.SMTP_HOST || "smtp.office365.com";
-    const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-    const SMTP_USER = process.env.SMTP_USER;
-    const SMTP_PASS = process.env.SMTP_PASS;
+    // Verifica se a chave do Resend está configurada
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-    if (!SMTP_USER || !SMTP_PASS) {
-      console.warn("AVISO: Credenciais SMTP não configuradas. O e-mail não será enviado de verdade.");
-      return res.json({ sucesso: true, mensagem: "E-mail simulado (verifique o console do servidor)." });
+    if (!RESEND_API_KEY) {
+      // Modo simulado: senha gerada mas e-mail não enviado
+      console.warn(
+        "AVISO: RESEND_API_KEY não configurada. Modo simulado ativado."
+      );
+      console.log(`[E-mail Simulado] Para: ${email} | Nova Senha: ${novaSenha}`);
+      return res.json({
+        sucesso: true,
+        mensagem: "E-mail simulado (RESEND_API_KEY não configurada).",
+      });
     }
 
+    // Monta o HTML do e-mail
     const htmlEmail = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -70,30 +93,25 @@ export default async function handler(req: any, res: any) {
       </div>
     `;
 
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: false, // false para 587
-      requireTLS: true,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-    });
-
-    await transporter.sendMail({
-      from: \`"Diversidade.io" <\${SMTP_USER}>\`,
+    // Envia o e-mail via Resend (API HTTP — funciona no Vercel sem bloqueio SMTP)
+    const resend = new Resend(RESEND_API_KEY);
+    const { error: emailError } = await resend.emails.send({
+      from: "Diversidade.io <nao-responder@diversidade.io>",
       to: email,
       subject: "Recuperação de Senha - Diversidade.io",
       html: htmlEmail,
     });
 
+    if (emailError) {
+      console.error("Erro ao enviar e-mail via Resend:", emailError);
+      return res
+        .status(500)
+        .json({ erro: "Erro ao enviar o e-mail de recuperação." });
+    }
+
     return res.json({ sucesso: true, mensagem: "E-mail enviado com sucesso." });
   } catch (err: any) {
-    console.error("Erro no endpoint /recuperar-senha:", err);
+    console.error("Erro no endpoint /api/recuperar-senha:", err);
     return res.status(500).json({ erro: "Erro interno do servidor." });
   }
 }
