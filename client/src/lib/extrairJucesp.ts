@@ -12,6 +12,8 @@ export interface SocioExtraido {
   cpfCnpj: string;
   valorParticipacao: string;
   percentualParticipacao: string;
+  /** Raça/cor normalizada para o valor do formulário (ex: "Preto", "Pardo"). Pode ser string vazia se não encontrado. */
+  racaCor: string;
 }
 
 // URL do worker do pdfjs-dist (CDN)
@@ -67,6 +69,21 @@ function ehDocumentoJucesp(texto: string): boolean {
     t.includes('TITULAR/SOCIOS') ||
     (t.includes('NIRE') && t.includes('PARTICIPAÇÃO NA SOCIEDADE'))
   );
+}
+
+/**
+ * Normaliza o valor de RAÇA/COR extraído da JUCESP para o padrão do formulário.
+ * Ex: "PRETA" → "Preto", "NÃO DECLARADA" → "" (campo vazio, usuário decide)
+ */
+function normalizarRacaCor(valorBruto: string): string {
+  const v = valorBruto.toUpperCase().trim();
+  if (v.includes('PRET')) return 'Preto';
+  if (v.includes('PARD')) return 'Pardo';
+  if (v.includes('BRANC')) return 'Branco';
+  if (v.includes('AMAR')) return 'Amarelo';
+  if (v.includes('IND')) return 'Indígena';
+  // "NÃO DECLARADA", "NAO DECLARADA" ou valores desconhecidos → não preenche
+  return '';
 }
 
 /**
@@ -146,6 +163,11 @@ function extrairFichaCadastralSimplificada(texto: string, capitalTotal: number):
       nome = todasOcurrencias[todasOcurrencias.length - 1][1].trim();
     }
 
+    // Extrai RAÇA/COR do bloco que contém o sócio (antes do CPF)
+    // Padrão: "RAÇA/COR: PRETA" ou "RACA/COR: PARDA"
+    const racaMatch = antesDocCpf.match(/RAÇ[AÃ]\/COR\s*:\s*([A-ZÁÀÃÂÉÈÊÍÓÔÕÚÇÃ\s]+?)(?=\s*,|\s*$)/i);
+    const racaCor = racaMatch ? normalizarRacaCor(racaMatch[1]) : '';
+
     // Valor de participação: após "VALOR DE PARTICIPAÇÃO NA SOCIEDADE DE $"
     const aposPosition = posicaoCpf + match[0].length;
     const depoisDoCpf = secao.substring(aposPosition, aposPosition + 600);
@@ -165,6 +187,7 @@ function extrairFichaCadastralSimplificada(texto: string, capitalTotal: number):
       cpfCnpj: cpf,
       valorParticipacao: formatarMoeda(valorNum),
       percentualParticipacao: formatarPercentual(percentual),
+      racaCor,
     });
   }
 
@@ -192,6 +215,7 @@ function extrairTabelaEstruturada(texto: string): SocioExtraido[] {
       cpfCnpj: match[2],
       valorParticipacao: match[3],
       percentualParticipacao: match[4],
+      racaCor: '', // Tabela estruturada não contém campo raça/cor
     });
   }
 

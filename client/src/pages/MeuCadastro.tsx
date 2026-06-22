@@ -338,7 +338,11 @@ export default function MeuCadastro() {
       const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
       const data = await response.json();
       if (data.erro) return { valido: false, endereco: "CEP inválido ou não encontrado." };
-      return { valido: true, endereco: `${data.logradouro}, ${data.bairro} - ${data.uf}` };
+      const bairro = data.bairro ? `${data.bairro}, ` : "";
+      const cidade = data.localidade ? `${data.localidade} - ` : "";
+      const estado = data.uf ?? "";
+      const enderecoFormatado = `${bairro}${cidade}${estado}`.trim().replace(/, $/, "").replace(/ - $/, "");
+      return { valido: true, endereco: enderecoFormatado };
     } catch {
       return { valido: false, endereco: "Erro ao buscar CEP." };
     }
@@ -387,6 +391,8 @@ export default function MeuCadastro() {
                 nome: novos[idx].nome || s.nome,
                 participacaoValor: s.valorParticipacao,
                 participacaoPercentual: s.percentualParticipacao,
+                // Pré-preenche raça/cor se encontrada e o campo estiver vazio
+                raca: novos[idx].raca || s.racaCor,
               };
             }
           });
@@ -498,7 +504,11 @@ export default function MeuCadastro() {
         const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
         const d = await res.json();
         if (d.erro) return { valido: false, endereco: "CEP inválido ou não encontrado." };
-        return { valido: true, endereco: `${d.logradouro ?? ""}, ${d.bairro ?? ""} - ${d.uf ?? ""}`.trim() };
+        const bairro = d.bairro ? `${d.bairro}, ` : "";
+        const cidade = d.localidade ? `${d.localidade} - ` : "";
+        const estado = d.uf ?? "";
+        const enderecoFormatado = `${bairro}${cidade}${estado}`.trim().replace(/, $/, "").replace(/ - $/, "");
+        return { valido: true, endereco: enderecoFormatado };
       } else {
         if (clean.length < 3) return { valido: false, endereco: "" };
         const res = await fetch(`https://api.zippopotam.us/${pais}/${clean}`);
@@ -1711,7 +1721,7 @@ export default function MeuCadastro() {
                     Ficou com alguma dúvida sobre o uso dos seus dados?
                   </p>
                   <Button asChild variant="outline" className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 font-medium">
-                    <a href="https://wa.me/5511989832953?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20uso%20dos%20meus%20dados." target="_blank" rel="noopener noreferrer">
+                    <a href="https://wa.me/5511966060828?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20uso%20dos%20meus%20dados." target="_blank" rel="noopener noreferrer">
                       Chamar no WhatsApp
                     </a>
                   </Button>
