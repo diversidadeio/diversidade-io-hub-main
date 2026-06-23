@@ -904,7 +904,7 @@ export default function MeuCadastro() {
                       </div>
                     )}
                     <p className="text-gray-700 font-medium text-sm mt-2">
-                      {fotoResponsavelFile || fotoResponsavelUrl ? "Alterar foto do responsável" : "Clique para enviar a foto"}
+                      {fotoResponsavelFile || fotoResponsavelUrl ? "Foto do Sócio" : "Clique para enviar a foto"}
                     </p>
                   </label>
                 </div>
@@ -1278,7 +1278,7 @@ export default function MeuCadastro() {
                                       <Upload className="w-8 h-8 text-[#7030A0]" />
                                     </div>
                                   )}
-                                  <p className="text-gray-700 font-medium text-sm mt-2">{socio.foto || socio.fotoUrl ? "Alterar foto do sócio" : "Clique para enviar a foto"}</p>
+                                  <p className="text-gray-700 font-medium text-sm mt-2">{socio.foto || socio.fotoUrl ? "Foto do Sócio" : "Clique para enviar a foto"}</p>
                                 </label>
                               </div>
                             </div>

@@ -210,7 +210,10 @@ export default function DetalhesCadastroAdm() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <h4 className="font-semibold text-gray-700 mb-2 border-b pb-1">Gestores</h4>
+                <h4 className="font-semibold text-[#9333EA] mb-2 border-b border-[#9333EA]/20 pb-1 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#9333EA]"></span>
+                  Gestores
+                </h4>
                 <ul className="space-y-2 text-sm text-gray-600">
                   {ceps.filter(c => c.tipo === 'GESTOR').map(c => (
                     <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
@@ -219,7 +222,10 @@ export default function DetalhesCadastroAdm() {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-700 mb-2 border-b pb-1">Sócios</h4>
+                <h4 className="font-semibold text-[#EAB308] mb-2 border-b border-[#EAB308]/20 pb-1 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#EAB308]"></span>
+                  Sócios
+                </h4>
                 <ul className="space-y-2 text-sm text-gray-600">
                   {ceps.filter(c => c.tipo === 'SOCIO').map(c => (
                     <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
@@ -228,7 +234,10 @@ export default function DetalhesCadastroAdm() {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-700 mb-2 border-b pb-1">Colaboradores</h4>
+                <h4 className="font-semibold text-[#22C55E] mb-2 border-b border-[#22C55E]/20 pb-1 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#22C55E]"></span>
+                  Colaboradores
+                </h4>
                 <ul className="space-y-2 text-sm text-gray-600">
                   {ceps.filter(c => c.tipo === 'COLABORADOR').map(c => (
                     <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>

@@ -710,7 +710,7 @@ export default function CadastroGratuito() {
                         <Upload className="w-8 h-8 text-[#7030A0]" />
                       </div>
                     )}
-                    <p className="text-gray-700 font-medium text-sm mt-2">{fotoResponsavelFile ? "Alterar foto do responsável" : "Clique para enviar a foto"}</p>
+                    <p className="text-gray-700 font-medium text-sm mt-2">{fotoResponsavelFile ? "Foto do Sócio" : "Clique para enviar a foto"}</p>
                   </label>
                 </div>
               </div>
@@ -1093,7 +1093,7 @@ export default function CadastroGratuito() {
                                       <Upload className="w-8 h-8 text-[#7030A0]" />
                                     </div>
                                   )}
-                                  <p className="text-gray-700 font-medium text-sm mt-2">{socio.foto ? "Alterar foto do sócio" : "Clique para enviar a foto"}</p>
+                                  <p className="text-gray-700 font-medium text-sm mt-2">{socio.foto ? "Foto do Sócio" : "Clique para enviar a foto"}</p>
                                 </label>
                               </div>
                             </div>

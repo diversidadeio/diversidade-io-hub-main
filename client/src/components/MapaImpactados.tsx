@@ -48,6 +48,25 @@ const MapFitBounds = ({ markers }: { markers: MarkerData[] }) => {
   return null;
 };
 
+const getCustomIcon = (tipo: string) => {
+  let color = '#3B82F6'; // Default (Blue)
+  const t = tipo.toUpperCase();
+  if (t === 'GESTOR' || t === 'GESTORES') color = '#9333EA'; // Purple
+  else if (t === 'SOCIO' || t === 'SÓCIO' || t === 'SÓCIOS') color = '#EAB308'; // Yellow
+  else if (t === 'COLABORADOR' || t === 'COLABORADORES') color = '#22C55E'; // Green
+
+  const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="28" height="40" style="filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.3));"><path fill="${color}" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"/></svg>`;
+
+  return L.divIcon({
+    className: 'custom-leaflet-icon',
+    html: svgIcon,
+    iconSize: [28, 40],
+    iconAnchor: [14, 40],
+    popupAnchor: [0, -40]
+  });
+};
+
+
 const MapaImpactados: React.FC<MapaImpactadosProps> = ({ ceps }) => {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +175,7 @@ const MapaImpactados: React.FC<MapaImpactadosProps> = ({ ceps }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {markers.map((marker, idx) => (
-          <Marker key={`${marker.id}-${idx}`} position={[marker.lat, marker.lon]}>
+          <Marker key={`${marker.id}-${idx}`} position={[marker.lat, marker.lon]} icon={getCustomIcon(marker.tipo)}>
             <Popup>
               <div className="text-sm min-w-[200px]">
                 <span className="font-bold text-purple-700">{marker.tipo}</span><br />

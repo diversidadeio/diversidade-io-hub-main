@@ -44,7 +44,7 @@ export default function Home() {
           {/* Navigation Menu */}
           <nav className="hidden md:flex items-center gap-8">
             <button onClick={() => scrollToSection("ecosystem")} className="text-gray-700 hover:text-purple-700 transition-colors text-sm font-medium">
-              Ecossistema
+              Soluções
             </button>
             <button onClick={() => scrollToSection("platforms")} className="text-gray-700 hover:text-purple-700 transition-colors text-sm font-medium">
               Plataformas
@@ -200,7 +200,7 @@ export default function Home() {
                   <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Network className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h4 className="text-2xl font-bold text-blue-900">Curadoria de Fornecedores Diversos</h4>
+                  <h4 className="text-2xl font-bold text-blue-900">Busca e curadoria de fornecedores diversos</h4>
                 </div>
                 <p className="text-gray-600 mb-6">
                   Solução central da Diversidade.io para busca, curadoria, homologação, certificação e conexão de fornecedores diversos com grandes empresas, áreas de compras, programas de ESG e DE&I.
