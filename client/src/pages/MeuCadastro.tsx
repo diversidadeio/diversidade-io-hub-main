@@ -88,6 +88,15 @@ export default function MeuCadastro() {
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [salvoComSucesso, setSalvoComSucesso] = useState(false);
+
+  // Auto-dismiss do toast de sucesso após 3 segundos
+  useEffect(() => {
+    if (salvoComSucesso) {
+      const timer = setTimeout(() => setSalvoComSucesso(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [salvoComSucesso]);
+
   const [erroGlobal, setErroGlobal] = useState("");
   const [senhaErro, setSenhaErro] = useState("");
 
@@ -575,6 +584,20 @@ export default function MeuCadastro() {
     }));
   };
 
+  // Salva automaticamente diversidade_global ao sair de um campo (onBlur)
+  const handleDiversidadeBlur = async (novoEstado?: typeof diversidadeGlobal) => {
+    const dadosParaSalvar = novoEstado ?? diversidadeGlobal;
+    try {
+      const { error } = await supabase
+        .from("empresas")
+        .update({ diversidade_global: dadosParaSalvar })
+        .eq("id", usuario!.empresaId);
+      if (!error) setSalvoComSucesso(true);
+    } catch (err) {
+      console.error("Erro ao salvar recortes:", err);
+    }
+  };
+
   const handleSairLogout = () => {
     logout();
     navigate("/");
@@ -720,11 +743,9 @@ export default function MeuCadastro() {
       }
 
       setSalvoComSucesso(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       console.error("Erro ao salvar:", err);
       setSenhaErro("Ocorreu um erro ao salvar as alterações: " + err.message);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSalvando(false);
     }
@@ -856,13 +877,16 @@ export default function MeuCadastro() {
             </p>
           </div>
 
-          {/* Banner de sucesso */}
+          {/* Toast de sucesso fixo */}
           {salvoComSucesso && (
-            <div className="m-8 p-4 bg-green-50 border-l-4 border-green-500 text-green-800 rounded shadow-sm flex items-center gap-3">
+            <div
+              className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-green-600 text-white px-5 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+              style={{ minWidth: '280px' }}
+            >
               <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
               <div>
-                <p className="font-semibold">Alterações salvas com sucesso!</p>
-                <p className="text-sm">Seus dados foram atualizados.</p>
+                <p className="font-semibold text-sm">Alterações salvas com sucesso!</p>
+                <p className="text-xs text-green-100">Seus dados foram atualizados.</p>
               </div>
             </div>
           )}
@@ -1639,6 +1663,7 @@ export default function MeuCadastro() {
                                   className="w-20 mx-auto text-center h-10" 
                                   value={diversidadeGlobal[key]?.socios || ""}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
+                                  onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
                               <td className="p-3 text-center font-bold text-[#7030A0]">
@@ -1651,6 +1676,7 @@ export default function MeuCadastro() {
                                   className="w-20 mx-auto text-center h-10" 
                                   value={diversidadeGlobal[key]?.gestores || ""}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
+                                  onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
                               <td className="p-3 text-center font-bold text-[#7030A0]">
@@ -1663,6 +1689,7 @@ export default function MeuCadastro() {
                                   className="w-20 mx-auto text-center h-10" 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
+                                  onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
                               <td className="p-3 text-center font-bold text-[#7030A0]">
