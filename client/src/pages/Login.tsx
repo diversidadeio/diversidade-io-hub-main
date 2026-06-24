@@ -82,10 +82,10 @@ export default function Login() {
     const resultado = await login(email, senha);
 
     if (resultado.sucesso) {
-      if (resultado.tipoUsuario === 'adm') {
-        navigate("/adm");
-      } else if (resultado.senhaTemporaria) {
+      if (resultado.senhaTemporaria) {
         navigate("/trocar-senha");
+      } else if (resultado.tipoUsuario === 'adm') {
+        navigate("/adm");
       } else {
         navigate("/meu-cadastro");
       }

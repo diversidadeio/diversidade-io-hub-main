@@ -15,17 +15,24 @@ import CadastrosAdm from "./pages/adm/Cadastros";
 import DetalhesCadastroAdm from "./pages/adm/DetalhesCadastro";
 import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
+import AdministradoresAdm from "./pages/adm/Administradores";
 import { useAuth } from "./contexts/AuthContext";
 
-// Wrapper para proteger rotas ADM
 function RotaProtegidaAdm({ component: Component, ...rest }: any) {
-  const { isAdm, isCarregando } = useAuth();
+  const { isAdm, isCarregando, senhaTemporaria } = useAuth();
   
   if (isCarregando) return <div className="p-8 text-center">Carregando...</div>;
   
   if (!isAdm) {
     return <Route {...rest} component={() => {
       window.location.href = "/login";
+      return null;
+    }} />;
+  }
+
+  if (senhaTemporaria) {
+    return <Route {...rest} component={() => {
+      window.location.href = "/trocar-senha";
       return null;
     }} />;
   }
@@ -67,6 +74,7 @@ function Router() {
       
       {/* Rotas ADM */}
       <RotaProtegidaAdm path={"/adm"} component={DashboardAdm} />
+      <RotaProtegidaAdm path={"/adm/administradores"} component={AdministradoresAdm} />
       <RotaProtegidaAdm path={"/adm/cadastros"} component={CadastrosAdm} />
       <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={DetalhesCadastroAdm} />
       <RotaProtegidaAdm path={"/adm/exclusoes"} component={ExclusoesAdm} />
