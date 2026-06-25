@@ -117,6 +117,12 @@ export default function CadastroGratuito() {
   // 4. Sócios e Impacto
   const [numeroSocios, setNumeroSocios] = useState<number | "">("");
   const [sociosData, setSociosData] = useState<SocioData[]>([]);
+  // Gestores e colaboradores diretos (CEP da própria pessoa)
+  const [numGestoresDiretos, setNumGestoresDiretos] = useState<number | "">("");
+  const [gestoresDiretosData, setGestoresDiretosData] = useState<ImpactadaData[]>([]);
+  const [numColaboradoresDiretos, setNumColaboradoresDiretos] = useState<number | "">("");
+  const [colaboradoresDiretosData, setColaboradoresDiretosData] = useState<ImpactadaData[]>([]);
+  // Pessoas impactadas financeiramente
   const [numeroImpactadasGestores, setNumeroImpactadasGestores] = useState<number | "">("");
   const [gestoresData, setGestoresData] = useState<ImpactadaData[]>([]);
   const [numeroImpactadasSocios, setNumeroImpactadasSocios] = useState<number | "">("");
@@ -181,6 +187,34 @@ export default function CadastroGratuito() {
     } else {
       setGestoresData([]);
     }
+  };
+
+  const handleNumeroGestoresDiretosChange = (val: string) => {
+    const num = val ? parseInt(val, 10) : "";
+    setNumGestoresDiretos(num);
+    if (typeof num === "number" && num > 0) {
+      setGestoresDiretosData(prev => {
+        const newData = [...prev];
+        if (newData.length < num) {
+          for (let i = newData.length; i < num; i++) newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
+        } else newData.length = num;
+        return newData;
+      });
+    } else setGestoresDiretosData([]);
+  };
+
+  const handleNumeroColaboradoresDiretosChange = (val: string) => {
+    const num = val ? parseInt(val, 10) : "";
+    setNumColaboradoresDiretos(num);
+    if (typeof num === "number" && num > 0) {
+      setColaboradoresDiretosData(prev => {
+        const newData = [...prev];
+        if (newData.length < num) {
+          for (let i = newData.length; i < num; i++) newData.push({ pais: "BR", codigoPostal: "", cepEndereco: "", cepValido: false });
+        } else newData.length = num;
+        return newData;
+      });
+    } else setColaboradoresDiretosData([]);
   };
 
   const handleNumeroSociosImpactadosChange = (val: string) => {
@@ -612,6 +646,14 @@ export default function CadastroGratuito() {
       }
 
       const cepsToInsert: any[] = [];
+      // CEPs diretos de gestores e colaboradores
+      gestoresDiretosData.forEach(g => {
+        if(g.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR_DIRETO', cep: g.codigoPostal, endereco_validado: g.cepEndereco });
+      });
+      colaboradoresDiretosData.forEach(c => {
+        if(c.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'COLABORADOR_DIRETO', cep: c.codigoPostal, endereco_validado: c.cepEndereco });
+      });
+      // CEPs de pessoas impactadas financeiramente
       gestoresData.forEach(g => {
         if(g.codigoPostal) cepsToInsert.push({ empresa_id: empresaId, tipo: 'GESTOR', cep: g.codigoPostal, endereco_validado: g.cepEndereco });
       });
@@ -1260,6 +1302,86 @@ export default function CadastroGratuito() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Localização dos Gestores e Colaboradores */}
+              <div className="space-y-6 pt-6">
+                <div className="space-y-2 border-b pb-2">
+                  <h3 className="text-xl font-semibold text-gray-900">Localização dos Gestores e Colaboradores</h3>
+                  <p className="text-gray-600 text-sm">
+                    Informe a quantidade de gestores e colaboradores da empresa e registre o CEP de onde cada um reside. O CEP dos sócios já é coletado no Quadro Societário acima.
+                  </p>
+                </div>
+
+                {/* Gestores Diretos */}
+                <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-gray-800">Gestores</h4>
+                    <Label htmlFor="numGestoresDiretos" className="text-gray-700 font-medium">Quantidade de gestores:</Label>
+                    <Input id="numGestoresDiretos" type="number" min="0" value={numGestoresDiretos}
+                      onChange={(e) => handleNumeroGestoresDiretosChange(e.target.value)} placeholder="Ex: 3" className="h-12 bg-white md:w-1/3" />
+                  </div>
+                  {typeof numGestoresDiretos === "number" && numGestoresDiretos > 0 && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {gestoresDiretosData.map((gestor, idx) => (
+                        <div key={`gestor-direto-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Gestor {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={gestor.pais || "BR"} onValueChange={(v) => handlePaisChange(setGestoresDiretosData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-gestor-direto-${idx}`} className="text-gray-600 text-xs">{gestor.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-gestor-direto-${idx}`} value={gestor.codigoPostal} onChange={(e) => handleCodigoPostalChange(setGestoresDiretosData, gestoresDiretosData, idx, e.target.value)} placeholder={gestor.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
+                          {gestor.cepEndereco && (
+                            <p className={`text-xs flex items-center gap-1 ${gestor.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {gestor.cepValido ? '✅' : '❌'} {gestor.cepEndereco}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Colaboradores Diretos */}
+                <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-gray-800">Colaboradores</h4>
+                    <Label htmlFor="numColaboradoresDiretos" className="text-gray-700 font-medium">Quantidade de colaboradores:</Label>
+                    <Input id="numColaboradoresDiretos" type="number" min="0" value={numColaboradoresDiretos}
+                      onChange={(e) => handleNumeroColaboradoresDiretosChange(e.target.value)} placeholder="Ex: 10" className="h-12 bg-white md:w-1/3" />
+                  </div>
+                  {typeof numColaboradoresDiretos === "number" && numColaboradoresDiretos > 0 && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {colaboradoresDiretosData.map((colaborador, idx) => (
+                        <div key={`colab-direto-${idx}`} className="border rounded-xl p-4 space-y-3 bg-white">
+                          <p className="text-sm font-semibold text-gray-700">Colaborador {idx + 1}</p>
+                          <div className="space-y-1">
+                            <Label className="text-gray-600 text-xs">País</Label>
+                            <Select value={colaborador.pais || "BR"} onValueChange={(v) => handlePaisChange(setColaboradoresDiretosData, idx, v)}>
+                              <SelectTrigger className="h-10 bg-gray-50"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PAISES.map(p => <SelectItem key={p.codigo} value={p.codigo}>{p.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`cp-colab-direto-${idx}`} className="text-gray-600 text-xs">{colaborador.pais === "BR" ? "CEP" : "Código Postal"}</Label>
+                            <Input id={`cp-colab-direto-${idx}`} value={colaborador.codigoPostal} onChange={(e) => handleCodigoPostalChange(setColaboradoresDiretosData, colaboradoresDiretosData, idx, e.target.value)} placeholder={colaborador.pais === "BR" ? "00000-000" : "Ex: 10001"} className="h-10 bg-gray-50" />
+                          </div>
+                          {colaborador.cepEndereco && (
+                            <p className={`text-xs flex items-center gap-1 ${colaborador.cepValido ? 'text-green-600' : 'text-red-500 font-semibold'}`}>
+                              {colaborador.cepValido ? '✅' : '❌'} {colaborador.cepEndereco}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Pessoas Impactadas (Gestores e Colab) */}

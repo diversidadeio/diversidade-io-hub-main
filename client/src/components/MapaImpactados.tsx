@@ -48,12 +48,26 @@ const MapFitBounds = ({ markers }: { markers: MarkerData[] }) => {
   return null;
 };
 
+const getTipoLabel = (tipo: string): string => {
+  const t = tipo.toUpperCase();
+  if (t === 'GESTOR') return 'Impactado pelo Gestor';
+  if (t === 'SOCIO') return 'Impactado pelo Sócio';
+  if (t === 'COLABORADOR') return 'Impactado pelo Colaborador';
+  if (t === 'GESTOR_DIRETO') return 'Gestor';
+  if (t === 'COLABORADOR_DIRETO') return 'Colaborador';
+  if (t === 'SOCIO_DIRETO') return 'Sócio';
+  return tipo;
+};
+
 const getCustomIcon = (tipo: string) => {
   let color = '#3B82F6'; // Default (Blue)
   const t = tipo.toUpperCase();
-  if (t === 'GESTOR' || t === 'GESTORES') color = '#9333EA'; // Purple
-  else if (t === 'SOCIO' || t === 'SÓCIO' || t === 'SÓCIOS') color = '#EAB308'; // Yellow
-  else if (t === 'COLABORADOR' || t === 'COLABORADORES') color = '#22C55E'; // Green
+  if (t === 'GESTOR') color = '#9333EA'; // Roxo
+  else if (t === 'SOCIO') color = '#EAB308'; // Amarelo
+  else if (t === 'COLABORADOR') color = '#22C55E'; // Verde
+  else if (t === 'GESTOR_DIRETO') color = '#7030A0'; // Roxo escuro
+  else if (t === 'COLABORADOR_DIRETO') color = '#0EA5E9'; // Azul
+  else if (t === 'SOCIO_DIRETO') color = '#F97316'; // Laranja
 
   const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="28" height="40" style="filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.3));"><path fill="${color}" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"/></svg>`;
 
@@ -178,7 +192,7 @@ const MapaImpactados: React.FC<MapaImpactadosProps> = ({ ceps }) => {
           <Marker key={`${marker.id}-${idx}`} position={[marker.lat, marker.lon]} icon={getCustomIcon(marker.tipo)}>
             <Popup>
               <div className="text-sm min-w-[200px]">
-                <span className="font-bold text-purple-700">{marker.tipo}</span><br />
+                <span className="font-bold text-purple-700">{getTipoLabel(marker.tipo)}</span><br />
                 <strong>CEP:</strong> {marker.cep}<br />
                 {marker.endereco}
               </div>
