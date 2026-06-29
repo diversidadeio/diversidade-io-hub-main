@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, Loader2, Sparkles, Info } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { CamposFaltandoPanel, type CampoFaltando } from "@/components/CamposFaltandoPanel";
 import logoImage from "@/assets/logo.png";
 import { DrumDatePicker } from "@/components/ui/drum-date-picker";
 import { supabase } from "@/lib/supabase";
@@ -77,6 +78,8 @@ interface ImpactadaData {
 export default function CadastroGratuito() {
   const [submitted, setSubmitted] = useState(false);
   const [senhaErro, setSenhaErro] = useState("");
+  // Controla quando o painel de campos faltando deve aparecer (apenas após 1ª tentativa de envio)
+  const [tentouEnviar, setTentouEnviar] = useState(false);
 
   // 1. Info Acesso e Responsável
   const [nomeResponsavel, setNomeResponsavel] = useState("");
@@ -505,9 +508,109 @@ export default function CadastroGratuito() {
     }));
   };
 
+  /**
+   * Calcula a lista de campos obrigatórios que ainda não foram preenchidos.
+   * Retorna um array de { id, label, secao } pronto para o CamposFaltandoPanel.
+   */
+  const calcularCamposFaltando = (): CampoFaltando[] => {
+    const faltando: CampoFaltando[] = [];
+
+    // ── Seção 1: Acesso e Responsável ───────────────────────────────
+    if (!fotoResponsavelFile)
+      faltando.push({ id: "fotoResponsavel", label: "Foto do Responsável", secao: "1. Acesso e Responsável" });
+    if (!nomeResponsavel)
+      faltando.push({ id: "nomeResp", label: "Nome do Responsável", secao: "1. Acesso e Responsável" });
+    if (!telefonePrincipal)
+      faltando.push({ id: "telPrin", label: "Telefone Principal", secao: "1. Acesso e Responsável" });
+    if (!email)
+      faltando.push({ id: "email", label: "E-mail", secao: "1. Acesso e Responsável" });
+    if (!senha)
+      faltando.push({ id: "senha", label: "Senha", secao: "1. Acesso e Responsável" });
+    if (!confirmarSenha)
+      faltando.push({ id: "confSenha", label: "Confirmar Senha", secao: "1. Acesso e Responsável" });
+
+    // ── Seção 2: Dados da Empresa ────────────────────────────────────
+    if (!cnpjValido)
+      faltando.push({ id: "cnpj", label: "CNPJ (válido)", secao: "2. Dados da Empresa" });
+    if (!cartaoCnpjFile)
+      faltando.push({ id: "cartaoCnpj", label: "Cartão CNPJ (PDF)", secao: "2. Dados da Empresa" });
+    if (!fichaJuntaFile)
+      faltando.push({ id: "fichaJunta", label: "Ficha da Junta Comercial", secao: "2. Dados da Empresa" });
+    if (!razaoSocial)
+      faltando.push({ id: "razaoSocial", label: "Razão Social", secao: "2. Dados da Empresa" });
+    if (!nomeFantasia)
+      faltando.push({ id: "nomeFantasia", label: "Nome Fantasia", secao: "2. Dados da Empresa" });
+    if (acessoTipo.length === 0)
+      faltando.push({ id: "acessoTipo", label: "Tipo de Acesso", secao: "2. Dados da Empresa" });
+    if (!areaEmpresa)
+      faltando.push({ id: "areaEmpresa", label: "Área da Empresa", secao: "2. Dados da Empresa" });
+    if (!areaGeografica)
+      faltando.push({ id: "areaGeografica", label: "Área Geográfica", secao: "2. Dados da Empresa" });
+    if (!sobreEmpresa)
+      faltando.push({ id: "sobre", label: "Sobre a Empresa", secao: "2. Dados da Empresa" });
+
+    // ── Seção 3: Financeiro ──────────────────────────────────────────
+    if (formasPagamento.length === 0)
+      faltando.push({ id: "formasPagamento", label: "Formas de Pagamento", secao: "3. Financeiro" });
+    if (formasRecebimento.length === 0)
+      faltando.push({ id: "formasRecebimento", label: "Formas de Recebimento", secao: "3. Financeiro" });
+    if (!emiteNotaFiscal)
+      faltando.push({ id: "emiteNotaFiscal", label: "Emite Nota Fiscal?", secao: "3. Financeiro" });
+    if (!temContaPJ)
+      faltando.push({ id: "temContaPJ", label: "Tem Conta Bancária PJ?", secao: "3. Financeiro" });
+
+    // ── Seção 4: Sócios e Impacto ────────────────────────────────────
+    if (!eSocio)
+      faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
+    if (!temNegrosSocios)
+      faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
+    if (!numeroSocios)
+      faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
+
+    // Campos dinâmicos de cada sócio
+    sociosData.forEach((socio, idx) => {
+      const secaoSocio = `4. Sócio ${idx + 1}`;
+      const idBase = `socio-card-${idx}`;
+      if (!socio.nome)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
+      if (!socio.cpf)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
+      if (!socio.dataNascimento)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
+      if (!socio.raca)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
+      if (!socio.sexo)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
+      if (!socio.genero)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
+      if (!socio.deficiencia)
+        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
+    });
+
+    if (autorizaCompartilhamento !== "Sim")
+      faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Sócios e Impacto" });
+
+    return faltando;
+  };
+
+  // Atualiza a lista de campos faltando sempre que qualquer estado relevante mudar
+  const camposFaltando = useMemo(
+    () => calcularCamposFaltando(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      fotoResponsavelFile, nomeResponsavel, telefonePrincipal, email, senha, confirmarSenha,
+      cnpjValido, cartaoCnpjFile, fichaJuntaFile, razaoSocial, nomeFantasia,
+      acessoTipo, areaEmpresa, areaGeografica, sobreEmpresa,
+      formasPagamento, formasRecebimento, emiteNotaFiscal, temContaPJ,
+      eSocio, temNegrosSocios, numeroSocios, sociosData, autorizaCompartilhamento,
+    ]
+  );
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSenhaErro("");
+    // Marca que o usuário tentou enviar — ativa o painel de campos faltando
+    setTentouEnviar(true);
 
     const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
     const todosCepsGestoresValidos = gestoresData.every(g => !g.codigoPostal || g.cepValido);
@@ -729,7 +832,7 @@ export default function CadastroGratuito() {
             </div>
           )}
 
-          <form onSubmit={handleFormSubmit} className="p-8 md:p-12 space-y-12">
+          <form onSubmit={handleFormSubmit} noValidate className="p-8 md:p-12 space-y-12">
             
             {/* 1. Informações de Acesso e Responsável */}
             <section className="space-y-6">
@@ -738,7 +841,7 @@ export default function CadastroGratuito() {
                 <h2 className="text-2xl font-semibold text-gray-900">1. Informações de Acesso e Responsável</h2>
               </div>
 
-              <div className="space-y-4">
+              <div id="fotoResponsavel" className="space-y-4">
                 <Label className="text-gray-700 font-medium">Foto do Responsável (Rosto e Colorida)</Label>
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group bg-white">
                   <input type="file" id="fotoResp" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files && e.target.files[0]) setFotoResponsavelFile(e.target.files[0]) }} />
@@ -840,7 +943,7 @@ export default function CadastroGratuito() {
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={e=>setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
-                <div className="space-y-2">
+                <div id="acessoTipo" className="space-y-2">
                   <Label className="text-gray-700 font-medium">O seu acesso é como: (Pode selecionar mais de um)</Label>
                   <div className="flex flex-col gap-3 mt-2">
                     {[
@@ -878,7 +981,7 @@ export default function CadastroGratuito() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div id="areaEmpresa" className="space-y-2">
                   <Label className="text-gray-700 font-medium">Área da Empresa</Label>
                   <Select onValueChange={setAreaEmpresa} required>
                     <SelectTrigger className="h-12 bg-gray-50 focus:bg-white">
@@ -894,7 +997,7 @@ export default function CadastroGratuito() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                <div id="areaGeografica" className="space-y-2">
                   <Label className="text-gray-700 font-medium">Área Geográfica de Busca</Label>
                   <Select onValueChange={setAreaGeografica} required>
                     <SelectTrigger className="h-12 bg-gray-50 focus:bg-white">
@@ -982,7 +1085,7 @@ export default function CadastroGratuito() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                <div id="formasPagamento" className="space-y-3 bg-gray-50 p-6 rounded-xl border border-gray-100">
                   <Label className="text-gray-800 font-semibold text-base">Formas de Pagamento utilizadas</Label>
                   <div className="space-y-2 mt-2">
                     {["Boleto", "Depósito", "PIX", "Transferência"].map(forma => (
@@ -994,7 +1097,7 @@ export default function CadastroGratuito() {
                   </div>
                 </div>
 
-                <div className="space-y-3 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                <div id="formasRecebimento" className="space-y-3 bg-gray-50 p-6 rounded-xl border border-gray-100">
                   <Label className="text-gray-800 font-semibold text-base">Formas de Recebimento utilizadas</Label>
                   <div className="space-y-2 mt-2">
                     {["Boleto", "Depósito", "PIX", "Transferência"].map(forma => (
@@ -1006,7 +1109,7 @@ export default function CadastroGratuito() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div id="emiteNotaFiscal" className="space-y-3">
                   <Label className="text-gray-800 font-semibold text-base">Sua empresa emite nota fiscal?</Label>
                   <RadioGroup onValueChange={setEmiteNotaFiscal} required className="flex gap-6 mt-2">
                     <div className="flex items-center space-x-2">
@@ -1020,7 +1123,7 @@ export default function CadastroGratuito() {
                   </RadioGroup>
                 </div>
 
-                <div className="space-y-3">
+                <div id="temContaPJ" className="space-y-3">
                   <Label className="text-gray-800 font-semibold text-base">Sua empresa tem conta bancária como PJ?</Label>
                   <RadioGroup onValueChange={setTemContaPJ} required className="flex gap-6 mt-2">
                     <div className="flex items-center space-x-2">
@@ -1057,7 +1160,7 @@ export default function CadastroGratuito() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-6 bg-purple-50/50 p-6 rounded-xl border border-purple-100">
-                <div className="space-y-3">
+                <div id="eSocio" className="space-y-3">
                   <Label className="text-gray-800 font-semibold">Você é sócio da empresa?</Label>
                   <RadioGroup onValueChange={setESocio} required className="flex gap-6 mt-2">
                     <div className="flex items-center space-x-2">
@@ -1070,7 +1173,7 @@ export default function CadastroGratuito() {
                     </div>
                   </RadioGroup>
                 </div>
-                <div className="space-y-3">
+                <div id="temNegrosSocios" className="space-y-3">
                   <Label className="text-gray-800 font-semibold">Existem pessoas negras entre os sócios?</Label>
                   <RadioGroup onValueChange={setTemNegrosSocios} required className="flex gap-6 mt-2">
                     <div className="flex items-center space-x-2">
@@ -1110,7 +1213,8 @@ export default function CadastroGratuito() {
                     {sociosData.map((socio, idx) => (
                       <Dialog key={idx}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="h-16 flex flex-col items-center justify-center border-2 border-dashed hover:border-[#7030A0] hover:bg-purple-50 transition-colors">
+                          {/* id="socio-card-{idx}" permite o scroll do painel de campos faltando */}
+                          <Button id={`socio-card-${idx}`} variant="outline" className="h-16 flex flex-col items-center justify-center border-2 border-dashed hover:border-[#7030A0] hover:bg-purple-50 transition-colors">
                             <span className="font-semibold text-[#0F3A7D]">Sócio {idx + 1}</span>
                             <span className="text-xs text-gray-500">{socio.nome ? 'Preenchido' : 'Preencher informações'}</span>
                           </Button>
@@ -1704,6 +1808,9 @@ export default function CadastroGratuito() {
           </form>
         </div>
       </main>
+
+      {/* Painel flutuante de campos não preenchidos — aparece após 1ª tentativa de envio */}
+      {tentouEnviar && <CamposFaltandoPanel campos={camposFaltando} />}
     </div>
   );
 }
