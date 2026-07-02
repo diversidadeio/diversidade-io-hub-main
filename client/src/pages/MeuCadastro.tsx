@@ -1542,7 +1542,7 @@ export default function MeuCadastro() {
                                     <SelectContent>
                                       <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
                                       <SelectItem value="Homem trans">Homem trans</SelectItem>
-                                      <SelectItem value="Mulher cis">Mulher cis</SelectItem>
+                                      <SelectItem value="Mulher cisgênero">Mulher cisgênero</SelectItem>
                                       <SelectItem value="Mulher trans">Mulher trans</SelectItem>
                                       <SelectItem value="Agênero">Agênero</SelectItem>
                                       <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>

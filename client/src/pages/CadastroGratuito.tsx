@@ -35,7 +35,12 @@ interface SocioData {
   sexoOutro: string;
   genero: string;
   orientacao: string;
-  deficiencia: string;
+  deficiencia: string[];
+  deficienciaAuditivaGrau: string;
+  deficienciaFisicaGrau: string;
+  deficienciaIntelectualGrau: string;
+  deficienciaPsicossocialGrau: string;
+  deficienciaVisualGrau: string;
 }
 
 // Lista de países com código ISO e emoji de bandeira
@@ -163,7 +168,7 @@ export default function CadastroGratuito() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
             });
           }
         } else if (newData.length > num) {
@@ -460,7 +465,7 @@ export default function CadastroGratuito() {
           setNumeroSocios(sociosQsa.length);
           const novosSocios = sociosQsa.map((s: any) => ({
             foto: null, fonteImagem: "", nome: s.nome_socio || "", participacaoValor: "", participacaoPercentual: "",
-            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""
+            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
           }));
           setSociosData(novosSocios);
         }
@@ -583,7 +588,7 @@ export default function CadastroGratuito() {
         faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
       if (!socio.genero)
         faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
-      if (!socio.deficiencia)
+      if (!socio.deficiencia || socio.deficiencia.length === 0)
         faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
     });
 
@@ -739,7 +744,12 @@ export default function CadastroGratuito() {
             sexo: s.sexo === "Outro" ? `Outro: ${s.sexoOutro}` : s.sexo,
             genero: s.genero,
             orientacao: s.orientacao,
-            deficiencia: s.deficiencia,
+            deficiencia: Array.isArray(s.deficiencia) ? s.deficiencia.join(', ') : s.deficiencia,
+            deficiencia_auditiva_grau: s.deficienciaAuditivaGrau,
+            deficiencia_fisica_grau: s.deficienciaFisicaGrau,
+            deficiencia_intelectual_grau: s.deficienciaIntelectualGrau,
+            deficiencia_psicossocial_grau: s.deficienciaPsicossocialGrau,
+            deficiencia_visual_grau: s.deficienciaVisualGrau,
             fonte_imagem: s.fonteImagem
           };
         }));
@@ -1370,7 +1380,7 @@ export default function CadastroGratuito() {
                                     <SelectContent>
                                       <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
                                       <SelectItem value="Homem trans">Homem trans</SelectItem>
-                                      <SelectItem value="Mulher cis">Mulher cis</SelectItem>
+                                      <SelectItem value="Mulher cisgênero">Mulher cisgênero</SelectItem>
                                       <SelectItem value="Mulher trans">Mulher trans</SelectItem>
                                       <SelectItem value="Agênero">Agênero</SelectItem>
                                       <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>
@@ -1378,18 +1388,103 @@ export default function CadastroGratuito() {
                                       <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
                                     </SelectContent>
                                   </Select>
-                                </div>                                <div className="space-y-2 md:col-span-2 mt-2">
-                                  <Label className="text-gray-700 font-medium mb-2 block">Possui algum tipo de deficiência?</Label>
-                                  <RadioGroup value={socio.deficiencia} onValueChange={(v) => updateSocio(idx, 'deficiencia', v)} className="flex gap-6">
-                                    <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="Sim" id={`def-sim-${idx}`} />
-                                      <Label htmlFor={`def-sim-${idx}`}>Sim</Label>
+                                </div>                                <div className="space-y-4 md:col-span-2 mt-4">
+                                  <Label className="text-gray-700 font-medium block border-b pb-2">Deficiência</Label>
+                                  <p className="text-sm text-gray-500 mb-2">Sócio(s) possui alguma deficiência? (Pode selecionar mais de uma)</p>
+                                  
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                    {["Sem deficiência", "Deficiência auditiva", "Deficiência física", "Deficiência intelectual", "Deficiência psicossocial", "Deficiência visual"].map(def => (
+                                      <div key={def} className="flex items-center space-x-2">
+                                        <Checkbox 
+                                          id={`def-${idx}-${def.replace(/\s+/g, '-')}`} 
+                                          checked={socio.deficiencia?.includes(def)} 
+                                          onCheckedChange={(checked) => {
+                                            const current = socio.deficiencia || [];
+                                            let next;
+                                            if (checked) {
+                                              if (def === "Sem deficiência") next = ["Sem deficiência"];
+                                              else next = [...current.filter(d => d !== "Sem deficiência"), def];
+                                            } else {
+                                              next = current.filter(d => d !== def);
+                                            }
+                                            updateSocio(idx, 'deficiencia', next);
+                                          }} 
+                                        />
+                                        <label htmlFor={`def-${idx}-${def.replace(/\s+/g, '-')}`} className="text-sm cursor-pointer">{def}</label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  
+                                  {socio.deficiencia?.includes("Deficiência auditiva") && (
+                                    <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
+                                      <Label>Qual o grau da sua deficiência auditiva?</Label>
+                                      <Select value={socio.deficienciaAuditivaGrau} onValueChange={(v) => updateSocio(idx, 'deficienciaAuditivaGrau', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Selecione o grau" /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Perda unilateral">Perda unilateral</SelectItem>
+                                          <SelectItem value="Perda bilateral">Perda bilateral</SelectItem>
+                                          <SelectItem value="Parcial">Parcial</SelectItem>
+                                          <SelectItem value="Total de 41db (ou mais)">Total de 41db (ou mais)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="Não" id={`def-nao-${idx}`} />
-                                      <Label htmlFor={`def-nao-${idx}`}>Não</Label>
+                                  )}
+
+                                  {socio.deficiencia?.includes("Deficiência física") && (
+                                    <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
+                                      <Label>Qual o grau da sua deficiência física?</Label>
+                                      <Select value={socio.deficienciaFisicaGrau} onValueChange={(v) => updateSocio(idx, 'deficienciaFisicaGrau', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Selecione o grau" /></SelectTrigger>
+                                        <SelectContent>
+                                          {["Paraparesia", "Monoplegia", "Monoparesia", "Tetraplegia", "Tetraparesia", "Triplegia", "Triparesia", "Hemiplegia", "Hemiparesia", "Paralisia cerebral", "Amputação ou ausência de membro", "Ostomia", "Nanismo", "Membros com deformidade congênita", "Membros com deformidade adquirida"].map(opt => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                     </div>
-                                  </RadioGroup>
+                                  )}
+
+                                  {socio.deficiencia?.includes("Deficiência intelectual") && (
+                                    <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
+                                      <Label>Qual o grau da sua deficiência intelectual?</Label>
+                                      <Select value={socio.deficienciaIntelectualGrau} onValueChange={(v) => updateSocio(idx, 'deficienciaIntelectualGrau', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Selecione o grau" /></SelectTrigger>
+                                        <SelectContent>
+                                          {["Comunicação", "Cuidado pessoal", "Habilidades sociais", "Utilização de recursos da comunidade", "Deficiência múltipla"].map(opt => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+
+                                  {socio.deficiencia?.includes("Deficiência psicossocial") && (
+                                    <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
+                                      <Label>Qual o grau da sua deficiência psicossocial?</Label>
+                                      <Select value={socio.deficienciaPsicossocialGrau} onValueChange={(v) => updateSocio(idx, 'deficienciaPsicossocialGrau', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Selecione o grau" /></SelectTrigger>
+                                        <SelectContent>
+                                          {["Mania", "Esquizofrenia", "Depressão", "Síndrome do pânico", "Transtorno obsessivo-compulsivo", "Paranoia", "Pessoa neurodiversa"].map(opt => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+
+                                  {socio.deficiencia?.includes("Deficiência visual") && (
+                                    <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
+                                      <Label>Qual o grau da sua deficiência visual?</Label>
+                                      <Select value={socio.deficienciaVisualGrau} onValueChange={(v) => updateSocio(idx, 'deficienciaVisualGrau', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Selecione o grau" /></SelectTrigger>
+                                        <SelectContent>
+                                          {["Cegueira: visão menor do que 5%", "Baixa visão: visão entre 30% e 59%", "Campo visual: Menor do que 60%", "Cegueira monocular: visão de apenas um olho", "Redução da visão", "Daltonismo", "Visão acima de 50%"].map(opt => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
