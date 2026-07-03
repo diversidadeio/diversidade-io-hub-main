@@ -9,12 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, Loader2, Sparkles, Info } from "lucide-react";
 import { Link } from "wouter";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CamposFaltandoPanel, type CampoFaltando } from "@/components/CamposFaltandoPanel";
 import logoImage from "@/assets/logo.png";
 import { DrumDatePicker } from "@/components/ui/drum-date-picker";
 import { supabase } from "@/lib/supabase";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
+import { toast } from "sonner";
 
 interface SocioData {
   foto: File | null;
@@ -93,6 +94,15 @@ export default function CadastroGratuito() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [salvoComSucesso, setSalvoComSucesso] = useState(false);
+
+  // Auto-dismiss do toast de sucesso após 3 segundos
+  useEffect(() => {
+    if (salvoComSucesso) {
+      const timer = setTimeout(() => setSalvoComSucesso(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [salvoComSucesso]);
 
   // 2. Dados Empresa
   const [razaoSocial, setRazaoSocial] = useState("");
@@ -184,6 +194,23 @@ export default function CadastroGratuito() {
   const updateSocio = (index: number, field: keyof SocioData, value: any) => {
     const newData = [...sociosData];
     newData[index] = { ...newData[index], [field]: value };
+    
+    if (field === 'dataNascimento' && typeof value === 'string' && value.length === 10) {
+      const [d, m, a] = value.split('/').map(Number);
+      if (d && m && a) {
+        const dataNasc = new Date(a, m - 1, d);
+        const hoje = new Date();
+        let idade = hoje.getFullYear() - dataNasc.getFullYear();
+        const mDiff = hoje.getMonth() - dataNasc.getMonth();
+        if (mDiff < 0 || (mDiff === 0 && hoje.getDate() < dataNasc.getDate())) {
+          idade--;
+        }
+        if (idade >= 0) {
+          newData[index].etariedade = idade.toString();
+        }
+      }
+    }
+    
     setSociosData(newData);
   };
 
@@ -1320,8 +1347,8 @@ export default function CadastroGratuito() {
                                   <Input value={socio.nacionalidade} onChange={(e) => updateSocio(idx, 'nacionalidade', e.target.value)} placeholder="Ex: Brasileira" />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Etariedade</Label>
-                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, 'etariedade', e.target.value)} placeholder="Sua faixa etária/idade" />
+                                  <Label className="text-gray-700 font-medium">Idade</Label>
+                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, 'etariedade', e.target.value)} placeholder="Sua idade" />
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium flex items-center gap-1">
@@ -1490,7 +1517,10 @@ export default function CadastroGratuito() {
                             </div>
                             <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
                               <DialogClose asChild>
-                                <Button className="bg-[#7030A0] hover:bg-[#5a2680] text-white">
+                                <Button 
+                                  className="bg-[#7030A0] hover:bg-[#5a2680] text-white"
+                                  onClick={() => setSalvoComSucesso(true)}
+                                >
                                   Confirmar Informações
                                 </Button>
                               </DialogClose>
@@ -1906,6 +1936,20 @@ export default function CadastroGratuito() {
 
       {/* Painel flutuante de campos não preenchidos — aparece após 1ª tentativa de envio */}
       {tentouEnviar && <CamposFaltandoPanel campos={camposFaltando} />}
+      
+      {/* Toast de sucesso fixo */}
+      {salvoComSucesso && (
+        <div
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-green-600 text-white px-5 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+          style={{ minWidth: '280px' }}
+        >
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-sm">Informações salvas com sucesso!</p>
+            <p className="text-xs text-green-100">Seus dados foram atualizados.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

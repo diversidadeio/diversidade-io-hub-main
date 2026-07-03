@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 import { Download, Trash2, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 interface SocioData {
   foto: File | null;
@@ -485,6 +486,23 @@ export default function MeuCadastro() {
   const updateSocio = (index: number, field: keyof SocioData, value: any) => {
     const newData = [...sociosData];
     newData[index] = { ...newData[index], [field]: value };
+    
+    if (field === 'dataNascimento' && typeof value === 'string' && value.length === 10) {
+      const [d, m, a] = value.split('/').map(Number);
+      if (d && m && a) {
+        const dataNasc = new Date(a, m - 1, d);
+        const hoje = new Date();
+        let idade = hoje.getFullYear() - dataNasc.getFullYear();
+        const mDiff = hoje.getMonth() - dataNasc.getMonth();
+        if (mDiff < 0 || (mDiff === 0 && hoje.getDate() < dataNasc.getDate())) {
+          idade--;
+        }
+        if (idade >= 0) {
+          newData[index].etariedade = idade.toString();
+        }
+      }
+    }
+    
     setSociosData(newData);
   };
 
@@ -1482,8 +1500,8 @@ export default function MeuCadastro() {
                                   <Input value={socio.nacionalidade} onChange={(e) => updateSocio(idx, "nacionalidade", e.target.value)} placeholder="Ex: Brasileira" />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Etariedade</Label>
-                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, "etariedade", e.target.value)} placeholder="Sua faixa etária/idade" />
+                                  <Label className="text-gray-700 font-medium">Idade</Label>
+                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, "etariedade", e.target.value)} placeholder="Sua idade" />
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium flex items-center gap-1">
@@ -1567,7 +1585,12 @@ export default function MeuCadastro() {
                             </div>
                             <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
                               <DialogClose asChild>
-                                <Button className="bg-[#7030A0] hover:bg-[#5a2680] text-white">
+                                <Button 
+                                  className="bg-[#7030A0] hover:bg-[#5a2680] text-white"
+                                  onClick={(e) => {
+                                    handleFormSubmit({ preventDefault: () => {} } as React.FormEvent);
+                                  }}
+                                >
                                   Confirmar Informações
                                 </Button>
                               </DialogClose>
