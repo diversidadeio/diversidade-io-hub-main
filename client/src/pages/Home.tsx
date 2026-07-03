@@ -69,9 +69,9 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-br from-white via-blue-50 to-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30 -z-10"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-green-100 rounded-full blur-3xl opacity-20 -z-10"></div>
+      <section className="pt-32 pb-20 bg-gradient-to-br from-white via-purple-50 to-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-20 -z-10" style={{backgroundColor: '#7030A0'}}></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-10 -z-10" style={{backgroundColor: '#502273'}}></div>
 
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -102,6 +102,7 @@ export default function Home() {
                 src="https://d2xsxph8kpxj0f.cloudfront.net/310419663028736640/fj5hvLQNAskbvkdGiCiGce/hero-bg-abstract-i8GKuPACJQsHQUFouWXqeG.webp"
                 alt="Hero Background"
                 className="absolute inset-0 w-full h-full object-cover rounded-2xl shadow-2xl"
+                style={{ filter: 'hue-rotate(50deg) saturate(1.3) brightness(0.85)' }}
               />
               <img
                 src={rhinoImage}
@@ -763,7 +764,7 @@ export default function Home() {
 
           {/* Contact Info */}
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-8 max-w-3xl mx-auto text-center">
-            <h3 className="text-2xl font-bold mb-8">Falar com a Diversidade.io</h3>
+            <h3 className="text-2xl font-bold mb-8 text-white">Falar com a Diversidade.io</h3>
             <div className="grid md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-white/20">
               {/* Comercial */}
               <div className="space-y-3 pb-6 md:pb-0">
