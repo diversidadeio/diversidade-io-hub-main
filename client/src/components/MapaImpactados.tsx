@@ -88,68 +88,101 @@ const MapaImpactados: React.FC<MapaImpactadosProps> = ({ ceps }) => {
   useEffect(() => {
     const fetchCoordinates = async () => {
       setLoading(true);
-      const newMarkers: MarkerData[] = [];
       
       // Filtra apenas os que tem endereço válido
       const cepsComEndereco = ceps.filter(c => c.endereco_validado);
 
-      for (let i = 0; i < cepsComEndereco.length; i++) {
-        const item = cepsComEndereco[i];
+      const markerPromises = cepsComEndereco.map(async (item, i) => {
         try {
-          // Busca coordenadas via Nominatim (OpenStreetMap)
-          // Usamos um delay de 1s para respeitar a política de uso do Nominatim (1 req/segundo)
-          if (i > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          const enderecoOriginal = item.endereco_validado || '';
+          const isBrazilianFormat = enderecoOriginal.match(/ - [A-Z]{2}$/);
+          const cleanCep = item.cep.replace(/\D/g, '');
+
+          // Se for Brasil e tiver CEP válido, usamos a AwesomeAPI que é rápida e permite paralelo
+          if ((item.pais === 'BR' || item.pais === 'Brasil' || isBrazilianFormat) && cleanCep.length === 8) {
+            const response = await fetch(`https://cep.awesomeapi.com.br/json/${cleanCep}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.lat && data.lng) {
+                return {
+                  id: item.id || `temp-${i}`,
+                  lat: parseFloat(data.lat),
+                  lon: parseFloat(data.lng),
+                  tipo: item.tipo,
+                  cep: item.cep,
+                  endereco: enderecoOriginal
+                };
+              }
+            }
           }
 
-          let cleanQuery = item.endereco_validado || '';
-          
-          // Verifica se o endereço tem formato típico do ViaCEP (termina com " - UF")
-          const isBrazilianFormat = cleanQuery.match(/ - [A-Z]{2}$/);
-          
+          // Fallback para Nominatim (Internacional ou falha da AwesomeAPI)
+          let cleanQuery = '';
           if (item.pais === 'BR' || item.pais === 'Brasil' || isBrazilianFormat) {
-            // Formato Brasil: limpamos para focar na rua e no estado, pois Nominatim confunde com o bairro
-            if (cleanQuery.includes(' - ')) {
-              const parts = cleanQuery.split(' - ');
+            if (enderecoOriginal.includes(' - ')) {
+              const parts = enderecoOriginal.split(' - ');
               const uf = parts[1].trim();
-              const streetPart = parts[0].split(',')[0].trim();
-              cleanQuery = `${streetPart}, ${uf}, Brasil`;
+              const parteEndereco = parts[0].trim();
+              cleanQuery = `${parteEndereco}, ${uf}, Brasil`;
             } else {
-              cleanQuery = `${cleanQuery}, Brasil`;
+              cleanQuery = `${enderecoOriginal}, Brasil`;
             }
           } else {
-            // Formato Internacional (Zippopotam gera ex: "Carteret, New Jersey - United States")
-            // Trocamos o hífen por vírgula
-            cleanQuery = cleanQuery.replace(' - ', ', ');
-            
-            // Adiciona o país se estiver presente na variável item.pais e ainda não estiver na string
+            cleanQuery = enderecoOriginal.replace(' - ', ', ');
             if (item.pais && item.pais !== 'BR' && item.pais !== 'Brasil') {
-               if (!cleanQuery.toLowerCase().includes(item.pais.toLowerCase())) {
-                 cleanQuery = `${cleanQuery}, ${item.pais}`;
-               }
+              if (!cleanQuery.toLowerCase().includes(item.pais.toLowerCase())) {
+                cleanQuery = `${cleanQuery}, ${item.pais}`;
+              }
             }
           }
 
           const query = encodeURIComponent(cleanQuery);
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&email=tecnologia@diversidade.io`);
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${query}&email=tecnologia@diversidade.io`
+          );
           const data = await response.json();
 
           if (data && data.length > 0) {
-            newMarkers.push({
+            return {
               id: item.id || `temp-${i}`,
               lat: parseFloat(data[0].lat),
               lon: parseFloat(data[0].lon),
               tipo: item.tipo,
               cep: item.cep,
-              endereco: item.endereco_validado || ''
-            });
+              endereco: enderecoOriginal
+            };
           }
+          return null;
         } catch (error) {
-          console.error("Erro ao buscar coordenadas para:", item.endereco_validado, error);
+          console.error('Erro ao buscar coordenadas para:', item.endereco_validado, error);
+          return null;
         }
-      }
+      });
 
-      setMarkers(newMarkers);
+      // Executa as buscas e filtra os resultados nulos
+      const resolvedMarkers = (await Promise.all(markerPromises)).filter(m => m !== null) as MarkerData[];
+
+      // Adiciona um "jitter" (pequeno deslocamento aleatório de ~20-30 metros)
+      // para pins que têm as exatas mesmas coordenadas, evitando que fiquem ocultos um atrás do outro.
+      const usedCoords = new Set<string>();
+      const finalMarkers = resolvedMarkers.map(marker => {
+        let { lat, lon } = marker;
+        let coordKey = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+        
+        while (usedCoords.has(coordKey)) {
+          // Desloca em um círculo minúsculo
+          const ang = Math.random() * Math.PI * 2;
+          const radius = 0.0003; // Aprox 30 metros
+          lat += Math.cos(ang) * radius;
+          lon += Math.sin(ang) * radius;
+          coordKey = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+        }
+        
+        usedCoords.add(coordKey);
+        return { ...marker, lat, lon };
+      });
+
+      setMarkers(finalMarkers);
       setLoading(false);
     };
 
@@ -159,6 +192,7 @@ const MapaImpactados: React.FC<MapaImpactadosProps> = ({ ceps }) => {
       setLoading(false);
     }
   }, [ceps]);
+
 
   if (loading) {
     return (
