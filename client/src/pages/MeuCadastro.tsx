@@ -1823,9 +1823,9 @@ export default function MeuCadastro() {
                           const isDep = recorte.label === "Dependentes financeiros (não entram no Score RIS)";
                           
                           const key = recorte.label as keyof typeof diversidadeGlobal;
-                          const totalSocios = diversidadeGlobal["Total de Pessoas"].socios;
-                          const totalGestores = diversidadeGlobal["Total de Pessoas"].gestores;
-                          const totalColab = diversidadeGlobal["Total de Pessoas"].colaboradores;
+                          const totalSocios = diversidadeGlobal["Total de Pessoas"]?.socios || "";
+                          const totalGestores = diversidadeGlobal["Total de Pessoas"]?.gestores || "";
+                          const totalColab = diversidadeGlobal["Total de Pessoas"]?.colaboradores || "";
 
                           return (
                             <tr key={idx} className={`${recorte.bg} transition-colors`}>
