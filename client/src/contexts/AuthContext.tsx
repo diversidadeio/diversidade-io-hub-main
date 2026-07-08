@@ -7,9 +7,13 @@ import { supabase } from "@/lib/supabase";
 interface UsuarioSessao {
   empresaId: string;
   email: string;
+  nome: string;
+  fotoUrl: string | null;
   nomeResponsavel: string;
   tipoUsuario: 'empresa' | 'adm';
   senhaTemporaria: boolean;
+  papel?: 'admin' | 'usuario';
+  statusAprovacao: 'pendente' | 'aprovado' | 'rejeitado';
   expiraEm: number; // Timestamp em milissegundos
 }
 
@@ -17,6 +21,7 @@ interface AuthContextType {
   usuario: UsuarioSessao | null;
   isLogado: boolean;
   isAdm: boolean;
+  isPendente: boolean;
   senhaTemporaria: boolean;
   isCarregando: boolean;
   login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }>;
@@ -61,36 +66,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
-  /**
-   * Realiza o login buscando o usuário na tabela 'empresas' pelo e-mail e senha.
-   * Em caso de sucesso, persiste a sessão no localStorage.
-   */
   const login = async (
     email: string,
     senha: string
   ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }> => {
     try {
-      const senhaHasheada = await hashPassword(senha);
-      const { data, error } = await supabase.rpc('autenticar_empresa', {
-        p_email: email,
-        p_senha: senhaHasheada
+      // 1. Tenta login direto no Supabase Auth
+      let authResult = await supabase.auth.signInWithPassword({ email, password: senha });
+
+      // 2. Se falhou (senha não confere), tenta migrar a senha do sistema antigo (SHA-256)
+      if (authResult.error) {
+        try {
+          const migracao = await fetch('/api/migrar-senha', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, senha })
+          });
+
+          if (migracao.ok) {
+            // Migração OK → tenta logar novamente com a senha recém-atualizada
+            authResult = await supabase.auth.signInWithPassword({ email, password: senha });
+          }
+        } catch {
+          // Ignora erro da migração, vai mostrar erro original
+        }
+      }
+
+      if (authResult.error || !authResult.data?.user) {
+        return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
+      }
+
+      const authData = authResult.data;
+
+      // 3. Busca os dados da empresa vinculada ao usuário
+      const { data, error } = await supabase.rpc('obter_sessao_usuario', {
+        p_auth_user_id: authData.user.id
       });
 
-      // Como a RPC agora retorna TABLE, o SupabaseJS pode devolver um array.
       const userData = Array.isArray(data) ? data[0] : data;
 
       if (error || !userData) {
-        return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
+        await supabase.auth.signOut();
+        return { sucesso: false, erro: "Usuário não vinculado a nenhuma empresa." };
       }
 
       // Define expiração para 8 horas a partir de agora
       const OITO_HORAS_EM_MS = 8 * 60 * 60 * 1000;
       const sessao: UsuarioSessao = {
-        empresaId: userData.id,
+        empresaId: userData.empresa_id,
         email: userData.email,
+        nome: userData.nome,
+        fotoUrl: userData.foto_url,
         nomeResponsavel: userData.nome_responsavel,
         tipoUsuario: userData.tipo_usuario || 'empresa',
-        senhaTemporaria: userData.senha_temporaria || false,
+        papel: userData.papel || 'admin',
+        senhaTemporaria: false,
+        statusAprovacao: userData.status_aprovacao || 'pendente',
         expiraEm: Date.now() + OITO_HORAS_EM_MS,
       };
 
@@ -109,9 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * Encerra a sessão do usuário removendo os dados do localStorage.
+   * Encerra a sessão do usuário removendo os dados do localStorage e do Supabase Auth.
    */
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem(CHAVE_SESSAO);
     setUsuario(null);
   };
@@ -132,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         usuario,
         isLogado: !!usuario,
         isAdm: usuario?.tipoUsuario === 'adm',
+        isPendente: usuario?.tipoUsuario !== 'adm' && usuario?.statusAprovacao !== 'aprovado',
         senhaTemporaria: usuario?.senhaTemporaria || false,
         isCarregando,
         login,

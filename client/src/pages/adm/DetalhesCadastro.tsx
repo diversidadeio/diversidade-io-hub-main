@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin } from "lucide-react";
+import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function DetalhesCadastroAdm() {
   const [, params] = useRoute("/adm/cadastros/:id");
@@ -21,6 +22,7 @@ export default function DetalhesCadastroAdm() {
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [dialogoSalaAberta, setDialogoSalaAberta] = useState(false);
   const [mostrarMapa, setMostrarMapa] = useState(false);
+  const [aprovando, setAprovando] = useState(false);
 
   useEffect(() => {
     async function carregar() {
@@ -57,6 +59,35 @@ export default function DetalhesCadastroAdm() {
       alert("Erro ao gerar senha: " + err.message);
     } finally {
       setGerandoSenha(false);
+    }
+  };
+
+  const handleAprovar = async () => {
+    if (!id || !empresa) return;
+    setAprovando(true);
+    try {
+      const { error } = await supabase
+        .from('empresas')
+        .update({ status_aprovacao: 'aprovado' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEmpresa({ ...empresa, status_aprovacao: 'aprovado' });
+      toast.success('Cadastro aprovado com sucesso! Um e-mail será enviado à empresa.');
+
+      // Disparar e-mail de aprovação via Edge Function
+      try {
+        await supabase.functions.invoke('enviar-email-aprovacao', {
+          body: { email: empresa.email, nome: empresa.nome }
+        });
+      } catch {
+        // E-mail é melhor esforço; não bloqueia a aprovação
+      }
+    } catch (err: any) {
+      toast.error('Erro ao aprovar: ' + err.message);
+    } finally {
+      setAprovando(false);
     }
   };
 
@@ -113,18 +144,48 @@ export default function DetalhesCadastroAdm() {
                 <ArrowLeft className="w-4 h-4" /> Voltar para lista
               </a>
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">{empresa.razao_social || 'Cadastro Sem Razão Social'}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">{empresa.razao_social || 'Cadastro Sem Razão Social'}</h1>
+              {/* Badge de status */}
+              {empresa.status_aprovacao === 'pendente' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200">
+                  <Clock className="w-3 h-3" /> Pendente
+                </span>
+              )}
+              {empresa.status_aprovacao === 'aprovado' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold border border-green-200">
+                  <CheckCircle2 className="w-3 h-3" /> Aprovado
+                </span>
+              )}
+              {empresa.status_aprovacao === 'rejeitado' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold border border-red-200">
+                  <XCircle className="w-3 h-3" /> Rejeitado
+                </span>
+              )}
+            </div>
             <p className="text-gray-600 mt-1">CNPJ: {empresa.cnpj || 'Não informado'}</p>
           </div>
           
-          <Button 
-            onClick={handleGerarSenha} 
-            disabled={gerandoSenha}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-md rounded-xl h-11 px-6"
-          >
-            {gerandoSenha ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
-            Gerar Senha Temporária
-          </Button>
+          <div className="flex gap-3">
+            {empresa.status_aprovacao === 'pendente' && (
+              <Button
+                onClick={handleAprovar}
+                disabled={aprovando}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md rounded-xl h-11 px-6"
+              >
+                {aprovando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Aprovar Cadastro
+              </Button>
+            )}
+            <Button 
+              onClick={handleGerarSenha} 
+              disabled={gerandoSenha}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-md rounded-xl h-11 px-6"
+            >
+              {gerandoSenha ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+              Gerar Senha Temporária
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8">

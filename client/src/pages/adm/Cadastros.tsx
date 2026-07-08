@@ -9,13 +9,14 @@ export default function CadastrosAdm() {
   const [cadastros, setCadastros] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'pendente' | 'aprovado'>('todos');
 
   useEffect(() => {
     async function carregarCadastros() {
       try {
         const { data, error } = await supabase
           .from('empresas')
-          .select('id, razao_social, cnpj, email, created_at, nome_responsavel')
+          .select('id, razao_social, cnpj, email, created_at, nome_responsavel, status_aprovacao')
           .neq('tipo_usuario', 'adm')
           .order('created_at', { ascending: false });
 
@@ -32,11 +33,13 @@ export default function CadastrosAdm() {
 
   const cadastrosFiltrados = cadastros.filter(emp => {
     const termo = busca.toLowerCase();
-    return (
+    const matchBusca = (
       (emp.razao_social && emp.razao_social.toLowerCase().includes(termo)) ||
       (emp.cnpj && emp.cnpj.includes(termo)) ||
       (emp.email && emp.email.toLowerCase().includes(termo))
     );
+    const matchStatus = filtroStatus === 'todos' || emp.status_aprovacao === filtroStatus;
+    return matchBusca && matchStatus;
   });
 
   return (
@@ -56,6 +59,25 @@ export default function CadastrosAdm() {
               onChange={(e) => setBusca(e.target.value)}
             />
           </div>
+        </div>
+
+        {/* Abas de filtro por status */}
+        <div className="flex gap-2">
+          {(['todos', 'pendente', 'aprovado'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setFiltroStatus(status)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filtroStatus === status
+                  ? 'bg-purple-700 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {status === 'todos' ? `Todos (${cadastros.length})` : ''}
+              {status === 'pendente' ? `⏳ Pendentes (${cadastros.filter(c => c.status_aprovacao === 'pendente').length})` : ''}
+              {status === 'aprovado' ? `✅ Aprovados (${cadastros.filter(c => c.status_aprovacao === 'aprovado').length})` : ''}
+            </button>
+          ))}
         </div>
         
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -88,12 +110,21 @@ export default function CadastrosAdm() {
                   </tr>
                 ) : (
                   cadastrosFiltrados.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={emp.id} className={`hover:bg-gray-50 transition-colors ${emp.status_aprovacao === 'pendente' ? 'bg-amber-50/40' : ''}`}>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-900 truncate max-w-[250px]">
-                          {emp.razao_social || 'N/A'}
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="font-semibold text-gray-900 truncate max-w-[220px]">
+                              {emp.razao_social || 'N/A'}
+                            </div>
+                            <div className="text-gray-500 text-xs mt-0.5 truncate max-w-[220px]">{emp.email}</div>
+                          </div>
+                          {emp.status_aprovacao === 'pendente' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200 whitespace-nowrap">
+                              Pendente
+                            </span>
+                          )}
                         </div>
-                        <div className="text-gray-500 text-xs mt-0.5 truncate max-w-[250px]">{emp.email}</div>
                       </td>
                       <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{emp.cnpj || 'N/A'}</td>
                       <td className="px-6 py-4 text-gray-600 truncate max-w-[200px]">{emp.nome_responsavel || 'N/A'}</td>

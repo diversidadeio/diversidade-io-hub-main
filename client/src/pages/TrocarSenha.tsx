@@ -16,13 +16,7 @@ export default function TrocarSenha() {
   const { usuario, atualizarSessao } = useAuth();
   const [, navigate] = useLocation();
 
-  // Função auxiliar de hash
-  const hashPassword = async (password: string) => {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,23 +34,18 @@ export default function TrocarSenha() {
     setIsCarregando(true);
 
     try {
-      if (!usuario) throw new Error("Usuário não encontrado na sessão.");
-
-      const senhaHasheada = await hashPassword(senha);
-
-      const { error } = await supabase.rpc('redefinir_senha', {
-        p_empresa_id: usuario.empresaId,
-        p_nova_senha_hash: senhaHasheada
+      const { error } = await supabase.auth.updateUser({
+        password: senha
       });
 
       if (error) throw error;
 
-      // Atualiza a sessão e vai para o fluxo normal
-      atualizarSessao({ senhaTemporaria: false });
+      // Sai da sessão atual do Supabase para forçar um novo login completo pelo AuthContext
+      await supabase.auth.signOut();
       
-      // O App.tsx ou o AuthContext cuidará do roteamento na próxima renderização,
-      // mas podemos forçar o redirecionamento aqui.
-      navigate(usuario.tipoUsuario === 'adm' ? "/adm" : "/meu-cadastro");
+      // Redireciona para o login
+      navigate("/");
+
       
     } catch (err: any) {
       console.error(err);
@@ -65,11 +54,9 @@ export default function TrocarSenha() {
     }
   };
 
-  // Proteção: só deve estar aqui se senhaTemporaria for true
-  if (!usuario || !usuario.senhaTemporaria) {
-    navigate("/");
-    return null;
-  }
+  // Removemos a verificação estrita de usuario.senhaTemporaria porque no fluxo de
+  // recuperação por e-mail do Supabase Auth, a pessoa já cai aqui autenticada
+  // temporariamente pelo token do link.
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">

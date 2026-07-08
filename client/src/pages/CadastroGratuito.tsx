@@ -112,7 +112,19 @@ export default function CadastroGratuito() {
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjErro, setCnpjErro] = useState("");
   const [acessoTipo, setAcessoTipo] = useState<string[]>([]);
-  const [acessoTipoOutro, setAcessoTipoOutro] = useState("");
+  const mostrarCompleto = acessoTipo.length === 0 || acessoTipo.includes("EMPREENDIMENTO DIVERSO");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tipo = params.get('tipo');
+    if (tipo === 'empresa-incentivadora') {
+      setAcessoTipo(['EMPRESA OU INICIATIVA INCENTIVADORA']);
+    } else if (tipo === 'fornecedor-inclusivo') {
+      setAcessoTipo(['FORNECEDOR INCLUSIVO']);
+    } else if (tipo === 'empreendimento-diverso') {
+      setAcessoTipo(['EMPREENDIMENTO DIVERSO']);
+    }
+  }, []);
 
   // 2.5 Arquivos
   const [fotoResponsavelFile, setFotoResponsavelFile] = useState<File | null>(null);
@@ -160,13 +172,6 @@ export default function CadastroGratuito() {
     "Pessoas 60+": { socios: "", gestores: "", colaboradores: "" },
     "Dependentes financeiros (não entram no Score RIS)": { socios: "", gestores: "", colaboradores: "" }
   });
-
-  const hashPassword = async (password: string) => {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
 
   const handleNumeroSociosChange = (val: string) => {
     const num = val ? parseInt(val, 10) : "";
@@ -581,46 +586,48 @@ export default function CadastroGratuito() {
     if (!sobreEmpresa)
       faltando.push({ id: "sobre", label: "Sobre a Empresa", secao: "2. Dados da Empresa" });
 
-    // ── Seção 3: Financeiro ──────────────────────────────────────────
-    if (formasPagamento.length === 0)
-      faltando.push({ id: "formasPagamento", label: "Formas de Pagamento", secao: "3. Financeiro" });
-    if (formasRecebimento.length === 0)
-      faltando.push({ id: "formasRecebimento", label: "Formas de Recebimento", secao: "3. Financeiro" });
-    if (!emiteNotaFiscal)
-      faltando.push({ id: "emiteNotaFiscal", label: "Emite Nota Fiscal?", secao: "3. Financeiro" });
-    if (!temContaPJ)
-      faltando.push({ id: "temContaPJ", label: "Tem Conta Bancária PJ?", secao: "3. Financeiro" });
+    if (mostrarCompleto) {
+      // ── Seção 3: Financeiro ──────────────────────────────────────────
+      if (formasPagamento.length === 0)
+        faltando.push({ id: "formasPagamento", label: "Formas de Pagamento", secao: "3. Financeiro" });
+      if (formasRecebimento.length === 0)
+        faltando.push({ id: "formasRecebimento", label: "Formas de Recebimento", secao: "3. Financeiro" });
+      if (!emiteNotaFiscal)
+        faltando.push({ id: "emiteNotaFiscal", label: "Emite Nota Fiscal?", secao: "3. Financeiro" });
+      if (!temContaPJ)
+        faltando.push({ id: "temContaPJ", label: "Tem Conta Bancária PJ?", secao: "3. Financeiro" });
 
-    // ── Seção 4: Sócios e Impacto ────────────────────────────────────
-    if (!eSocio)
-      faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
-    if (!temNegrosSocios)
-      faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
-    if (!numeroSocios)
-      faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
+      // ── Seção 4: Sócios e Impacto ────────────────────────────────────
+      if (!eSocio)
+        faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
+      if (!temNegrosSocios)
+        faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
+      if (!numeroSocios)
+        faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
 
-    // Campos dinâmicos de cada sócio
-    sociosData.forEach((socio, idx) => {
-      const secaoSocio = `4. Sócio ${idx + 1}`;
-      const idBase = `socio-card-${idx}`;
-      if (!socio.nome)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
-      if (!socio.cpf)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
-      if (!socio.dataNascimento)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
-      if (!socio.raca)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
-      if (!socio.sexo)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
-      if (!socio.genero)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
-      if (!socio.deficiencia || socio.deficiencia.length === 0)
-        faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
-    });
+      // Campos dinâmicos de cada sócio
+      sociosData.forEach((socio, idx) => {
+        const secaoSocio = `4. Sócio ${idx + 1}`;
+        const idBase = `socio-card-${idx}`;
+        if (!socio.nome)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
+        if (!socio.cpf)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
+        if (!socio.dataNascimento)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
+        if (!socio.raca)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
+        if (!socio.sexo)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
+        if (!socio.genero)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
+        if (!socio.deficiencia || socio.deficiencia.length === 0)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
+      });
 
-    if (autorizaCompartilhamento !== "Sim")
-      faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Sócios e Impacto" });
+      if (autorizaCompartilhamento !== "Sim")
+        faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Sócios e Impacto" });
+    }
 
     return faltando;
   };
@@ -644,15 +651,17 @@ export default function CadastroGratuito() {
     // Marca que o usuário tentou enviar — ativa o painel de campos faltando
     setTentouEnviar(true);
 
-    const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
-    const todosCepsGestoresValidos = gestoresData.every(g => !g.codigoPostal || g.cepValido);
-    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.codigoPostal || s.cepValido);
-    const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.codigoPostal || c.cepValido);
+    if (mostrarCompleto) {
+      const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
+      const todosCepsGestoresValidos = gestoresData.every(g => !g.codigoPostal || g.cepValido);
+      const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.codigoPostal || s.cepValido);
+      const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.codigoPostal || c.cepValido);
 
-    if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos) {
-      setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
+      if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos) {
+        setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
     }
 
     if (!cnpjValido) {
@@ -672,7 +681,7 @@ export default function CadastroGratuito() {
       return;
     }
 
-    if (autorizaCompartilhamento !== "Sim") {
+    if (mostrarCompleto && autorizaCompartilhamento !== "Sim") {
       setSenhaErro("É obrigatório dar o consentimento para o tratamento dos dados sensíveis (Opt-in) para prosseguir com o cadastro.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -681,8 +690,17 @@ export default function CadastroGratuito() {
     setBuscandoCnpj(true); // Reusing this state to show a general loading spinner later if needed
 
     try {
+      // 1. Criar o usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: senha
+      });
+
+      if (authError) throw new Error(`Erro de autenticação: ${authError.message}`);
+      const authUserId = authData.user?.id;
+      if (!authUserId) throw new Error("Não foi possível gerar a credencial de login. Tente novamente.");
+
       const empresaId = crypto.randomUUID();
-      const senhaHasheada = await hashPassword(senha);
 
       // Função auxiliar de upload
       const uploadFile = async (file: File, path: string) => {
@@ -730,7 +748,7 @@ export default function CadastroGratuito() {
         razao_social: razaoSocial,
         nome_fantasia: nomeFantasia,
         cnpj: cnpj,
-        acesso_tipo: acessoTipo.includes("OUTRO") ? acessoTipo.filter(t => t !== "OUTRO").concat(`OUTRO: ${acessoTipoOutro}`).join(', ') : acessoTipo.join(', '),
+        acesso_tipo: acessoTipo.join(', '),
         area_empresa: areaEmpresa,
         area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
         sobre_empresa: sobreEmpresa,
@@ -745,6 +763,18 @@ export default function CadastroGratuito() {
       });
 
       if (empresaError) throw empresaError;
+
+      // 3. Inserir o vínculo na empresa_usuarios
+      const { error: vinculoError } = await supabase.from('empresa_usuarios').insert({
+        auth_user_id: authUserId,
+        empresa_id: empresaId,
+        email: email,
+        nome: nomeResponsavel,
+        papel: 'admin',
+        status: 'ativo'
+      });
+      
+      if (vinculoError) throw vinculoError;
 
       if (sociosData.length > 0) {
         // Upload das fotos dos sócios
@@ -986,8 +1016,7 @@ export default function CadastroGratuito() {
                     {[
                       "EMPRESA OU INICIATIVA INCENTIVADORA",
                       "FORNECEDOR INCLUSIVO",
-                      "EMPREENDIMENTO DIVERSO",
-                      "OUTRO"
+                      "EMPREENDIMENTO DIVERSO"
                     ].map((opcao) => (
                       <div key={opcao} className="flex items-center space-x-2">
                         <Checkbox 
@@ -1002,20 +1031,11 @@ export default function CadastroGratuito() {
                           }}
                         />
                         <Label htmlFor={`acesso-${opcao}`} className="font-normal cursor-pointer">
-                          {opcao === "OUTRO" ? "OUTRO - CITE AQUI" : opcao}
+                          {opcao}
                         </Label>
                       </div>
                     ))}
                   </div>
-                  {acessoTipo.includes("OUTRO") && (
-                    <Input 
-                      required 
-                      value={acessoTipoOutro} 
-                      onChange={e=>setAcessoTipoOutro(e.target.value)} 
-                      placeholder="Qual o seu tipo de acesso?" 
-                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
-                    />
-                  )}
                 </div>
 
                 <div id="areaEmpresa" className="space-y-2">
@@ -1114,12 +1134,14 @@ export default function CadastroGratuito() {
               </div>
             </section>
 
-            {/* 3. Informações Financeiras */}
-            <section className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2">
-                <Wallet className="w-6 h-6 text-[#7030A0]" />
-                <h2 className="text-2xl font-semibold text-gray-900">3. Financeiro e Operacional</h2>
-              </div>
+            {mostrarCompleto && (
+              <>
+                {/* 3. Informações Financeiras */}
+                <section className="space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-2">
+                    <Wallet className="w-6 h-6 text-[#7030A0]" />
+                    <h2 className="text-2xl font-semibold text-gray-900">3. Financeiro e Operacional</h2>
+                  </div>
 
               <div className="grid md:grid-cols-2 gap-8">
                 <div id="formasPagamento" className="space-y-3 bg-gray-50 p-6 rounded-xl border border-gray-100">
@@ -1921,13 +1943,15 @@ export default function CadastroGratuito() {
               </div>
 
             </section>
+            </>
+            )}
 
             <div className="pt-8 flex flex-col sm:flex-row gap-6 items-center justify-between border-t border-gray-200">
               <p className="text-sm text-gray-500">
                 Seus dados estão protegidos e o preenchimento completo ajuda na busca por novos negócios.
               </p>
               <Button type="submit" className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all" style={{ backgroundColor: '#FF9500' }}>
-                Enviar Cadastro Completo
+                {mostrarCompleto ? "Enviar Cadastro Completo" : "Enviar Cadastro"}
               </Button>
             </div>
           </form>

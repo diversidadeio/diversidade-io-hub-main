@@ -37,6 +37,12 @@ export default function DashboardAdm() {
           .gte('created_at', umaSemanaAtras.toISOString())
           .neq('tipo_usuario', 'adm');
           
+        // Pendentes de aprovação
+        const { count: aguardando } = await supabase.from('empresas')
+          .select('*', { count: 'exact', head: true })
+          .eq('status_aprovacao', 'pendente')
+          .neq('tipo_usuario', 'adm');
+          
         // Recentes
         const { data: rec } = await supabase.from('empresas')
           .select('id, razao_social, cnpj, created_at, email')
@@ -48,7 +54,7 @@ export default function DashboardAdm() {
           total: total || 0,
           optin: optin || 0,
           novos7dias: novos || 0,
-          aguardando: 0, // Placeholder se houver validação futura
+          aguardando: aguardando || 0,
         });
         setRecentes(rec || []);
       } catch (err) {

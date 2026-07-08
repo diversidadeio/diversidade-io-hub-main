@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 import { Download, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { LayoutUsuario } from "@/components/LayoutUsuario";
 
 interface SocioData {
   foto: File | null;
@@ -84,6 +85,7 @@ interface ImpactadaData {
  */
 export default function MeuCadastro() {
   const { usuario, isLogado, isCarregando: authCarregando, logout } = useAuth();
+  const isAdmin = usuario?.papel !== 'usuario';
   const [, navigate] = useLocation();
 
   const [carregandoDados, setCarregandoDados] = useState(true);
@@ -969,34 +971,8 @@ export default function MeuCadastro() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src={logoImage} alt="Logo Diversidade.io" className="h-10 w-auto object-contain" />
-            <span className="font-bold text-xl hidden sm:block" style={{ color: "#7030A0" }}>
-              Diversidade.io
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 hidden sm:block">
-              Olá, <strong>{usuario?.nomeResponsavel?.split(" ")[0]}</strong>
-            </span>
-            <Button
-              variant="outline"
-              onClick={handleSairLogout}
-              className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sair</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 pt-8">
+    <LayoutUsuario activePath="/meu-cadastro">
+      <div className="container mx-auto max-w-5xl py-8">
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           {/* Cabeçalho do formulário */}
           <div className="bg-gradient-to-r from-[#0F3A7D] to-[#7030A0] p-8 md:p-12 text-white">
@@ -1943,17 +1919,19 @@ export default function MeuCadastro() {
                   <p className="text-sm text-gray-700 leading-relaxed text-justify">
                     Você pode revogar o seu consentimento a qualquer momento. Caso não deseje mais que seus dados sejam tratados para estas finalidades, clique no botão abaixo ou entre em contato com nosso Encarregado de Dados pelo e-mail: <a href="mailto:adm@diversidade.io" className="text-[#7030A0] font-semibold hover:underline">adm@diversidade.io</a>.
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
-                    onClick={() => {
-                      setAutorizaCompartilhamento("Não");
-                      alert("Seu consentimento foi revogado. A caixa de seleção acima foi desmarcada.");
-                    }}
-                  >
-                    Revogar meu Consentimento
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
+                      onClick={() => {
+                        setAutorizaCompartilhamento("Não");
+                        alert("Seu consentimento foi revogado. A caixa de seleção acima foi desmarcada.");
+                      }}
+                    >
+                      Revogar meu Consentimento
+                    </Button>
+                  )}
                 </div>
 
                 <div className="border-t border-purple-100 pt-6 space-y-3">
@@ -1970,26 +1948,30 @@ export default function MeuCadastro() {
               </div>
             </section>
 
-            {/* Botão Salvar */}
             <div className="pt-8 flex flex-col sm:flex-row gap-6 items-center justify-between border-t border-gray-200">
               <p className="text-sm text-gray-500">
-                Seus dados estão protegidos. O preenchimento completo ajuda na busca por novos negócios.
+                {isAdmin 
+                  ? "Seus dados estão protegidos. O preenchimento completo ajuda na busca por novos negócios."
+                  : "Apenas o administrador da empresa pode realizar alterações neste cadastro."
+                }
               </p>
-              <Button
-                type="submit"
-                disabled={salvando}
-                className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                style={{ backgroundColor: "#7030A0" }}
-              >
-                {salvando ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Salvando...
-                  </span>
-                ) : (
-                  "Salvar Alterações"
-                )}
-              </Button>
+              {isAdmin && (
+                <Button
+                  type="submit"
+                  disabled={salvando}
+                  className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: "#7030A0" }}
+                >
+                  {salvando ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Salvando...
+                    </span>
+                  ) : (
+                    "Salvar Alterações"
+                  )}
+                </Button>
+              )}
             </div>
           </form>
 
@@ -2009,19 +1991,21 @@ export default function MeuCadastro() {
                 <Download className="w-4 h-4" />
                 Baixar meus dados
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExcluirConta}
-                className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir minha conta
-              </Button>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleExcluirConta}
+                  className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir minha conta
+                </Button>
+              )}
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </LayoutUsuario>
   );
 }

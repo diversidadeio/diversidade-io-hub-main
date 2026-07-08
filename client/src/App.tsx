@@ -16,6 +16,9 @@ import DetalhesCadastroAdm from "./pages/adm/DetalhesCadastro";
 import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
 import AdministradoresAdm from "./pages/adm/Administradores";
+import Pesquisas from "./pages/usuario/Pesquisas";
+import Usuarios from "./pages/usuario/Usuarios";
+import EmpresaDetalhes from "./pages/usuario/EmpresaDetalhes";
 import { useAuth } from "./contexts/AuthContext";
 
 function RotaProtegidaAdm({ component: Component, ...rest }: any) {
@@ -63,6 +66,36 @@ function RotaProtegidaNormal({ component: Component, ...rest }: any) {
   return <Route {...rest} component={Component} />;
 }
 
+// Wrapper para rotas que exigem aprovação de administrador
+function RotaAprovada({ component: Component, ...rest }: any) {
+  const { isLogado, senhaTemporaria, isPendente, isCarregando } = useAuth();
+  
+  if (isCarregando) return <div className="p-8 text-center">Carregando...</div>;
+  
+  if (!isLogado) {
+    return <Route {...rest} component={() => {
+      window.location.href = "/login";
+      return null;
+    }} />;
+  }
+
+  if (senhaTemporaria) {
+    return <Route {...rest} component={() => {
+      window.location.href = "/trocar-senha";
+      return null;
+    }} />;
+  }
+
+  if (isPendente) {
+    return <Route {...rest} component={() => {
+      window.location.href = "/meu-cadastro";
+      return null;
+    }} />;
+  }
+  
+  return <Route {...rest} component={Component} />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -70,7 +103,12 @@ function Router() {
       <Route path={"/cadastro-gratuito"} component={CadastroGratuito} />
       <Route path={"/login"} component={Login} />
       <Route path={"/trocar-senha"} component={TrocarSenha} />
+      
+      {/* Rotas da Área do Usuário Logado */}
       <RotaProtegidaNormal path={"/meu-cadastro"} component={MeuCadastro} />
+      <RotaAprovada path={"/meu-cadastro/pesquisas"} component={Pesquisas} />
+      <RotaAprovada path={"/meu-cadastro/usuarios"} component={Usuarios} />
+      <RotaAprovada path={"/empresas/:id"} component={EmpresaDetalhes} />
       
       {/* Rotas ADM */}
       <RotaProtegidaAdm path={"/adm"} component={DashboardAdm} />

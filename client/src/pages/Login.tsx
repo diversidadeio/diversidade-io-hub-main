@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import logoImage from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Página de Login — tela simples e limpa para acesso ao painel do cadastro.
@@ -25,6 +26,7 @@ export default function Login() {
   const [erro, setErro] = useState("");
   const [isCarregando, setIsCarregando] = useState(false);
   const [mostrarModalRecuperacao, setMostrarModalRecuperacao] = useState(false);
+  const [esqueciSenhaAberto, setEsqueciSenhaAberto] = useState(false);
   const [emailRecuperacao, setEmailRecuperacao] = useState("");
   const [isRecuperando, setIsRecuperando] = useState(false);
   const [mensagemRecuperacao, setMensagemRecuperacao] = useState<{ tipo: "sucesso" | "erro", texto: string } | null>(null);
@@ -40,28 +42,17 @@ export default function Login() {
     setMensagemRecuperacao(null);
 
     try {
-      const res = await fetch("/api/recuperar-senha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailRecuperacao }),
+      const { error } = await supabase.auth.resetPasswordForEmail(emailRecuperacao, {
+        redirectTo: window.location.origin + '/trocar-senha',
       });
 
-      const textData = await res.text();
-      let data;
-      try {
-        data = JSON.parse(textData);
-      } catch (parseError) {
-        console.error("Resposta do servidor não é JSON:", textData);
-        throw new Error(`Erro inesperado do servidor (Status ${res.status}). Resposta: ${textData.substring(0, 50)}...`);
-      }
-
-      if (!res.ok) {
-        throw new Error(data?.erro || "Erro ao solicitar recuperação de senha.");
+      if (error) {
+        throw error;
       }
 
       setMensagemRecuperacao({
         tipo: "sucesso",
-        texto: "Senha temporária enviada com sucesso para o seu e-mail.",
+        texto: "Instruções de redefinição foram enviadas para o seu e-mail.",
       });
       setEmailRecuperacao("");
     } catch (err: any) {
@@ -223,10 +214,12 @@ export default function Login() {
               <Button
                 asChild
                 variant="outline"
-                className="w-full h-11 border-2 font-semibold rounded-xl hover:bg-purple-50 transition-colors"
+                className="w-full h-11 border-2 font-semibold rounded-xl hover:bg-purple-50 transition-colors cursor-pointer"
                 style={{ borderColor: "#7030A0", color: "#7030A0" }}
               >
-                <Link href="/cadastro-gratuito">Cadastre-se gratuitamente</Link>
+                <Link href="/cadastro-gratuito">
+                  Cadastre-se
+                </Link>
               </Button>
             </div>
           </div>
@@ -284,6 +277,8 @@ export default function Login() {
           </form>
         </DialogContent>
       </Dialog>
+
+
     </div>
   );
 }
