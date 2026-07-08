@@ -42,17 +42,28 @@ export default function Login() {
     setMensagemRecuperacao(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(emailRecuperacao, {
-        redirectTo: window.location.origin + '/trocar-senha',
+      const res = await fetch("/api/recuperar-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailRecuperacao }),
       });
 
-      if (error) {
-        throw error;
+      const textData = await res.text();
+      let data;
+      try {
+        data = JSON.parse(textData);
+      } catch (parseError) {
+        console.error("Resposta do servidor não é JSON:", textData);
+        throw new Error(`Erro inesperado do servidor (Status ${res.status}). Resposta: ${textData.substring(0, 50)}...`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.erro || "Erro ao solicitar recuperação de senha.");
       }
 
       setMensagemRecuperacao({
         tipo: "sucesso",
-        texto: "Instruções de redefinição foram enviadas para o seu e-mail.",
+        texto: "Senha temporária enviada com sucesso para o seu e-mail.",
       });
       setEmailRecuperacao("");
     } catch (err: any) {
