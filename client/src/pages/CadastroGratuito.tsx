@@ -696,7 +696,22 @@ export default function CadastroGratuito() {
         password: senha
       });
 
-      if (authError) throw new Error(`Erro de autenticação: ${authError.message}`);
+      if (authError) {
+        // Traduz erros conhecidos do Supabase Auth para português
+        let mensagemErro = authError.message;
+        if (mensagemErro.includes("you can only request this after")) {
+          const segundos = mensagemErro.match(/(\d+) seconds?/);
+          const tempo = segundos ? segundos[1] : "alguns";
+          mensagemErro = `Por segurança, aguarde ${tempo} segundos antes de tentar novamente.`;
+        } else if (mensagemErro.includes("User already registered")) {
+          mensagemErro = "Este e-mail já está cadastrado. Por favor, faça login ou use outro e-mail.";
+        } else if (mensagemErro.includes("Invalid email")) {
+          mensagemErro = "E-mail inválido. Por favor, verifique o endereço informado.";
+        } else if (mensagemErro.includes("Password should be")) {
+          mensagemErro = "A senha não atende aos requisitos mínimos de segurança.";
+        }
+        throw new Error(mensagemErro);
+      }
       const authUserId = authData.user?.id;
       if (!authUserId) throw new Error("Não foi possível gerar a credencial de login. Tente novamente.");
 
@@ -843,7 +858,8 @@ export default function CadastroGratuito() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       console.error("Erro Supabase:", err);
-      setSenhaErro("Ocorreu um erro ao salvar o formulário: " + err.message);
+      // Exibe a mensagem já traduzida (ou a original como fallback)
+      setSenhaErro(err.message || "Ocorreu um erro inesperado ao salvar o formulário. Tente novamente.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setBuscandoCnpj(false);
@@ -1950,8 +1966,17 @@ export default function CadastroGratuito() {
               <p className="text-sm text-gray-500">
                 Seus dados estão protegidos e o preenchimento completo ajuda na busca por novos negócios.
               </p>
-              <Button type="submit" className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all" style={{ backgroundColor: '#FF9500' }}>
-                {mostrarCompleto ? "Enviar Cadastro Completo" : "Enviar Cadastro"}
+              <Button
+                type="submit"
+                disabled={buscandoCnpj}
+                className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0"
+                style={{ backgroundColor: '#FF9500' }}
+              >
+                {buscandoCnpj
+                  ? "Enviando..."
+                  : mostrarCompleto
+                  ? "Enviar Cadastro Completo"
+                  : "Enviar Cadastro"}
               </Button>
             </div>
           </form>
