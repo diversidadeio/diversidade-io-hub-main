@@ -63,7 +63,7 @@ export default function Login() {
 
       setMensagemRecuperacao({
         tipo: "sucesso",
-        texto: "Senha temporária enviada com sucesso para o seu e-mail.",
+        texto: "Link de redefinição de senha enviado! Verifique sua caixa de entrada (e a pasta de spam).",
       });
       setEmailRecuperacao("");
     } catch (err: any) {
@@ -253,7 +253,7 @@ export default function Login() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-gray-900" style={{ color: "#7030A0" }}>Recuperar Senha</DialogTitle>
             <DialogDescription>
-              Digite seu e-mail abaixo e enviaremos uma nova senha para você acessar sua conta.
+              Digite seu e-mail abaixo e enviaremos um link para você redefinir sua senha.
             </DialogDescription>
           </DialogHeader>
 
@@ -283,7 +283,7 @@ export default function Login() {
               className="w-full h-11 text-white font-medium hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#7030A0" }}
             >
-              {isRecuperando ? "Enviando..." : "Enviar nova senha"}
+              {isRecuperando ? "Enviando..." : "Enviar link de redefinição"}
             </Button>
           </form>
         </DialogContent>

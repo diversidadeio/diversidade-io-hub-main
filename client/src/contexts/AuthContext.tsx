@@ -71,34 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     senha: string
   ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }> => {
     try {
-      // 1. Tenta login direto no Supabase Auth
-      let authResult = await supabase.auth.signInWithPassword({ email, password: senha });
+      // 1. Autentica no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
 
-      // 2. Se falhou (senha não confere), tenta migrar a senha do sistema antigo (SHA-256)
-      if (authResult.error) {
-        try {
-          const migracao = await fetch('/api/migrar-senha', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, senha })
-          });
-
-          if (migracao.ok) {
-            // Migração OK → tenta logar novamente com a senha recém-atualizada
-            authResult = await supabase.auth.signInWithPassword({ email, password: senha });
-          }
-        } catch {
-          // Ignora erro da migração, vai mostrar erro original
-        }
-      }
-
-      if (authResult.error || !authResult.data?.user) {
+      if (authError || !authData?.user) {
         return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
       }
 
-      const authData = authResult.data;
-
-      // 3. Busca os dados da empresa vinculada ao usuário
+      // 2. Busca dados de sessão via RPC (une profiles + empresas)
       const { data, error } = await supabase.rpc('obter_sessao_usuario', {
         p_auth_user_id: authData.user.id
       });
@@ -107,10 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error || !userData) {
         await supabase.auth.signOut();
-        return { sucesso: false, erro: "Usuário não vinculado a nenhuma empresa." };
+        return { sucesso: false, erro: "Perfil de usuário não encontrado. Entre em contato com o suporte." };
       }
 
-      // Define expiração para 8 horas a partir de agora
+      // 3. Monta a sessão local (expira em 8 horas)
       const OITO_HORAS_EM_MS = 8 * 60 * 60 * 1000;
       const sessao: UsuarioSessao = {
         empresaId: userData.empresa_id,
@@ -118,20 +101,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nome: userData.nome,
         fotoUrl: userData.foto_url,
         nomeResponsavel: userData.nome_responsavel,
-        tipoUsuario: userData.tipo_usuario || 'empresa',
-        papel: userData.papel || 'admin',
+        tipoUsuario: userData.tipo_usuario as 'empresa' | 'adm',
+        papel: userData.papel as 'admin' | 'usuario',
         senhaTemporaria: false,
-        statusAprovacao: userData.status_aprovacao || 'pendente',
+        statusAprovacao: userData.status_aprovacao as 'pendente' | 'aprovado' | 'rejeitado',
         expiraEm: Date.now() + OITO_HORAS_EM_MS,
       };
 
       localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
       setUsuario(sessao);
 
-      return { 
-        sucesso: true, 
+      return {
+        sucesso: true,
         tipoUsuario: sessao.tipoUsuario,
-        senhaTemporaria: sessao.senhaTemporaria
+        senhaTemporaria: false,
       };
     } catch (err) {
       console.error("Erro ao realizar login:", err);
