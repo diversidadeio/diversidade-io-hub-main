@@ -40,6 +40,14 @@ export default function TrocarSenha() {
 
       if (error) throw error;
 
+      // Limpa a flag de senha_temporaria no banco de dados usando a RPC existente
+      if (usuario?.empresaId) {
+        await supabase.rpc('redefinir_senha', { 
+          p_empresa_id: usuario.empresaId, 
+          p_nova_senha_hash: 'migrated_to_auth' 
+        });
+      }
+
       // Sai da sessão atual do Supabase para forçar um novo login completo pelo AuthContext
       await supabase.auth.signOut();
       

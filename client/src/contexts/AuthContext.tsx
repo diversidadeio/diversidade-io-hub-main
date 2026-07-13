@@ -93,7 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { sucesso: false, erro: "Perfil de usuário não encontrado. Entre em contato com o suporte." };
       }
 
-      // 3. Monta a sessão local (expira em 8 horas)
+      // 3. Verifica se a senha é temporária (consultando a tabela empresas)
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('senha_temporaria')
+        .eq('id', userData.empresa_id)
+        .single();
+        
+      const isSenhaTemporaria = empresaData?.senha_temporaria || false;
+
+      // 4. Monta a sessão local (expira em 8 horas)
       const OITO_HORAS_EM_MS = 8 * 60 * 60 * 1000;
       const sessao: UsuarioSessao = {
         empresaId: userData.empresa_id,
@@ -103,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nomeResponsavel: userData.nome_responsavel,
         tipoUsuario: userData.tipo_usuario as 'empresa' | 'adm',
         papel: userData.papel as 'admin' | 'usuario',
-        senhaTemporaria: false,
+        senhaTemporaria: isSenhaTemporaria,
         statusAprovacao: userData.status_aprovacao as 'pendente' | 'aprovado' | 'rejeitado',
         expiraEm: Date.now() + OITO_HORAS_EM_MS,
       };
@@ -114,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         sucesso: true,
         tipoUsuario: sessao.tipoUsuario,
-        senhaTemporaria: false,
+        senhaTemporaria: isSenhaTemporaria,
       };
     } catch (err) {
       console.error("Erro ao realizar login:", err);
