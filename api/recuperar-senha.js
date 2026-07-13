@@ -24,6 +24,8 @@ export default async function handler(req, res) {
       process.env.VITE_SUPABASE_ANON_KEY ||
       process.env.SUPABASE_ANON_KEY ||
       "";
+    const supabaseServiceKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error("Variáveis de ambiente do Supabase não configuradas.");
@@ -50,6 +52,48 @@ export default async function handler(req, res) {
       return res
         .status(404)
         .json({ erro: "Este e-mail não está cadastrado em nosso sistema." });
+    }
+
+    // Tenta atualizar a senha no Supabase Auth usando o Service Role Key, se disponível
+    if (supabaseServiceKey) {
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
+      
+      let authUserId = null;
+      
+      // Busca o ID do usuário na tabela empresa_usuarios
+      const { data: userData } = await supabaseAdmin
+        .from('empresa_usuarios')
+        .select('auth_user_id')
+        .eq('email', email)
+        .limit(1)
+        .maybeSingle();
+        
+      if (userData?.auth_user_id) {
+        authUserId = userData.auth_user_id;
+      } else {
+        // Fallback: busca na lista de usuários
+        const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+        if (authList?.users) {
+          const authUser = authList.users.find(u => u.email === email);
+          if (authUser) authUserId = authUser.id;
+        }
+      }
+
+      if (authUserId) {
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+          authUserId,
+          { password: novaSenha }
+        );
+        if (updateError) {
+          console.warn("Aviso: não foi possível atualizar o Supabase Auth:", updateError.message);
+        }
+      } else {
+        console.warn("Aviso: authUserId não encontrado para o e-mail:", email);
+      }
+    } else {
+      console.warn("AVISO: SUPABASE_SERVICE_ROLE_KEY não configurada. A senha no Auth não será atualizada.");
     }
 
     // Verifica se a chave do Resend está configurada

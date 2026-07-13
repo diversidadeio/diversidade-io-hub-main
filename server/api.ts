@@ -39,21 +39,42 @@ apiRouter.post("/recuperar-senha", async (req, res) => {
     }
 
     // 2. Busca o usuário no Supabase Auth pelo e-mail
-    const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (!listError) {
-      const authUser = authList.users.find((u) => u.email === email);
-      if (authUser) {
-        // 3. Atualiza a senha no Supabase Auth para coincidir com a senha temporária
-        // Isso garante que o login funcione com a senha enviada por e-mail
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-          authUser.id,
-          { password: novaSenha }
-        );
-        if (updateError) {
-          console.warn("Aviso: não foi possível atualizar o Supabase Auth:", updateError.message);
-          // Não bloqueia o fluxo — o e-mail ainda será enviado
+    let authUserId: string | null = null;
+    
+    // Tenta encontrar o usuário na tabela empresa_usuarios
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('empresa_usuarios')
+      .select('auth_user_id')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (userData?.auth_user_id) {
+      authUserId = userData.auth_user_id;
+    } else {
+      // Fallback para buscar na lista de usuários (caso não esteja em empresa_usuarios)
+      const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (!listError) {
+        const authUser = authList.users.find((u) => u.email === email);
+        if (authUser) {
+          authUserId = authUser.id;
         }
       }
+    }
+
+    if (authUserId) {
+      // 3. Atualiza a senha no Supabase Auth para coincidir com a senha temporária
+      // Isso garante que o login funcione com a senha enviada por e-mail
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        authUserId,
+        { password: novaSenha }
+      );
+      if (updateError) {
+        console.warn("Aviso: não foi possível atualizar o Supabase Auth:", updateError.message);
+        // Não bloqueia o fluxo — o e-mail ainda será enviado
+      }
+    } else {
+      console.warn("Aviso: authUserId não encontrado para o e-mail:", email);
     }
 
     // 4. Enviar o e-mail via SMTP (Office 365)
@@ -152,19 +173,37 @@ apiRouter.post("/migrar-senha", async (req, res) => {
     }
 
     // 3. Busca o usuário no Supabase Auth pelo e-mail
-    const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) {
-      return res.status(500).json({ erro: "Erro ao buscar usuários." });
+    let authUserId: string | null = null;
+    
+    // Tenta encontrar o usuário na tabela empresa_usuarios
+    const { data: userData } = await supabaseAdmin
+      .from('empresa_usuarios')
+      .select('auth_user_id')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+      
+    if (userData?.auth_user_id) {
+      authUserId = userData.auth_user_id;
+    } else {
+      // Fallback
+      const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listError) {
+        return res.status(500).json({ erro: "Erro ao buscar usuários." });
+      }
+      const authUser = authList.users.find(u => u.email === email);
+      if (authUser) {
+        authUserId = authUser.id;
+      }
     }
 
-    const authUser = authList.users.find(u => u.email === email);
-    if (!authUser) {
+    if (!authUserId) {
       return res.status(404).json({ erro: "Usuário não encontrado no Auth." });
     }
 
     // 4. Atualiza a senha no Supabase Auth para a senha fornecida (em texto plano)
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      authUser.id,
+      authUserId,
       { password: senha }
     );
 
@@ -191,18 +230,30 @@ apiRouter.post("/convidar-usuario", async (req, res) => {
       return res.status(400).json({ erro: "Dados incompletos." });
     }
 
-    // 1. Verificar se já existe no Auth
-    const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) {
-      return res.status(500).json({ erro: "Erro ao verificar usuários." });
+    // 1. Verificar se já existe no Auth consultando empresa_usuarios (método mais rápido e confiável)
+    let authUserId: string | null = null;
+    
+    const { data: userData } = await supabaseAdmin
+      .from('empresa_usuarios')
+      .select('auth_user_id')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (userData?.auth_user_id) {
+      authUserId = userData.auth_user_id;
+    } else {
+      // Fallback para listUsers (caso exista no Auth mas não no empresa_usuarios)
+      const { data: authList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (!listError) {
+        const usuarioExistente = authList.users.find(u => u.email === email);
+        if (usuarioExistente) {
+          authUserId = usuarioExistente.id;
+        }
+      }
     }
 
-    let authUserId: string;
-    const usuarioExistente = authList.users.find(u => u.email === email);
-
-    if (usuarioExistente) {
-      authUserId = usuarioExistente.id;
-    } else {
+    if (!authUserId) {
       // 2. Criar usuário no Supabase Auth
       const { data: novoAuth, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
