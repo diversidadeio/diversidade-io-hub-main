@@ -23,8 +23,22 @@ async function run() {
 
   if (userError) {
     console.error("User query error:", userError);
-  } else {
-    console.log("User auth ID from DB:", userData?.auth_user_id);
+    return;
+  }
+  
+  const authUserId = userData?.auth_user_id;
+  console.log("User auth ID from DB:", authUserId);
+
+  if (authUserId) {
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      authUserId,
+      { password: "TestPassword123!" }
+    );
+    if (updateError) {
+      console.error("Update error:", updateError);
+    } else {
+      console.log("Password updated successfully!");
+    }
   }
 }
 
