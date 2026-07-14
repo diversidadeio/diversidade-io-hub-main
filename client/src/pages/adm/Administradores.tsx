@@ -50,8 +50,12 @@ export default function AdministradoresAdm() {
     }
 
     try {
-      const { error } = await supabase.from('empresas').delete().eq('id', id);
-      if (error) throw error;
+      // Chama a função RPC no backend para excluir de forma segura e contornar o RLS
+      const { error } = await supabase.rpc('excluir_administrador', { p_empresa_id: id });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
       
       toast.success("Administrador excluído com sucesso.");
       carregarAdmins();
@@ -86,40 +90,30 @@ export default function AdministradoresAdm() {
 
     setCriando(true);
     try {
-      // 1. Gerar senha e hash
+      // 1. Gerar senha aleatória e seu hash (para armazenar na tabela empresas)
       const senhaPlana = gerarSenhaAleatoria();
       const senhaHasheada = await hashPassword(senhaPlana);
 
-      // 2. Inserir no Supabase com campos genéricos obrigatórios
-      const { data, error } = await supabase.from('empresas').insert({
-        email: email,
-        nome_responsavel: nome,
-        tipo_usuario: 'adm',
-        senha_hash: senhaHasheada,
-        senha_temporaria: true,
-        // Campos dummy obrigatórios
-        razao_social: 'Administração',
-        cnpj: '00000000000000',
-        telefone_principal: '00000000000',
-        emite_nota_fiscal: false,
-        tem_conta_pj: false,
-        autoriza_compartilhamento: false,
-        diversidade_global: 0,
-        acesso_tipo: 'ADMIN',
-        area_empresa: 'Tecnologia',
-        area_geografica: 'Nacional',
-        sobre_empresa: 'Administrador do sistema',
-        formas_pagamento: [],
-        formas_recebimento: [],
-        e_socio: false,
-        tem_negros_socios: false
-      }).select();
+      // 2. Chama a função RPC que cria tudo de forma segura no backend:
+      //    - auth.users (já confirmado, sem precisar clicar em e-mail)
+      //    - empresas
+      //    - empresa_usuarios
+      const { error } = await supabase.rpc('criar_administrador', {
+        p_email: email,
+        p_senha: senhaPlana,
+        p_nome: nome,
+        p_senha_hash: senhaHasheada
+      });
 
       if (error) {
-        if (error.code === '23505') { // unique violation
-           throw new Error("Este e-mail já está cadastrado.");
+        if (
+          error.message.includes('duplicate key') ||
+          error.message.includes('already exists') ||
+          error.message.includes('unique')
+        ) {
+          throw new Error("Este e-mail já está cadastrado.");
         }
-        throw error;
+        throw new Error(error.message);
       }
 
       setSenhaGerada(senhaPlana);
