@@ -1899,7 +1899,7 @@ export default function MeuCadastro() {
                 <div className="space-y-3">
                   <h3 className="text-lg font-bold text-purple-900">1. Tratamento de Dados (Opt-in)</h3>
                   <p className="text-sm text-gray-700 leading-relaxed text-justify">
-                    Como titular dos dados, você manifesta seu consentimento livre, expresso e inequívoco para a coleta e o tratamento de seus dados pessoais sensíveis (incluindo raça/etnia e dados biométricos), ciente de que eles serão utilizados para fins de identificação, confirmação de identidade e reconhecimento facial, com o objetivo de viabilizar a participação em ações e programas voltados para empreendedores do ecossistema de diversidade (pessoas negras, mulheres, entre outros), conforme nossa Política de Privacidade.
+                    Como titular dos dados, você manifesta seu consentimento livre, expresso e inequívoco para a coleta e o tratamento de seus dados pessoais sensíveis (incluindo raça/etnia e dados biométricos), ciente de que eles serão utilizados para fins de identificação, confirmação de identidade e reconhecimento facial, com o objetivo de viabilizar a participação em ações e programas voltados para empreendedores do ecossistema de diversidade (pessoas negras, mulheres, entre outros), conforme nossa <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-semibold">Política de Privacidade</a>.
                   </p>
                   <div className="flex items-start gap-3 mt-4 bg-white p-4 rounded-lg border border-purple-100">
                     <Checkbox

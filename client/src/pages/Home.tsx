@@ -852,6 +852,16 @@ export default function Home() {
                     Rodadas Inclusivas
                   </a>
                 </li>
+                <li className="pt-2">
+                  <a href="/politica-de-privacidade" className="hover:text-white transition-colors text-purple-400">
+                    Política de Privacidade
+                  </a>
+                </li>
+                <li className="pt-2">
+                  <a href="/termos-de-uso" className="hover:text-white transition-colors text-purple-400">
+                    Termos de Uso
+                  </a>
+                </li>
               </ul>
             </div>
 

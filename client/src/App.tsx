@@ -5,9 +5,11 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
-import Home from "./pages/Home";
-import CadastroGratuito from "./pages/CadastroGratuito";
-import Login from "./pages/Login";
+import Home from "@/pages/Home";
+import CadastroGratuito from "@/pages/CadastroGratuito";
+import Login from "@/pages/Login";
+import PoliticaPrivacidade from "@/pages/PoliticaPrivacidade";
+import TermosUso from "@/pages/TermosUso";
 import MeuCadastro from "./pages/MeuCadastro";
 import TrocarSenha from "./pages/TrocarSenha";
 import DashboardAdm from "./pages/adm/Dashboard";
@@ -103,6 +105,8 @@ function Router() {
       <Route path={"/cadastro-gratuito"} component={CadastroGratuito} />
       <Route path={"/login"} component={Login} />
       <Route path={"/trocar-senha"} component={TrocarSenha} />
+      <Route path={"/politica-de-privacidade"} component={PoliticaPrivacidade} />
+      <Route path={"/termos-de-uso"} component={TermosUso} />
       
       {/* Rotas da Área do Usuário Logado */}
       <RotaProtegidaNormal path={"/meu-cadastro"} component={MeuCadastro} />
