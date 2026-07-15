@@ -17,7 +17,7 @@ interface ModalConfiguracoesPerfilProps {
 type Tela = 'conta' | 'senha';
 
 export function ModalConfiguracoesPerfil({ aberto, aoFechar }: ModalConfiguracoesPerfilProps) {
-  const { usuario } = useAuth();
+  const { usuario, atualizarSessao } = useAuth();
   const [telaAtiva, setTelaAtiva] = useState<Tela>('conta');
 
   // --- Dados de conta ---
@@ -138,6 +138,7 @@ export function ModalConfiguracoesPerfil({ aberto, aoFechar }: ModalConfiguracoe
         toast.error(`Erro ao salvar: ${updateError.message}`);
       } else {
         toast.success("Foto atualizada com sucesso!");
+        atualizarSessao({ fotoUrl: novaUrl });
       }
     } catch (err: any) {
       console.error("Erro inesperado:", err);
@@ -175,6 +176,7 @@ export function ModalConfiguracoesPerfil({ aberto, aoFechar }: ModalConfiguracoe
       if (error) throw error;
 
       toast.success("Informações atualizadas com sucesso!");
+      atualizarSessao({ nome, fotoUrl });
       aoFechar();
     } catch (err: any) {
       console.error("Erro ao salvar conta:", err);

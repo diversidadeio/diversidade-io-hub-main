@@ -91,6 +91,10 @@ export default function MeuCadastro() {
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [salvoComSucesso, setSalvoComSucesso] = useState(false);
+  const [solicitacaoExclusaoPendente, setSolicitacaoExclusaoPendente] = useState(false);
+  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
+  const [modalSucessoExclusao, setModalSucessoExclusao] = useState(false);
+  const [motivoExclusao, setMotivoExclusao] = useState("");
 
   // Auto-dismiss do toast de sucesso após 3 segundos
   useEffect(() => {
@@ -394,6 +398,17 @@ export default function MeuCadastro() {
               }))
             );
           }
+        }
+
+        // Busca solicitações de exclusão pendentes
+        const { data: exclusoes } = await supabase
+          .from("solicitacoes_exclusao")
+          .select("status")
+          .eq("empresa_id", usuario.empresaId)
+          .eq("status", "pendente");
+          
+        if (exclusoes && exclusoes.length > 0) {
+          setSolicitacaoExclusaoPendente(true);
         }
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
@@ -911,12 +926,6 @@ export default function MeuCadastro() {
   };
 
   const handleExcluirConta = async () => {
-    const motivo = window.prompt("Tem certeza que deseja excluir sua conta? Por favor, nos diga brevemente o motivo (opcional):");
-    
-    if (motivo === null) {
-      return; // Usuário cancelou o prompt
-    }
-    
     setSalvando(true);
     try {
       // Cria a solicitação de exclusão
@@ -924,16 +933,19 @@ export default function MeuCadastro() {
         empresa_id: usuario!.empresaId,
         email: email,
         razao_social: razaoSocial,
-        motivo: motivo || null,
+        motivo: motivoExclusao || null,
         status: 'pendente'
       });
       
       if (error) throw error;
       
-      alert("Sua solicitação de exclusão foi enviada com sucesso. Nossa equipe processará seu pedido em até 15 dias, conforme a LGPD.");
+      setSolicitacaoExclusaoPendente(true);
+      setModalExclusaoAberto(false);
+      setModalSucessoExclusao(true);
     } catch (err: any) {
       console.error("Erro ao solicitar exclusão da conta:", err);
       setSenhaErro("Erro ao solicitar exclusão: " + err.message);
+      setModalExclusaoAberto(false);
     } finally {
       setSalvando(false);
     }
@@ -1992,15 +2004,70 @@ export default function MeuCadastro() {
                 Baixar meus dados
               </Button>
               {isAdmin && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleExcluirConta}
-                  className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Excluir minha conta
-                </Button>
+                solicitacaoExclusaoPendente ? (
+                  <>
+                    <div className="flex items-center gap-2 px-4 py-2 border rounded-md border-orange-200 bg-orange-50 text-orange-700">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Exclusão já solicitada</span>
+                    </div>
+
+                    <Dialog open={modalSucessoExclusao} onOpenChange={setModalSucessoExclusao}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2 text-green-700">
+                            <CheckCircle2 className="w-5 h-5" />
+                            Solicitação Enviada
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <p className="text-sm text-gray-600">
+                            Sua solicitação de exclusão foi enviada com sucesso. Nossa equipe processará seu pedido em até 15 dias, conforme a LGPD.
+                          </p>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button type="button" onClick={() => setModalSucessoExclusao(false)} className="bg-green-600 text-white hover:bg-green-700">
+                            Entendido
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                ) : (
+                  <Dialog open={modalExclusaoAberto} onOpenChange={setModalExclusaoAberto}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Excluir minha conta
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Excluir Conta</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <p className="text-sm text-gray-600">
+                          Tem certeza que deseja excluir sua conta? Por favor, nos diga brevemente o motivo (opcional):
+                        </p>
+                        <Textarea 
+                          value={motivoExclusao}
+                          onChange={(e) => setMotivoExclusao(e.target.value)}
+                          placeholder="Motivo da exclusão..."
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-3">
+                        <Button type="button" variant="outline" onClick={() => setModalExclusaoAberto(false)}>Cancelar</Button>
+                        <Button type="button" onClick={handleExcluirConta} disabled={salvando} className="bg-red-600 text-white hover:bg-red-700">
+                          {salvando ? "Enviando..." : "Confirmar Exclusão"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )
               )}
             </div>
           </div>

@@ -707,6 +707,8 @@ export default function CadastroGratuito() {
           mensagemErro = "Este e-mail já está cadastrado. Por favor, faça login ou use outro e-mail.";
         } else if (mensagemErro.includes("Invalid email")) {
           mensagemErro = "E-mail inválido. Por favor, verifique o endereço informado.";
+        } else if (mensagemErro.toLowerCase().includes("rate limit")) {
+          mensagemErro = "Muitas tentativas com este e-mail. Por favor, aguarde um momento ou use um e-mail diferente para testar.";
         } else if (mensagemErro.includes("Password should be")) {
           mensagemErro = "A senha não atende aos requisitos mínimos de segurança.";
         }
@@ -748,6 +750,14 @@ export default function CadastroGratuito() {
 
       let fichaJuntaUrl = null;
       if (fichaJuntaFile) fichaJuntaUrl = await uploadFile(fichaJuntaFile, `empresas/${empresaId}/documentos`);
+
+      const hashPassword = async (password: string) => {
+        const msgBuffer = new TextEncoder().encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      };
+      const senhaHasheada = await hashPassword(senha);
 
       const { error: empresaError } = await supabase.from('empresas').insert({
         id: empresaId,
@@ -859,7 +869,11 @@ export default function CadastroGratuito() {
     } catch (err: any) {
       console.error("Erro Supabase:", err);
       // Exibe a mensagem já traduzida (ou a original como fallback)
-      setSenhaErro(err.message || "Ocorreu um erro inesperado ao salvar o formulário. Tente novamente.");
+      let finalMessage = err.message || "Ocorreu um erro inesperado ao salvar o formulário. Tente novamente.";
+      if (finalMessage.includes("empresas_cnpj_key")) {
+        finalMessage = "Este CNPJ já está cadastrado. Se o cadastro anterior falhou, acesse o painel do Supabase, exclua o registro na tabela empresas com este CNPJ e tente novamente, ou utilize outro CNPJ para testar.";
+      }
+      setSenhaErro(finalMessage);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setBuscandoCnpj(false);

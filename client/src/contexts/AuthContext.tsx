@@ -59,6 +59,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Escuta mudanças na tabela empresas para atualizar o status de aprovação em tempo real
+  useEffect(() => {
+    if (!usuario || usuario.tipoUsuario !== 'empresa') return;
+
+    const channel = supabase
+      .channel(`empresa_status_${usuario.empresaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'empresas',
+          filter: `id=eq.${usuario.empresaId}`,
+        },
+        (payload) => {
+          const novoStatus = payload.new.status_aprovacao;
+          if (novoStatus) {
+            setUsuario((prevUsuario) => {
+              if (!prevUsuario || prevUsuario.statusAprovacao === novoStatus) return prevUsuario;
+              const novaSessao = { ...prevUsuario, statusAprovacao: novoStatus as any };
+              localStorage.setItem(CHAVE_SESSAO, JSON.stringify(novaSessao));
+              return novaSessao;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [usuario?.empresaId, usuario?.tipoUsuario]);
+
   const hashPassword = async (password: string) => {
     const msgBuffer = new TextEncoder().encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -144,10 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Atualiza parcialmente os dados da sessão (ex: quando a senha temporária é redefinida)
    */
   const atualizarSessao = (dados: Partial<UsuarioSessao>) => {
-    if (!usuario) return;
-    const novaSessao = { ...usuario, ...dados };
-    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(novaSessao));
-    setUsuario(novaSessao);
+    setUsuario((prevUsuario) => {
+      if (!prevUsuario) return prevUsuario;
+      const novaSessao = { ...prevUsuario, ...dados };
+      localStorage.setItem(CHAVE_SESSAO, JSON.stringify(novaSessao));
+      return novaSessao;
+    });
   };
 
   return (
