@@ -533,6 +533,23 @@ export default function CadastroGratuito() {
     setFormasRecebimento(prev => prev.includes(forma) ? prev.filter(f => f !== forma) : [...prev, forma]);
   };
 
+  // Auto-preencher 'Total de Pessoas' baseado nos valores já inseridos acima
+  useEffect(() => {
+    setDiversidadeGlobal(prev => ({
+      ...prev,
+      "Total de Pessoas": {
+        socios: numeroSocios ? String(numeroSocios) : "",
+        gestores: numGestoresDiretos ? String(numGestoresDiretos) : "",
+        colaboradores: numColaboradoresDiretos ? String(numColaboradoresDiretos) : ""
+      },
+      "Dependentes financeiros (não entram no Score RIS)": {
+        socios: numeroImpactadasSocios ? String(numeroImpactadasSocios) : "",
+        gestores: numeroImpactadasGestores ? String(numeroImpactadasGestores) : "",
+        colaboradores: numeroImpactadasColaboradores ? String(numeroImpactadasColaboradores) : ""
+      }
+    }));
+  }, [numeroSocios, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores]);
+
   const handleDiversidadeQtdChange = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores', valor: string) => {
     if (valor !== "" && !/^\d+$/.test(valor)) return;
 
@@ -627,6 +644,22 @@ export default function CadastroGratuito() {
 
       if (autorizaCompartilhamento !== "Sim")
         faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Sócios e Impacto" });
+
+      gestoresDiretosData.forEach((g, idx) => {
+        if (!g.codigoPostal) faltando.push({ id: `gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "2. Dados da Empresa" });
+      });
+      colaboradoresDiretosData.forEach((c, idx) => {
+        if (!c.codigoPostal) faltando.push({ id: `colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "2. Dados da Empresa" });
+      });
+      sociosImpactadosData.forEach((s, idx) => {
+        if (!s.codigoPostal) faltando.push({ id: `socio-imp-${idx}`, label: `CEP Sócio Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+      });
+      gestoresData.forEach((g, idx) => {
+        if (!g.codigoPostal) faltando.push({ id: `gestor-imp-${idx}`, label: `CEP Gestor Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+      });
+      colaboradoresData.forEach((c, idx) => {
+        if (!c.codigoPostal) faltando.push({ id: `colab-imp-${idx}`, label: `CEP Colaborador Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+      });
     }
 
     return faltando;
@@ -642,6 +675,7 @@ export default function CadastroGratuito() {
       acessoTipo, areaEmpresa, areaGeografica, sobreEmpresa,
       formasPagamento, formasRecebimento, emiteNotaFiscal, temContaPJ,
       eSocio, temNegrosSocios, numeroSocios, sociosData, autorizaCompartilhamento,
+      gestoresDiretosData, colaboradoresDiretosData, sociosImpactadosData, gestoresData, colaboradoresData
     ]
   );
 
@@ -651,13 +685,22 @@ export default function CadastroGratuito() {
     // Marca que o usuário tentou enviar — ativa o painel de campos faltando
     setTentouEnviar(true);
 
+    const faltantes = calcularCamposFaltando();
+    if (faltantes.length > 0) {
+      setSenhaErro("Existem campos obrigatórios não preenchidos. Verifique as marcações em vermelho.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     if (mostrarCompleto) {
       const todosCepsSociosValidos = sociosData.every(s => !s.cep || s.cepValido);
       const todosCepsGestoresValidos = gestoresData.every(g => !g.codigoPostal || g.cepValido);
       const todosCepsSociosImpactadosValidos = sociosImpactadosData.every(s => !s.codigoPostal || s.cepValido);
       const todosCepsColaboradoresValidos = colaboradoresData.every(c => !c.codigoPostal || c.cepValido);
+      const todosCepsGestoresDiretosValidos = gestoresDiretosData.every(g => !g.codigoPostal || g.cepValido);
+      const todosCepsColaboradoresDiretosValidos = colaboradoresDiretosData.every(c => !c.codigoPostal || c.cepValido);
 
-      if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos) {
+      if (!todosCepsSociosValidos || !todosCepsGestoresValidos || !todosCepsSociosImpactadosValidos || !todosCepsColaboradoresValidos || !todosCepsGestoresDiretosValidos || !todosCepsColaboradoresDiretosValidos) {
         setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
@@ -1880,8 +1923,9 @@ export default function CadastroGratuito() {
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className="w-20 mx-auto text-center h-10" 
+                                  className={`w-20 mx-auto text-center h-10 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
+                                  disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
                                 />
                               </td>
@@ -1892,8 +1936,9 @@ export default function CadastroGratuito() {
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className="w-20 mx-auto text-center h-10" 
+                                  className={`w-20 mx-auto text-center h-10 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
+                                  disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
                                 />
                               </td>

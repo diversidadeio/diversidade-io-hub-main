@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export default function DetalhesCadastroAdm() {
@@ -121,18 +121,33 @@ export default function DetalhesCadastroAdm() {
     );
   };
 
-  const renderField = (label: string, value: any, isLink = false) => (
-    <div className="mb-4">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-      {isLink && value ? (
-        <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-medium">
-          Ver anexo <ExternalLink className="w-3 h-3" />
-        </a>
-      ) : (
-        <p className="text-gray-900 text-sm">{value || <span className="text-gray-400 italic">Não informado</span>}</p>
-      )}
-    </div>
-  );
+  const renderField = (label: string, value: any, type: 'text' | 'link' | 'image' = 'text') => {
+    const isPng = typeof value === 'string' && value.toLowerCase().includes('.png');
+    
+    return (
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+        {type === 'link' && value ? (
+          <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-medium">
+            Ver anexo <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : type === 'image' && value ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <div className="block w-24 h-24 border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white">
+                <img src={value} alt={label} className={`w-full h-full object-cover ${isPng ? 'p-1' : ''}`} />
+              </div>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl border-none shadow-none flex justify-center items-center overflow-hidden bg-transparent">
+              <img src={value} alt={label} className={`max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl ${isPng ? 'bg-white p-4' : ''}`} />
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <p className="text-gray-900 text-sm">{value || <span className="text-gray-400 italic">Não informado</span>}</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <LayoutAdm>
@@ -197,7 +212,7 @@ export default function DetalhesCadastroAdm() {
             {renderField("E-mail (Login)", empresa.email)}
             {renderField("Telefone Principal", empresa.telefone_principal)}
             {renderField("Telefone Opcional", empresa.telefone_opcional)}
-            {renderField("Foto do Responsável", empresa.foto_responsavel_url, true)}
+            {renderField("Foto do Responsável", empresa.foto_responsavel_url, 'image')}
           </div>
 
           {/* Sessão 2: Dados da Empresa */}
@@ -209,9 +224,9 @@ export default function DetalhesCadastroAdm() {
             {renderField("Tipo de Acesso", empresa.acesso_tipo)}
             {renderField("Área de Atuação", empresa.area_empresa)}
             {renderField("Área Geográfica", empresa.area_geografica)}
-            {renderField("Logo da Empresa", empresa.logo_empresa_url, true)}
-            {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, true)}
-            {renderField("Ficha da Junta Comercial", empresa.ficha_junta_url, true)}
+            {renderField("Logo da Empresa", empresa.logo_empresa_url, 'image')}
+            {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, 'link')}
+            {renderField("Ficha da Junta Comercial", empresa.ficha_junta_url, 'link')}
           </div>
           <div className="mt-4">
             {renderField("Sobre a Empresa", empresa.sobre_empresa)}

@@ -709,6 +709,23 @@ export default function MeuCadastro() {
   const handleRecebimentoToggle = (forma: string) =>
     setFormasRecebimento((prev) => prev.includes(forma) ? prev.filter((f) => f !== forma) : [...prev, forma]);
 
+  // Auto-preencher 'Total de Pessoas' e 'Dependentes' baseado nos valores já inseridos acima
+  useEffect(() => {
+    setDiversidadeGlobal(prev => ({
+      ...prev,
+      "Total de Pessoas": {
+        socios: numeroSocios ? String(numeroSocios) : "",
+        gestores: numGestoresDiretos ? String(numGestoresDiretos) : "",
+        colaboradores: numColaboradoresDiretos ? String(numColaboradoresDiretos) : ""
+      },
+      "Dependentes financeiros (não entram no Score RIS)": {
+        socios: numeroImpactadasSocios ? String(numeroImpactadasSocios) : "",
+        gestores: numeroImpactadasGestores ? String(numeroImpactadasGestores) : "",
+        colaboradores: numeroImpactadasColaboradores ? String(numeroImpactadasColaboradores) : ""
+      }
+    }));
+  }, [numeroSocios, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores]);
+
   const handleDiversidadeQtdChange = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores', valor: string) => {
     if (valor !== "" && !/^\d+$/.test(valor)) return;
     
@@ -1862,8 +1879,9 @@ export default function MeuCadastro() {
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className="w-20 mx-auto text-center h-10" 
+                                  className={`w-20 mx-auto text-center h-10 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
+                                  disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
@@ -1875,8 +1893,9 @@ export default function MeuCadastro() {
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className="w-20 mx-auto text-center h-10" 
+                                  className={`w-20 mx-auto text-center h-10 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
+                                  disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
@@ -1888,8 +1907,9 @@ export default function MeuCadastro() {
                               {/* Colaboradores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className="w-20 mx-auto text-center h-10" 
+                                  className={`w-20 mx-auto text-center h-10 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
+                                  disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
