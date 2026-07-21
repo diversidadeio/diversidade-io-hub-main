@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { registrarLog } from "@/lib/registrarLog";
 
 export default function DetalhesCadastroAdm() {
   const [, params] = useRoute("/adm/cadastros/:id");
   const id = params?.id;
+  const { usuario } = useAuth();
 
   const [carregando, setCarregando] = useState(true);
   const [empresa, setEmpresa] = useState<any>(null);
@@ -31,6 +34,15 @@ export default function DetalhesCadastroAdm() {
         const { data: emp, error: errEmp } = await supabase.from('empresas').select('*').eq('id', id).single();
         if (errEmp || !emp) throw new Error("Cadastro não encontrado.");
         setEmpresa(emp);
+
+        // Registra log de admin visualizando empresa
+        registrarLog({
+          tipo_evento: 'adm_ver_empresa',
+          executor_adm_email: usuario?.email,
+          empresa_id: id,
+          nome_empresa: emp.razao_social || emp.nome_fantasia || emp.email,
+          email: emp.email,
+        });
 
         const { data: soc } = await supabase.from('socios').select('*').eq('empresa_id', id);
         setSocios(soc || []);
@@ -55,6 +67,15 @@ export default function DetalhesCadastroAdm() {
       if (error) throw error;
       setSenhaGerada(data);
       setDialogoSalaAberta(true);
+
+      // Registra log de geração de senha pelo admin
+      registrarLog({
+        tipo_evento: 'adm_gerar_senha',
+        executor_adm_email: usuario?.email,
+        empresa_id: id,
+        nome_empresa: empresa?.razao_social || empresa?.email,
+        email: empresa?.email,
+      });
     } catch (err: any) {
       alert("Erro ao gerar senha: " + err.message);
     } finally {
@@ -75,6 +96,15 @@ export default function DetalhesCadastroAdm() {
 
       setEmpresa({ ...empresa, status_aprovacao: 'aprovado' });
       toast.success('Cadastro aprovado com sucesso! Um e-mail será enviado à empresa.');
+
+      // Registra log de aprovação pelo admin
+      registrarLog({
+        tipo_evento: 'adm_aprovar_empresa',
+        executor_adm_email: usuario?.email,
+        empresa_id: id,
+        nome_empresa: empresa?.razao_social || empresa?.email,
+        email: empresa?.email,
+      });
 
       // Disparar e-mail de aprovação via rota da Vercel (Resend)
       try {

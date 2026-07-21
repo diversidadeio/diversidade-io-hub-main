@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { registrarLog } from "@/lib/registrarLog";
 
 export default function TrocarSenha() {
   const [senha, setSenha] = useState("");
@@ -47,6 +48,13 @@ export default function TrocarSenha() {
           p_nova_senha_hash: 'migrated_to_auth' 
         });
       }
+
+      // Registra log de troca de senha
+      registrarLog({
+        tipo_evento: 'troca_senha',
+        email: usuario?.email,
+        empresa_id: usuario?.empresaId,
+      });
 
       // Sai da sessão atual do Supabase para forçar um novo login completo pelo AuthContext
       await supabase.auth.signOut();

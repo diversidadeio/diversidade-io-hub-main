@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { registrarLog } from "@/lib/registrarLog";
 
 export default function Usuarios() {
   const { usuario } = useAuth();
@@ -80,6 +81,14 @@ export default function Usuarios() {
       if (!resposta.ok) throw new Error(resultado.erro || "Erro ao convidar.");
       
       toast.success("Convite enviado com sucesso! O usuário receberá um e-mail.");
+
+      // Registra log do convite enviado
+      registrarLog({
+        tipo_evento: 'usuario_convidar',
+        email: usuario?.email,
+        empresa_id: (usuario as any)?.empresaId,
+        detalhes: `Convidado: ${conviteEmail} (papel: ${convitePapel})`,
+      });
 
       // Recarrega a lista de usuários
       const { data: lista } = await supabase

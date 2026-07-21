@@ -1,16 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase } from "@/lib/supabase";
 import { Link } from "wouter";
 import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { registrarLog } from "@/lib/registrarLog";
 
 export default function Pesquisas() {
   const { usuario } = useAuth();
   const [cadastros, setCadastros] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Log de pesquisa com debounce de 1 segundo
+  const handleBusca = (valor: string) => {
+    setBusca(valor);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (valor.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => {
+        registrarLog({
+          tipo_evento: 'usuario_pesquisa_empresa',
+          email: usuario?.email,
+          empresa_id: (usuario as any)?.empresaId,
+          detalhes: `Termo buscado: "${valor.trim()}"`,
+        });
+      }, 1000);
+    }
+  };
 
   useEffect(() => {
     async function carregarCadastros() {
@@ -61,7 +79,7 @@ export default function Pesquisas() {
               placeholder="Buscar empresa, CNPJ ou e-mail..." 
               className="pl-10 h-11 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               value={busca}
-              onChange={(e) => setBusca(e.target.value)}
+              onChange={(e) => handleBusca(e.target.value)}
             />
           </div>
         </div>

@@ -4,10 +4,13 @@ import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase } from "@/lib/supabase";
 import { Loader2, ArrowLeft, ExternalLink, Building2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { registrarLog } from "@/lib/registrarLog";
 
 export default function EmpresaDetalhes() {
   const [, params] = useRoute("/empresas/:id");
   const id = params?.id;
+  const { usuario } = useAuth();
 
   const [carregando, setCarregando] = useState(true);
   const [empresa, setEmpresa] = useState<any>(null);
@@ -26,6 +29,15 @@ export default function EmpresaDetalhes() {
         }
 
         setEmpresa(emp);
+
+        // Registra log de visualização de empresa pelo usuário
+        registrarLog({
+          tipo_evento: 'usuario_ver_empresa',
+          email: usuario?.email,
+          empresa_id: (usuario as any)?.empresaId,
+          nome_empresa: emp.razao_social || emp.nome_fantasia || emp.email,
+          detalhes: `Empresa visualizada: ${emp.razao_social || emp.email} (ID: ${id})`,
+        });
       } catch (err: any) {
         setErro(err.message);
       } finally {

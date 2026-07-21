@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarLog } from "@/lib/registrarLog";
 
 /**
  * Dados do usuário autenticado na sessão.
@@ -111,6 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (authError || !authData?.user) {
+        // Registra log de falha de login
+        registrarLog({
+          tipo_evento: 'login_falha',
+          email,
+          detalhes: authError?.message || 'Credenciais inválidas',
+        });
         return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
       }
 
@@ -153,6 +160,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
       setUsuario(sessao);
 
+      // Registra log de login com sucesso
+      registrarLog({
+        tipo_evento: 'login_sucesso',
+        email: sessao.email,
+        empresa_id: sessao.empresaId,
+        nome_empresa: sessao.nome,
+      });
+
       return {
         sucesso: true,
         tipoUsuario: sessao.tipoUsuario,
@@ -168,6 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Encerra a sessão do usuário removendo os dados do localStorage e do Supabase Auth.
    */
   const logout = async () => {
+    // Registra log de logout antes de limpar a sessão
+    if (usuario) {
+      registrarLog({
+        tipo_evento: 'logout',
+        email: usuario.email,
+        empresa_id: usuario.empresaId,
+        nome_empresa: usuario.nome,
+      });
+    }
     await supabase.auth.signOut();
     localStorage.removeItem(CHAVE_SESSAO);
     setUsuario(null);

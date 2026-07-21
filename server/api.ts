@@ -345,3 +345,167 @@ apiRouter.post("/convidar-usuario", async (req, res) => {
     res.status(500).json({ erro: "Erro interno: " + err.message });
   }
 });
+
+/**
+ * Endpoint de registro de auditoria:
+ * Recebe um evento do front-end, captura IP e user-agent reais do request
+ * e insere o registro na tabela logs_acesso via RPC SECURITY DEFINER.
+ * Retorna sempre HTTP 200 — logs nunca devem bloquear a interface do usuário.
+ */
+apiRouter.post("/registrar-log", async (req, res) => {
+  try {
+    const {
+      email,
+      tipo_evento,
+      empresa_id,
+      nome_empresa,
+      executor_adm_email,
+      detalhes,
+    } = req.body;
+
+    // Captura o IP real (considera proxies como Vercel/Nginx)
+    const ip_address =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      null;
+
+    // Captura o user-agent do navegador
+    const user_agent = (req.headers["user-agent"] as string) || null;
+
+    // Chama a RPC segura com service_role para contornar RLS
+    // empresa_id no banco real é UUID, então passamos diretamente.
+    const empresaIdParam = empresa_id || null;
+
+    const { error } = await supabaseAdmin.rpc("registrar_log_acesso", {
+      p_email: email || "desconhecido",
+      p_tipo_evento: tipo_evento,
+      p_empresa_id: empresaIdParam,
+      p_nome_empresa: nome_empresa || null,
+      p_executor_adm_email: executor_adm_email || null,
+      p_ip_address: ip_address,
+      p_user_agent: user_agent,
+      p_detalhes: detalhes || null,
+    });
+
+    if (error) {
+      console.error("Erro ao registrar log de auditoria:", error.message);
+    }
+
+    // Sempre retorna 200 — logs nunca bloqueiam a UI
+    return res.status(200).json({ ok: true });
+  } catch (err: any) {
+    console.error("Erro no endpoint /registrar-log:", err);
+    return res.status(200).json({ ok: true }); // ainda 200, logs são best-effort
+  }
+});
+
+/**
+ * Endpoint para leitura de logs de auditoria
+ * Feito no servidor usando supabaseAdmin (service_role) para garantir
+ * que a leitura funcione independente de limitações de RLS no front-end.
+ */
+apiRouter.post("/ler-logs", async (req, res) => {
+  try {
+    const { tipoEvento, emailBusca, empresaId, nomeEmpresa, periodo, page = 1, pageSize = 30 } = req.body;
+
+    let q = supabaseAdmin.from("logs_acesso").select("*", { count: "exact" });
+
+    // Filtros
+    if (tipoEvento && tipoEvento !== "todos") {
+      if (tipoEvento.includes("%")) {
+        q = q.like("tipo_evento", tipoEvento);
+      } else {
+        q = q.eq("tipo_evento", tipoEvento);
+      }
+    }
+    
+    if (emailBusca && emailBusca.trim().length > 1) {
+      q = q.ilike("email", `%${emailBusca.trim()}%`);
+    }
+    
+    if (nomeEmpresa && nomeEmpresa.trim().length > 1) {
+      q = q.ilike("nome_empresa", `%${nomeEmpresa.trim()}%`);
+    }
+
+    if (empresaId) {
+      q = q.eq("empresa_id", empresaId);
+    }
+
+    if (periodo && periodo !== "todos") {
+      const agora = new Date();
+      if (periodo === "hoje") {
+        agora.setHours(0, 0, 0, 0);
+        q = q.gte("criado_em", agora.toISOString());
+      } else if (periodo === "7d") {
+        agora.setDate(agora.getDate() - 7);
+        q = q.gte("criado_em", agora.toISOString());
+      } else if (periodo === "30d") {
+        agora.setDate(agora.getDate() - 30);
+        q = q.gte("criado_em", agora.toISOString());
+      }
+    }
+
+    // Paginação
+    const de = (page - 1) * pageSize;
+    const ate = de + pageSize - 1;
+    
+    const { data, error, count } = await q
+      .order("criado_em", { ascending: false })
+      .range(de, ate);
+
+    if (error) throw error;
+
+    return res.json({ logs: data || [], total: count || 0 });
+  } catch (err: any) {
+    console.error("Erro no endpoint /ler-logs:", err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
+/**
+ * Endpoint para obter as métricas de logs (Painel de Administração)
+ */
+apiRouter.get("/ler-logs-metricas", async (req, res) => {
+  try {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const seteDias = new Date();
+    seteDias.setDate(seteDias.getDate() - 7);
+
+    const [loginsHoje, falhasHoje, usuariosAtivos, acoesAdm] = await Promise.all([
+      supabaseAdmin
+        .from("logs_acesso")
+        .select("*", { count: "exact", head: true })
+        .eq("tipo_evento", "login_sucesso")
+        .gte("criado_em", hoje.toISOString()),
+      supabaseAdmin
+        .from("logs_acesso")
+        .select("*", { count: "exact", head: true })
+        .eq("tipo_evento", "login_falha")
+        .gte("criado_em", hoje.toISOString()),
+      supabaseAdmin
+        .from("logs_acesso")
+        .select("email")
+        .eq("tipo_evento", "login_sucesso")
+        .gte("criado_em", seteDias.toISOString()),
+      supabaseAdmin
+        .from("logs_acesso")
+        .select("*", { count: "exact", head: true })
+        .like("tipo_evento", "adm_%")
+        .gte("criado_em", seteDias.toISOString()),
+    ]);
+
+    const emailsUnicos = new Set((usuariosAtivos.data || []).map((l: any) => l.email));
+
+    return res.json({
+      loginsHoje: loginsHoje.count || 0,
+      falhasHoje: falhasHoje.count || 0,
+      usuariosAtivos7d: emailsUnicos.size,
+      acoesAdm7d: acoesAdm.count || 0,
+    });
+  } catch (err: any) {
+    console.error("Erro no endpoint /ler-logs-metricas:", err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
