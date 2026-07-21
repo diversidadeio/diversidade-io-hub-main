@@ -76,12 +76,15 @@ export default function DetalhesCadastroAdm() {
       setEmpresa({ ...empresa, status_aprovacao: 'aprovado' });
       toast.success('Cadastro aprovado com sucesso! Um e-mail será enviado à empresa.');
 
-      // Disparar e-mail de aprovação via Edge Function
+      // Disparar e-mail de aprovação via rota da Vercel (Resend)
       try {
-        await supabase.functions.invoke('enviar-email-aprovacao', {
-          body: { email: empresa.email, nome: empresa.nome }
+        await fetch('/api/enviar-email-aprovacao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: empresa.email, nome: empresa.nome })
         });
-      } catch {
+      } catch (e) {
+        console.error("Erro ao chamar API de e-mail:", e);
         // E-mail é melhor esforço; não bloqueia a aprovação
       }
     } catch (err: any) {
