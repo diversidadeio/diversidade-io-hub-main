@@ -391,7 +391,7 @@ apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
 
           <div style="text-align: center; margin: 32px 0;">
             <a
-              href="https://hub.diversidade.io/login"
+              href="https://www.diversidade.io/login"
               style="background: #7030A0; color: white; padding: 14px 32px; border-radius: 8px;
                      text-decoration: none; font-weight: bold; font-size: 16px;"
             >
@@ -401,7 +401,7 @@ apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
 
           <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
             Se tiver alguma dúvida, entre em contato pelo WhatsApp:
-            <a href="https://wa.me/5511966060828" style="color: #7030A0;">+55 (11) 96606-0828</a>
+            <a href="https://wa.me/5511989832953" style="color: #7030A0;">+55 (11) 98983-2953</a>
           </p>
         </div>
 
