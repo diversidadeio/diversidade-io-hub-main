@@ -347,6 +347,95 @@ apiRouter.post("/convidar-usuario", async (req, res) => {
 });
 
 /**
+ * Endpoint para envio de e-mail de aprovação de cadastro:
+ * Usado pelo painel de admin localmente (via nodemailer).
+ */
+apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
+  try {
+    const { email, nome } = req.body;
+    if (!email) {
+      return res.status(400).json({ erro: "E-mail não fornecido." });
+    }
+
+    const SMTP_HOST = process.env.SMTP_HOST || "smtp.office365.com";
+    const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
+    const SMTP_USER = process.env.SMTP_USER;
+    const SMTP_PASS = process.env.SMTP_PASS;
+
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn("[E-mail de Aprovação Simulado]", { email, nome });
+      return res.json({ sucesso: true, mensagem: "E-mail simulado (SMTP não configurado)." });
+    }
+
+    const nomeEmpresa = nome || "empresa";
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="color: #7030A0; font-size: 28px; margin: 0;">Diversidade.io</h1>
+        </div>
+
+        <div style="background: #f9f5ff; border-radius: 12px; padding: 32px; border: 1px solid #e9d5ff;">
+          <h2 style="color: #1f2937; margin-top: 0;">🎉 Cadastro Aprovado!</h2>
+          <p style="color: #374151; line-height: 1.6;">
+            Olá, <strong>${nomeEmpresa}</strong>!
+          </p>
+          <p style="color: #374151; line-height: 1.6;">
+            Temos ótimas notícias! A nossa equipe analisou o seu cadastro e ele foi
+            <strong>aprovado com sucesso</strong>.
+          </p>
+          <p style="color: #374151; line-height: 1.6;">
+            Agora você tem acesso completo à plataforma Diversidade.io, incluindo pesquisas,
+            gerenciamento de usuários e todas as funcionalidades disponíveis para o seu perfil.
+          </p>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a
+              href="https://hub.diversidade.io/login"
+              style="background: #7030A0; color: white; padding: 14px 32px; border-radius: 8px;
+                     text-decoration: none; font-weight: bold; font-size: 16px;"
+            >
+              Acessar a Plataforma
+            </a>
+          </div>
+
+          <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+            Se tiver alguma dúvida, entre em contato pelo WhatsApp:
+            <a href="https://wa.me/5511966060828" style="color: #7030A0;">+55 (11) 96606-0828</a>
+          </p>
+        </div>
+
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+          © 2025 Diversidade.io — Todos os direitos reservados.
+        </p>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: false,
+      requireTLS: true,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false }
+    });
+
+    await transporter.sendMail({
+      from: `"Diversidade.io" <${SMTP_USER}>`,
+      to: email,
+      subject: "✅ Seu cadastro foi aprovado! — Diversidade.io",
+      html: htmlBody,
+    });
+
+    return res.json({ sucesso: true, mensagem: "E-mail enviado com sucesso!" });
+
+  } catch (err: any) {
+    console.error("Erro no endpoint /enviar-email-aprovacao:", err);
+    res.status(500).json({ erro: "Erro interno: " + err.message });
+  }
+});
+
+/**
  * Endpoint de registro de auditoria:
  * Recebe um evento do front-end, captura IP e user-agent reais do request
  * e insere o registro na tabela logs_acesso via RPC SECURITY DEFINER.
@@ -455,7 +544,37 @@ apiRouter.post("/ler-logs", async (req, res) => {
 
     if (error) throw error;
 
-    return res.json({ logs: data || [], total: count || 0 });
+    const logsCompletos = data ? [...data] : [];
+    
+    if (logsCompletos.length > 0) {
+      const emails = [...new Set(logsCompletos.map(l => l.email).filter(Boolean))];
+      
+      if (emails.length > 0) {
+        const { data: usuariosInfo } = await supabaseAdmin
+          .from('empresas')
+          .select('email, nome_responsavel, razao_social, nome_fantasia')
+          .in('email', emails);
+
+        if (usuariosInfo) {
+          const mapUsuarios: Record<string, any> = {};
+          usuariosInfo.forEach(u => {
+            mapUsuarios[u.email] = {
+              nome: u.nome_responsavel,
+              empresa: u.razao_social || u.nome_fantasia || 'Administração'
+            };
+          });
+
+          logsCompletos.forEach(l => {
+            if (mapUsuarios[l.email]) {
+              l.executor_nome = mapUsuarios[l.email].nome;
+              l.executor_empresa = mapUsuarios[l.email].empresa;
+            }
+          });
+        }
+      }
+    }
+
+    return res.json({ logs: logsCompletos, total: count || 0 });
   } catch (err: any) {
     console.error("Erro no endpoint /ler-logs:", err);
     return res.status(500).json({ erro: err.message });

@@ -46,6 +46,8 @@ interface LogEntry {
   empresa_id: string | null;
   nome_empresa: string | null;
   executor_adm_email: string | null;
+  executor_nome?: string;
+  executor_empresa?: string;
   ip_address: string | null;
   user_agent: string | null;
   detalhes: string | null;
@@ -174,31 +176,67 @@ function TabelaLogs({
                       <DialogHeader>
                         <DialogTitle className="text-[#7030A0]">Detalhes do Evento</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4 py-4 max-h-[80vh] overflow-y-auto">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-semibold text-gray-600 block">Data / Hora</span>
-                            <span className="text-gray-900">{formatarDataHora(log.criado_em)}</span>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-gray-600 block">Evento</span>
-                            <div className="mt-1"><BadgeEvento tipo={log.tipo_evento} /></div>
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-semibold text-gray-600 block">E-mail do Usuário</span>
-                            <span className="text-gray-900 break-all">{log.email}</span>
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-semibold text-gray-600 block">Empresa</span>
-                            <span className="text-gray-900">{log.nome_empresa || "—"}</span>
-                          </div>
-                        </div>
+                      <div className="space-y-6 py-2 max-h-[80vh] overflow-y-auto">
+                        
+                        {/* Seção 1: Quem Fez a Ação */}
                         <div>
-                          <span className="font-semibold text-gray-600 block text-sm mb-1">Detalhes Adicionais</span>
-                          <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700 min-h-[60px] whitespace-pre-wrap border border-gray-100">
-                            {log.detalhes || "Nenhum detalhe adicional fornecido."}
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#7030A0] mb-3 border-b border-gray-100 pb-1">
+                            1. Autor da Ação
+                          </h4>
+                          <div className="grid grid-cols-1 gap-3 text-sm bg-gray-50/50 p-3 rounded-md border border-gray-100">
+                            <div>
+                              <span className="font-semibold text-gray-600 block">Usuário (E-mail)</span>
+                              <span className="text-gray-900">{log.email}</span>
+                            </div>
+                            {log.executor_nome && (
+                              <div>
+                                <span className="font-semibold text-gray-600 block">Nome do Responsável</span>
+                                <span className="text-gray-900">{log.executor_nome}</span>
+                              </div>
+                            )}
+                            {log.executor_empresa && (
+                              <div>
+                                <span className="font-semibold text-gray-600 block">Vínculo / Empresa</span>
+                                <span className="text-gray-900">{log.executor_empresa}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
+
+                        {/* Seção 2: O Que Foi Feito */}
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#7030A0] mb-3 border-b border-gray-100 pb-1">
+                            2. Detalhes da Ação
+                          </h4>
+                          <div className="grid grid-cols-1 gap-3 text-sm">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <span className="font-semibold text-gray-600 block">Data / Hora</span>
+                                <span className="text-gray-900">{formatarDataHora(log.criado_em)}</span>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-600 block">Evento</span>
+                                <div className="mt-1"><BadgeEvento tipo={log.tipo_evento} /></div>
+                              </div>
+                            </div>
+
+                            {/* Mostra "Empresa Alvo" se existir nome_empresa (que geralmente indica quem sofreu a ação) */}
+                            {log.nome_empresa && log.tipo_evento !== 'login_sucesso' && log.tipo_evento !== 'login_falha' && log.tipo_evento !== 'logout' && (
+                              <div>
+                                <span className="font-semibold text-gray-600 block">Alvo da Ação (Empresa)</span>
+                                <span className="text-gray-900">{log.nome_empresa}</span>
+                              </div>
+                            )}
+
+                            <div>
+                              <span className="font-semibold text-gray-600 block text-sm mb-1">Descrição do Evento</span>
+                              <div className="bg-white p-3 rounded-md text-sm text-gray-700 min-h-[60px] whitespace-pre-wrap border border-gray-200 shadow-sm">
+                                {log.detalhes || "Nenhum detalhe adicional fornecido."}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </DialogContent>
                   </Dialog>

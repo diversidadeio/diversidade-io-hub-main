@@ -626,20 +626,52 @@ export default function CadastroGratuito() {
       sociosData.forEach((socio, idx) => {
         const secaoSocio = `4. Sócio ${idx + 1}`;
         const idBase = `socio-card-${idx}`;
+        if (!socio.foto)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Foto`, secao: secaoSocio });
+        if (!socio.fonteImagem)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Fonte da Imagem`, secao: secaoSocio });
         if (!socio.nome)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
         if (!socio.cpf)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
+        if (!socio.participacaoValor)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Valor da Participação`, secao: secaoSocio });
+        if (!socio.participacaoPercentual)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Percentual da Empresa`, secao: secaoSocio });
+        if (!socio.email)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: E-mail`, secao: secaoSocio });
         if (!socio.dataNascimento)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
+        if (!socio.cep)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CEP`, secao: secaoSocio });
+        if (!socio.nacionalidade)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nacionalidade`, secao: secaoSocio });
+        if (!socio.etariedade)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Idade`, secao: secaoSocio });
         if (!socio.raca)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
         if (!socio.sexo)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
+        if (socio.sexo === "Outro" && !socio.sexoOutro)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo (Qual)`, secao: secaoSocio });
         if (!socio.genero)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
+        if (!socio.orientacao)
+          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Orientação Afetivo-Sexual`, secao: secaoSocio });
         if (!socio.deficiencia || socio.deficiencia.length === 0)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
+        else {
+          if (socio.deficiencia.includes("Deficiência auditiva") && !socio.deficienciaAuditivaGrau)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Auditiva`, secao: secaoSocio });
+          if (socio.deficiencia.includes("Deficiência física") && !socio.deficienciaFisicaGrau)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Física`, secao: secaoSocio });
+          if (socio.deficiencia.includes("Deficiência intelectual") && !socio.deficienciaIntelectualGrau)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Intelectual`, secao: secaoSocio });
+          if (socio.deficiencia.includes("Deficiência psicossocial") && !socio.deficienciaPsicossocialGrau)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Psicossocial`, secao: secaoSocio });
+          if (socio.deficiencia.includes("Deficiência visual") && !socio.deficienciaVisualGrau)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Visual`, secao: secaoSocio });
+        }
       });
 
       if (autorizaCompartilhamento !== "Sim")
@@ -1439,7 +1471,38 @@ export default function CadastroGratuito() {
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Nacionalidade</Label>
-                                  <Input value={socio.nacionalidade} onChange={(e) => updateSocio(idx, 'nacionalidade', e.target.value)} placeholder="Ex: Brasileira" />
+                                  <Select 
+                                    value={
+                                      socio.nacionalidade === "" ? "" :
+                                      socio.nacionalidade === "Brasileiro" ? "Brasileiro" : "Outro"
+                                    } 
+                                    onValueChange={(v) => {
+                                      if (v === "Brasileiro") {
+                                        updateSocio(idx, 'nacionalidade', 'Brasileiro');
+                                      } else {
+                                        updateSocio(idx, 'nacionalidade', 'Outro');
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Brasileiro">Brasileiro</SelectItem>
+                                      <SelectItem value="Outro">Outro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {socio.nacionalidade !== "" && socio.nacionalidade !== "Brasileiro" && (
+                                    <Input
+                                      value={socio.nacionalidade === "Outro" ? "" : socio.nacionalidade}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateSocio(idx, 'nacionalidade', val === "" ? "Outro" : val);
+                                      }}
+                                      placeholder="Informe a nacionalidade"
+                                      className="mt-2"
+                                    />
+                                  )}
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Idade</Label>

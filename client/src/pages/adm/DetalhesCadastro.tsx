@@ -38,10 +38,10 @@ export default function DetalhesCadastroAdm() {
         // Registra log de admin visualizando empresa
         registrarLog({
           tipo_evento: 'adm_ver_empresa',
-          executor_adm_email: usuario?.email,
           empresa_id: id,
           nome_empresa: emp.razao_social || emp.nome_fantasia || emp.email,
-          email: emp.email,
+          email: usuario?.email || 'admin',
+          detalhes: `Visualizou o cadastro da empresa: ${emp.razao_social || emp.nome_fantasia || emp.email}`,
         });
 
         const { data: soc } = await supabase.from('socios').select('*').eq('empresa_id', id);
@@ -71,10 +71,10 @@ export default function DetalhesCadastroAdm() {
       // Registra log de geração de senha pelo admin
       registrarLog({
         tipo_evento: 'adm_gerar_senha',
-        executor_adm_email: usuario?.email,
         empresa_id: id,
         nome_empresa: empresa?.razao_social || empresa?.email,
-        email: empresa?.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Gerou uma nova senha temporária para a empresa: ${empresa?.razao_social || empresa?.email}`,
       });
     } catch (err: any) {
       alert("Erro ao gerar senha: " + err.message);
@@ -100,10 +100,10 @@ export default function DetalhesCadastroAdm() {
       // Registra log de aprovação pelo admin
       registrarLog({
         tipo_evento: 'adm_aprovar_empresa',
-        executor_adm_email: usuario?.email,
         empresa_id: id,
         nome_empresa: empresa?.razao_social || empresa?.email,
-        email: empresa?.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Aprovou o cadastro da empresa: ${empresa?.razao_social || empresa?.email}`,
       });
 
       // Disparar e-mail de aprovação via rota da Vercel (Resend)

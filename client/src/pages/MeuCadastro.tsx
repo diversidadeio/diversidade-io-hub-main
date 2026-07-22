@@ -1502,7 +1502,38 @@ export default function MeuCadastro() {
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Nacionalidade</Label>
-                                  <Input value={socio.nacionalidade} onChange={(e) => updateSocio(idx, "nacionalidade", e.target.value)} placeholder="Ex: Brasileira" />
+                                  <Select 
+                                    value={
+                                      socio.nacionalidade === "" ? "" :
+                                      socio.nacionalidade === "Brasileiro" ? "Brasileiro" : "Outro"
+                                    } 
+                                    onValueChange={(v) => {
+                                      if (v === "Brasileiro") {
+                                        updateSocio(idx, "nacionalidade", "Brasileiro");
+                                      } else {
+                                        updateSocio(idx, "nacionalidade", "Outro");
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Brasileiro">Brasileiro</SelectItem>
+                                      <SelectItem value="Outro">Outro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {socio.nacionalidade !== "" && socio.nacionalidade !== "Brasileiro" && (
+                                    <Input
+                                      value={socio.nacionalidade === "Outro" ? "" : socio.nacionalidade}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateSocio(idx, "nacionalidade", val === "" ? "Outro" : val);
+                                      }}
+                                      placeholder="Informe a nacionalidade"
+                                      className="mt-2"
+                                    />
+                                  )}
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Idade</Label>
