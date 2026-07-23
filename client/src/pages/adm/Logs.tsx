@@ -18,6 +18,7 @@ import {
   Users,
   Building2,
   Filter,
+  ArrowRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,8 @@ function TabelaLogs({
   totalPaginas,
   onPaginaAnterior,
   onProximaPagina,
+  itensPorPagina,
+  setItensPorPagina,
 }: {
   logs: LogEntry[];
   carregando: boolean;
@@ -115,6 +118,8 @@ function TabelaLogs({
   totalPaginas: number;
   onPaginaAnterior: () => void;
   onProximaPagina: () => void;
+  itensPorPagina: number;
+  setItensPorPagina: (valor: number) => void;
 }) {
   if (carregando) {
     return (
@@ -142,7 +147,7 @@ function TabelaLogs({
               <th className="px-4 py-3 font-medium">Empresa</th>
               <th className="px-4 py-3 font-medium">Evento</th>
               <th className="px-4 py-3 font-medium max-w-[200px]">Detalhes</th>
-              <th className="px-4 py-3 font-medium text-center">Ações</th>
+              <th className="px-4 py-3 font-medium text-right">Ação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -165,12 +170,13 @@ function TabelaLogs({
                     {log.detalhes || <span className="text-gray-300">—</span>}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-center">
+                <td className="px-4 py-3 text-right">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ver Detalhes">
-                        <Eye className="w-4 h-4 text-gray-500 hover:text-[#7030A0] transition-colors" />
-                      </Button>
+                      <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-[#7030A0] border border-[#7030A0]/40 rounded-lg hover:bg-[#7030A0] hover:text-white hover:border-[#7030A0] transition-all duration-200 group">
+                        Detalhes
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                      </button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md bg-white border border-gray-100 shadow-xl">
                       <DialogHeader>
@@ -247,11 +253,25 @@ function TabelaLogs({
         </table>
       </div>
       {/* Paginação */}
-      {totalPaginas > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <span className="text-sm text-gray-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50 gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500 whitespace-nowrap">Mostrar:</span>
+          <Select value={itensPorPagina.toString()} onValueChange={(val) => setItensPorPagina(Number(val))}>
+            <SelectTrigger className="h-8 w-[70px] bg-white text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-gray-500 ml-2">
             Página <strong>{pagina}</strong> de <strong>{totalPaginas}</strong>
           </span>
+        </div>
+        {totalPaginas > 1 && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -270,8 +290,8 @@ function TabelaLogs({
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
@@ -293,9 +313,10 @@ function useLogs(filtros: FiltrosLogs) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(1);
+  const [itensPorPagina, setItensPorPagina] = useState(20);
   const [carregando, setCarregando] = useState(true);
 
-  const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const totalPaginas = Math.max(1, Math.ceil(total / itensPorPagina));
 
   const buscar = useCallback(async (paginaAtual: number) => {
     setCarregando(true);
@@ -310,7 +331,7 @@ function useLogs(filtros: FiltrosLogs) {
           empresaId: filtros.empresaId,
           periodo: filtros.periodo,
           page: paginaAtual,
-          pageSize: POR_PAGINA,
+          pageSize: itensPorPagina,
         }),
       });
 
@@ -327,19 +348,19 @@ function useLogs(filtros: FiltrosLogs) {
     } finally {
       setCarregando(false);
     }
-  }, [filtros.tipoEvento, filtros.emailBusca, filtros.empresaId, filtros.nomeEmpresa, filtros.periodo]);
+  }, [filtros.tipoEvento, filtros.emailBusca, filtros.empresaId, filtros.nomeEmpresa, filtros.periodo, itensPorPagina]);
 
   useEffect(() => {
     setPagina(1);
-  }, [filtros.tipoEvento, filtros.emailBusca, filtros.empresaId, filtros.nomeEmpresa, filtros.periodo]);
+  }, [filtros.tipoEvento, filtros.emailBusca, filtros.empresaId, filtros.nomeEmpresa, filtros.periodo, itensPorPagina]);
 
   useEffect(() => {
     buscar(pagina);
   }, [buscar, pagina]);
 
   return {
-    logs, total, pagina, totalPaginas, carregando,
-    setPagina,
+    logs, total, pagina, totalPaginas, carregando, itensPorPagina,
+    setPagina, setItensPorPagina,
     recarregar: () => buscar(pagina),
   };
 }
@@ -546,6 +567,8 @@ export default function LogsAdm() {
                 totalPaginas={logsGeral.totalPaginas}
                 onPaginaAnterior={() => logsGeral.setPagina((p) => p - 1)}
                 onProximaPagina={() => logsGeral.setPagina((p) => p + 1)}
+                itensPorPagina={logsGeral.itensPorPagina}
+                setItensPorPagina={logsGeral.setItensPorPagina}
               />
             </div>
           )}
@@ -589,6 +612,8 @@ export default function LogsAdm() {
                 totalPaginas={logsAdmin.totalPaginas}
                 onPaginaAnterior={() => logsAdmin.setPagina((p) => p - 1)}
                 onProximaPagina={() => logsAdmin.setPagina((p) => p + 1)}
+                itensPorPagina={logsAdmin.itensPorPagina}
+                setItensPorPagina={logsAdmin.setItensPorPagina}
               />
             </div>
           )}
@@ -650,6 +675,8 @@ export default function LogsAdm() {
                       totalPaginas={logsEmpresa.totalPaginas}
                       onPaginaAnterior={() => logsEmpresa.setPagina((p) => p - 1)}
                       onProximaPagina={() => logsEmpresa.setPagina((p) => p + 1)}
+                      itensPorPagina={logsEmpresa.itensPorPagina}
+                      setItensPorPagina={logsEmpresa.setItensPorPagina}
                     />
                   )}
                 </div>
@@ -717,6 +744,8 @@ export default function LogsAdm() {
                   totalPaginas={logsUsuario.totalPaginas}
                   onPaginaAnterior={() => logsUsuario.setPagina((p) => p - 1)}
                   onProximaPagina={() => logsUsuario.setPagina((p) => p + 1)}
+                  itensPorPagina={logsUsuario.itensPorPagina}
+                  setItensPorPagina={logsUsuario.setItensPorPagina}
                 />
               )}
             </div>
