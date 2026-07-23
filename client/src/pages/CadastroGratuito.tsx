@@ -35,7 +35,6 @@ interface SocioData {
   sexo: string;
   sexoOutro: string;
   genero: string;
-  orientacao: string;
   deficiencia: string[];
   deficienciaAuditivaGrau: string;
   deficienciaFisicaGrau: string;
@@ -183,7 +182,7 @@ export default function CadastroGratuito() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
             });
           }
         } else if (newData.length > num) {
@@ -497,7 +496,7 @@ export default function CadastroGratuito() {
           setNumeroSocios(sociosQsa.length);
           const novosSocios = sociosQsa.map((s: any) => ({
             foto: null, fonteImagem: "", nome: s.nome_socio || "", participacaoValor: "", participacaoPercentual: "",
-            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
+            cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", deficiencia: [], deficienciaAuditivaGrau: "", deficienciaFisicaGrau: "", deficienciaIntelectualGrau: "", deficienciaPsicossocialGrau: "", deficienciaVisualGrau: ""
           }));
           setSociosData(novosSocios);
         }
@@ -656,8 +655,6 @@ export default function CadastroGratuito() {
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo (Qual)`, secao: secaoSocio });
         if (!socio.genero)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
-        if (!socio.orientacao)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Orientação Afetivo-Sexual`, secao: secaoSocio });
         if (!socio.deficiencia || socio.deficiencia.length === 0)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
         else {
@@ -900,7 +897,6 @@ export default function CadastroGratuito() {
             raca: s.raca,
             sexo: s.sexo === "Outro" ? `Outro: ${s.sexoOutro}` : s.sexo,
             genero: s.genero,
-            orientacao: s.orientacao,
             deficiencia: Array.isArray(s.deficiencia) ? s.deficiencia.join(', ') : s.deficiencia,
             deficiencia_auditiva_grau: s.deficienciaAuditivaGrau,
             deficiencia_fisica_grau: s.deficienciaFisicaGrau,

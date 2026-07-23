@@ -38,7 +38,6 @@ interface SocioData {
   sexo: string;
   sexoOutro: string;
   genero: string;
-  orientacao: string;
   deficiencia: string;
 }
 
@@ -322,7 +321,6 @@ export default function MeuCadastro() {
             sexo: s.sexo?.startsWith("Outro: ") ? "Outro" : (s.sexo ?? ""),
             sexoOutro: s.sexo?.startsWith("Outro: ") ? s.sexo.replace("Outro: ", "") : "",
             genero: s.genero ?? "",
-            orientacao: s.orientacao ?? "",
             deficiencia: s.deficiencia ?? "",
           }));
           setSociosData(sociosMapeados);
@@ -533,7 +531,7 @@ export default function MeuCadastro() {
           for (let i = newData.length; i < num; i++) {
             newData.push({
               foto: null, fonteImagem: "", nome: "", participacaoValor: "", participacaoPercentual: "",
-              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", orientacao: "", deficiencia: ""           });
+              cpf: "", cep: "", email: "", dataNascimento: "", nacionalidade: "", etariedade: "", raca: "", sexo: "", sexoOutro: "", genero: "", deficiencia: ""           });
           }
         } else {
           newData.length = num;
@@ -869,7 +867,6 @@ export default function MeuCadastro() {
             raca: s.raca,
             sexo: s.sexo === "Outro" ? `Outro: ${s.sexoOutro}` : s.sexo,
             genero: s.genero,
-            orientacao: s.orientacao,
             deficiencia: s.deficiencia,
             fonte_imagem: s.fonteImagem,
           };
