@@ -118,7 +118,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email,
           detalhes: authError?.message || 'Credenciais inválidas',
         });
-        return { sucesso: false, erro: "E-mail não encontrado ou senha incorreta." };
+        try {
+          const checkRes = await fetch("/api/verificar-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            if (checkData && checkData.existe === false) {
+              return { sucesso: false, erro: "E-mail não cadastrado. Por favor, realize o seu cadastro." };
+            }
+          }
+        } catch (e) {
+          console.error("Erro ao verificar email:", e);
+        }
+
+        return { sucesso: false, erro: "Senha incorreta." };
       }
 
       // 2. Busca dados de sessão via RPC (une profiles + empresas)

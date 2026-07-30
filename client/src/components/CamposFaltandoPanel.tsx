@@ -96,7 +96,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
             zIndex: 50,
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(112, 48, 160, 0.18)",
-            border: tudo_ok ? "2px solid #22c55e" : "2px solid #7030A0",
+            border: tudo_ok ? "2px solid #22c55e" : "2px solid #ef4444",
             overflow: "hidden",
             transition: "all 0.3s ease",
             background: "#ffffff",
@@ -114,7 +114,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
               padding: "10px 14px",
               background: tudo_ok
                 ? "linear-gradient(135deg, #16a34a, #22c55e)"
-                : "linear-gradient(135deg, #7030A0, #9b4dca)",
+                : "linear-gradient(135deg, #ef4444, #dc2626)",
               color: "#fff",
               cursor: "pointer",
               border: "none",
@@ -129,7 +129,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
               )}
               {tudo_ok
                 ? "✅ Tudo preenchido!"
-                : `${campos.length} campo${campos.length > 1 ? "s" : ""} faltando`}
+                : "Clique para corrigir"}
             </span>
             {aberto ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
@@ -152,7 +152,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
                         fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "#7030A0",
+                        color: "#ef4444",
                         borderTop: "1px solid #f0e8f8",
                         marginTop: "4px",
                       }}
@@ -223,7 +223,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
           bottom: 0,
           zIndex: 50,
           background: "#ffffff",
-          borderTop: tudo_ok ? "3px solid #22c55e" : "3px solid #7030A0",
+          borderTop: tudo_ok ? "3px solid #22c55e" : "3px solid #ef4444",
           boxShadow: "0 -4px 24px rgba(112,48,160,0.15)",
           transition: "all 0.3s ease",
         }}
@@ -240,7 +240,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
             padding: "10px 16px",
             background: tudo_ok
               ? "linear-gradient(135deg, #16a34a, #22c55e)"
-              : "linear-gradient(135deg, #7030A0, #9b4dca)",
+              : "linear-gradient(135deg, #ef4444, #dc2626)",
             color: "#fff",
             cursor: "pointer",
             border: "none",
@@ -255,7 +255,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
             )}
             {tudo_ok
               ? "✅ Tudo preenchido!"
-              : `${campos.length} campo${campos.length > 1 ? "s" : ""} faltando — toque para ver`}
+              : "Toque para corrigir"}
           </span>
           {aberto ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
         </button>
@@ -277,7 +277,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "0.08em",
-                      color: "#7030A0",
+                      color: "#ef4444",
                       borderTop: "1px solid #f0e8f8",
                       marginTop: "4px",
                     }}

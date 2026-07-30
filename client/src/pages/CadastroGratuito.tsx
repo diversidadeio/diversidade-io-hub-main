@@ -16,7 +16,7 @@ import { DrumDatePicker } from "@/components/ui/drum-date-picker";
 import { supabase } from "@/lib/supabase";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 import { toast } from "sonner";
-
+import { InfoJuntaComercial } from "@/components/InfoJuntaComercial";
 interface SocioData {
   foto: File | null;
   fonteImagem: string;
@@ -653,8 +653,7 @@ export default function CadastroGratuito() {
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
         if (socio.sexo === "Outro" && !socio.sexoOutro)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo (Qual)`, secao: secaoSocio });
-        if (!socio.genero)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Gênero`, secao: secaoSocio });
+
         if (!socio.deficiencia || socio.deficiencia.length === 0)
           faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
         else {
@@ -1186,10 +1185,10 @@ export default function CadastroGratuito() {
 
               <div className="grid md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Suba o PDF do Cartão CNPJ</Label>
-                  <div className={`border-2 border-dashed ${cartaoCnpjFile ? 'border-[#7030A0] bg-purple-50' : 'border-gray-300 bg-white'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
-                    <input type="file" id="cartaoCnpj" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) setCartaoCnpjFile(e.target.files[0]) }} required />
-                    <label htmlFor="cartaoCnpj" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
+                  <Label className="text-gray-700 font-medium">Suba o PDF do Cartão CNPJ (Obrigatório)</Label>
+                  <div id="cartaoCnpj" className={`border-2 border-dashed ${cartaoCnpjFile ? 'border-[#7030A0] bg-purple-50' : 'border-gray-300 bg-white'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
+                    <input type="file" id="input-cartaoCnpj" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) setCartaoCnpjFile(e.target.files[0]) }} required />
+                    <label htmlFor="input-cartaoCnpj" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
                       <div className={`w-10 h-10 rounded-full ${cartaoCnpjFile ? 'bg-[#7030A0]' : 'bg-purple-100'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <FileText className={`w-5 h-5 ${cartaoCnpjFile ? 'text-white' : 'text-[#7030A0]'}`} />
                       </div>
@@ -1201,10 +1200,10 @@ export default function CadastroGratuito() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Ficha Simples da Junta Comercial (PDF)</Label>
-                  <div className={`border-2 border-dashed ${fichaJuntaFile ? 'border-[#7030A0] bg-purple-50' : 'border-gray-300 bg-white'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
-                    <input type="file" id="fichaJunta" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) handleFichaJuntaChange(e.target.files[0]) }} required />
-                    <label htmlFor="fichaJunta" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
+                  <Label className="text-gray-700 font-medium flex items-center">Ficha Simples da Junta Comercial (PDF) (Obrigatório) <InfoJuntaComercial /></Label>
+                  <div id="fichaJunta" className={`border-2 border-dashed ${fichaJuntaFile ? 'border-[#7030A0] bg-purple-50' : 'border-gray-300 bg-white'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
+                    <input type="file" id="input-fichaJunta" className="hidden" accept=".pdf" onChange={(e) => { if(e.target.files && e.target.files[0]) handleFichaJuntaChange(e.target.files[0]) }} required />
+                    <label htmlFor="input-fichaJunta" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
                       <div className={`w-10 h-10 rounded-full ${fichaJuntaFile ? 'bg-[#7030A0]' : 'bg-purple-100'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <FileText className={`w-5 h-5 ${fichaJuntaFile ? 'text-white' : 'text-[#7030A0]'}`} />
                       </div>
@@ -1552,24 +1551,7 @@ export default function CadastroGratuito() {
                                     />
                                   )}
                                 </div>
-                                <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Gênero</Label>
-                                  <Select value={socio.genero} onValueChange={(v) => updateSocio(idx, 'genero', v)}>
-                                    <SelectTrigger className="bg-white">
-                                      <SelectValue placeholder="Selecione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
-                                      <SelectItem value="Homem trans">Homem trans</SelectItem>
-                                      <SelectItem value="Mulher cisgênero">Mulher cisgênero</SelectItem>
-                                      <SelectItem value="Mulher trans">Mulher trans</SelectItem>
-                                      <SelectItem value="Agênero">Agênero</SelectItem>
-                                      <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>
-                                      <SelectItem value="Não binário">Não binário</SelectItem>
-                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>                                <div className="space-y-4 md:col-span-2 mt-4">
+                                <div className="space-y-4 md:col-span-2 mt-4">
                                   <Label className="text-gray-700 font-medium block border-b pb-2">Deficiência</Label>
                                   <p className="text-sm text-gray-500 mb-2">Sócio(s) possui alguma deficiência? (Pode selecionar mais de uma)</p>
                                   
@@ -1772,7 +1754,7 @@ export default function CadastroGratuito() {
                 <div className="space-y-2 border-b pb-2">
                   <h3 className="text-xl font-semibold text-gray-900">Pessoas Impactadas</h3>
                   <p className="text-gray-600 text-sm">
-                    Informe o número de pessoas impactadas financeiramente pelo salário de cada grupo para listarmos os CEPs.
+                    Informe o número de pessoas impactadas financeiramente pelo salário de cada grupo para listarmos os CEPs. (Caso não tenha uma pessoa nesse perfil, preencha 0)
                   </p>
                 </div>
 
@@ -1943,11 +1925,12 @@ export default function CadastroGratuito() {
                           { label: "Dependentes financeiros (não entram no Score RIS)", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
                         ];
 
-                        const calcPercent = (qtdStr: string, totalStr: string) => {
+                        const renderPercent = (qtdStr: string, totalStr: string) => {
                           const qtd = parseInt(qtdStr);
                           const total = parseInt(totalStr);
-                          if (isNaN(qtd) || isNaN(total) || total === 0) return "0.0%";
-                          return ((qtd / total) * 100).toFixed(1) + "%";
+                          if (isNaN(qtd) || isNaN(total) || total === 0) return <span className="text-[#7030A0]">0.0%</span>;
+                          const percent = (qtd / total) * 100;
+                          return <span className={percent > 100 ? "text-red-500" : "text-[#7030A0]"}>{percent.toFixed(1)}%</span>;
                         };
 
                         return recortes.map((recorte, idx) => {
@@ -1982,40 +1965,40 @@ export default function CadastroGratuito() {
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
                               </td>
 
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
                               </td>
 
                               {/* Colaboradores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
                               </td>
                             </tr>
                           );

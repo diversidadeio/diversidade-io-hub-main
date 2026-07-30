@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import logoImage from "@/assets/logo.png";
 import rhinoImage from "@/assets/rhino.png";
+import { ModalPreCadastro } from "@/components/ModalPreCadastro";
 
 /**
  * Diversidade.io Hub - Institutional Landing Page
@@ -19,6 +20,7 @@ export default function Home() {
   const [scrollY, setScrollY] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const [mostrarModalPreCadastro, setMostrarModalPreCadastro] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -60,11 +62,16 @@ export default function Home() {
             </button>
           </nav>
 
-          <Button asChild className="text-white flex items-center gap-2" style={{backgroundColor: '#502273'}}>
-            <Link href="/login">
-              <LogIn className="w-4 h-4" /> Login/Cadastre-se
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild className="flex items-center gap-2" style={{borderColor: '#502273', color: '#502273'}}>
+              <Link href="/login">
+                <LogIn className="w-4 h-4" /> Login
+              </Link>
+            </Button>
+            <Button onClick={() => setMostrarModalPreCadastro(true)} className="text-white flex items-center gap-2" style={{backgroundColor: '#502273'}}>
+              Cadastre-se
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -88,10 +95,13 @@ export default function Home() {
 
               {/* CTA Buttons */}
               <div className="flex pt-4">
-                <Button asChild className="text-white h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" style={{backgroundColor: '#7030A0'}}>
-                  <Link href="/cadastro-gratuito">
-                    Formulário de cadastro gratuito <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
+                <Button 
+                  type="button" 
+                  onClick={() => setMostrarModalPreCadastro(true)} 
+                  className="text-white h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" 
+                  style={{backgroundColor: '#7030A0'}}
+                >
+                  Formulário de cadastro gratuito <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             </div>
@@ -888,6 +898,11 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      
+      <ModalPreCadastro 
+        aberto={mostrarModalPreCadastro} 
+        onOpenChange={setMostrarModalPreCadastro} 
+      />
     </div>
   );
 }

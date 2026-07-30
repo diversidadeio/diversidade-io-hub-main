@@ -289,7 +289,7 @@ export default function DetalhesCadastroAdm() {
                   {renderField("Data de Nasc.", socio.data_nascimento)}
                   {renderField("Nacionalidade", socio.nacionalidade)}
                   {renderField("Raça", socio.raca)}
-                  {renderField("Gênero", socio.genero)}
+
                   {renderField("Participação %", socio.participacao_percentual)}
                   {renderField("Participação R$", socio.participacao_valor)}
                 </div>

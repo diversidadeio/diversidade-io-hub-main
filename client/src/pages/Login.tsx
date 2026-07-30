@@ -14,6 +14,7 @@ import {
 import logoImage from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { ModalPreCadastro } from "@/components/ModalPreCadastro";
 
 /**
  * Página de Login — tela simples e limpa para acesso ao painel do cadastro.
@@ -30,6 +31,7 @@ export default function Login() {
   const [emailRecuperacao, setEmailRecuperacao] = useState("");
   const [isRecuperando, setIsRecuperando] = useState(false);
   const [mensagemRecuperacao, setMensagemRecuperacao] = useState<{ tipo: "sucesso" | "erro", texto: string } | null>(null);
+  const [mostrarModalPreCadastro, setMostrarModalPreCadastro] = useState(false);
   
   const { login } = useAuth();
   const [, navigate] = useLocation();
@@ -109,7 +111,7 @@ export default function Login() {
               Diversidade.io
             </span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo de volta</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo</h1>
           <p className="text-gray-500 text-sm">
             Acesse sua conta para visualizar e atualizar seu cadastro
           </p>
@@ -223,14 +225,13 @@ export default function Login() {
             <div className="text-center">
               <p className="text-gray-600 text-sm mb-3">Ainda não tem cadastro?</p>
               <Button
-                asChild
+                type="button"
                 variant="outline"
                 className="w-full h-11 border-2 font-semibold rounded-xl hover:bg-purple-50 transition-colors cursor-pointer"
                 style={{ borderColor: "#7030A0", color: "#7030A0" }}
+                onClick={() => setMostrarModalPreCadastro(true)}
               >
-                <Link href="/cadastro-gratuito">
-                  Cadastre-se
-                </Link>
+                Cadastre-se
               </Button>
             </div>
           </div>
@@ -288,7 +289,10 @@ export default function Login() {
           </form>
         </DialogContent>
       </Dialog>
-
+      <ModalPreCadastro 
+        aberto={mostrarModalPreCadastro} 
+        onOpenChange={setMostrarModalPreCadastro} 
+      />
 
     </div>
   );

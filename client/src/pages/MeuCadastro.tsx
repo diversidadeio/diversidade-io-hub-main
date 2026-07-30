@@ -18,7 +18,7 @@ import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 import { Download, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
-
+import { InfoJuntaComercial } from "@/components/InfoJuntaComercial";
 interface SocioData {
   foto: File | null;
   fotoUrl?: string | null;
@@ -1225,7 +1225,7 @@ export default function MeuCadastro() {
 
               <div className="grid md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Suba o PDF do Cartão CNPJ</Label>
+                  <Label className="text-gray-700 font-medium">Suba o PDF do Cartão CNPJ (Obrigatório)</Label>
                   <div className={`border-2 border-dashed ${cartaoCnpjFile || cartaoCnpjUrl ? "border-[#7030A0] bg-purple-50" : "border-gray-300 bg-white"} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
                     <input type="file" id="cartaoCnpj" className="hidden" accept=".pdf"
                       onChange={(e) => { if (e.target.files && e.target.files[0]) setCartaoCnpjFile(e.target.files[0]); }} />
@@ -1243,7 +1243,7 @@ export default function MeuCadastro() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Ficha Simples da Junta Comercial (PDF)</Label>
+                  <Label className="text-gray-700 font-medium flex items-center">Ficha Simples da Junta Comercial (PDF) (Obrigatório) <InfoJuntaComercial /></Label>
                   <div className={`border-2 border-dashed ${fichaJuntaFile || fichaJuntaUrl ? "border-[#7030A0] bg-purple-50" : "border-gray-300 bg-white"} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group`}>
                     <input type="file" id="fichaJunta" className="hidden" accept=".pdf"
                       onChange={(e) => { if (e.target.files && e.target.files[0]) handleFichaJuntaChange(e.target.files[0]); }} />
@@ -1584,24 +1584,7 @@ export default function MeuCadastro() {
                                     />
                                   )}
                                 </div>
-                                <div className="space-y-2">
-                                  <Label className="text-gray-700 font-medium">Gênero</Label>
-                                  <Select value={socio.genero} onValueChange={(v) => updateSocio(idx, 'genero', v)}>
-                                    <SelectTrigger className="bg-white">
-                                      <SelectValue placeholder="Selecione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Homem cisgênero">Homem cisgênero</SelectItem>
-                                      <SelectItem value="Homem trans">Homem trans</SelectItem>
-                                      <SelectItem value="Mulher cisgênero">Mulher cisgênero</SelectItem>
-                                      <SelectItem value="Mulher trans">Mulher trans</SelectItem>
-                                      <SelectItem value="Agênero">Agênero</SelectItem>
-                                      <SelectItem value="Gênero neutro">Gênero neutro</SelectItem>
-                                      <SelectItem value="Não binário">Não binário</SelectItem>
-                                      <SelectItem value="Prefiro não declarar">Prefiro não declarar</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>                                <div className="space-y-2 md:col-span-2 mt-2">
+                                <div className="space-y-2 md:col-span-2 mt-2">
                                   <Label className="text-gray-700 font-medium mb-2 block">Possui algum tipo de deficiência?</Label>
                                   <RadioGroup value={socio.deficiencia} onValueChange={(v) => updateSocio(idx, "deficiencia", v)} className="flex gap-6">
                                     <div className="flex items-center space-x-2">
@@ -1721,7 +1704,7 @@ export default function MeuCadastro() {
                 <div className="space-y-2 border-b pb-2">
                   <h3 className="text-xl font-semibold text-gray-900">Pessoas Impactadas</h3>
                   <p className="text-gray-600 text-sm">
-                    Informe o número de pessoas impactadas financeiramente pelo salário de cada grupo para listarmos os CEPs.
+                    Informe o número de pessoas impactadas financeiramente pelo salário de cada grupo para listarmos os CEPs. (Caso não tenha uma pessoa nesse perfil, preencha 0)
                   </p>
                 </div>
 
@@ -1868,11 +1851,12 @@ export default function MeuCadastro() {
                           { label: "Dependentes financeiros (não entram no Score RIS)", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
                         ];
 
-                        const calcPercent = (qtdStr: string, totalStr: string) => {
+                        const renderPercent = (qtdStr: string, totalStr: string) => {
                           const qtd = parseInt(qtdStr);
                           const total = parseInt(totalStr);
-                          if (isNaN(qtd) || isNaN(total) || total === 0) return "0.0%";
-                          return ((qtd / total) * 100).toFixed(1) + "%";
+                          if (isNaN(qtd) || isNaN(total) || total === 0) return <span className="text-[#7030A0]">0.0%</span>;
+                          const percent = (qtd / total) * 100;
+                          return <span className={percent > 100 ? "text-red-500" : "text-[#7030A0]"}>{percent.toFixed(1)}%</span>;
                         };
 
                         return recortes.map((recorte, idx) => {
@@ -1907,43 +1891,43 @@ export default function MeuCadastro() {
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'socios', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.socios || "", totalSocios)}
                               </td>
 
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'gestores', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.gestores || "", totalGestores)}
                               </td>
 
                               {/* Colaboradores */}
                               <td className="p-3 text-center border-l border-gray-100">
                                 <Input 
-                                  className={`w-20 mx-auto text-center h-10 border-gray-300 ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                                  className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
                                   disabled={isTotal || isDep}
                                   onChange={(e) => handleDiversidadeQtdChange(key, 'colaboradores', e.target.value)}
                                   onBlur={() => handleDiversidadeBlur()}
                                 />
                               </td>
-                              <td className="p-3 text-center font-bold text-[#7030A0]">
-                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : calcPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
+                              <td className="p-3 text-center font-bold">
+                                {isTotal ? <span className="text-blue-400 font-normal">—</span> : isDep ? <span className="text-purple-300 font-normal">—</span> : renderPercent(diversidadeGlobal[key]?.colaboradores || "", totalColab)}
                               </td>
                             </tr>
                           );
