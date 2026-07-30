@@ -23,7 +23,7 @@ export function ModalPreCadastro({ aberto, onOpenChange }: ModalPreCadastroProps
             Preparando seu Cadastro
           </DialogTitle>
           <DialogDescription>
-            Para agilizar o processo, faça um checklist e tenha em mãos os seguintes itens:
+            Bem-vindo, para agilizar o processo, faça um checklist e tenha em mãos os seguintes itens:
           </DialogDescription>
         </DialogHeader>
 

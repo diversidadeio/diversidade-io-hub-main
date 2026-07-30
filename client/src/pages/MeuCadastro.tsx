@@ -1878,11 +1878,7 @@ export default function MeuCadastro() {
                                     <span className="text-xs text-gray-500 font-normal">({recorte.label.split(" (")[1]}</span>
                                   </>
                                 ) : isDep ? (
-                                  <>
-                                    Dependentes financeiros
-                                    <br/>
-                                    <span className="text-xs font-normal opacity-70">(não entram no Score RIS)</span>
-                                  </>
+                                  "Dependentes financeiros"
                                 ) : (
                                   recorte.label
                                 )}
@@ -1890,6 +1886,9 @@ export default function MeuCadastro() {
                               
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
@@ -1904,6 +1903,9 @@ export default function MeuCadastro() {
 
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
@@ -1918,6 +1920,9 @@ export default function MeuCadastro() {
 
                               {/* Colaboradores */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}

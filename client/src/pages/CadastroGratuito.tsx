@@ -169,7 +169,7 @@ export default function CadastroGratuito() {
     "Mulheres": { socios: "", gestores: "", colaboradores: "" },
     "Pessoas com Deficiência (PCD)": { socios: "", gestores: "", colaboradores: "" },
     "Pessoas 60+": { socios: "", gestores: "", colaboradores: "" },
-    "Dependentes financeiros (não entram no Score RIS)": { socios: "", gestores: "", colaboradores: "" }
+    "Dependentes financeiros": { socios: "", gestores: "", colaboradores: "" }
   });
 
   const handleNumeroSociosChange = (val: string) => {
@@ -541,7 +541,7 @@ export default function CadastroGratuito() {
         gestores: numGestoresDiretos ? String(numGestoresDiretos) : "",
         colaboradores: numColaboradoresDiretos ? String(numColaboradoresDiretos) : ""
       },
-      "Dependentes financeiros (não entram no Score RIS)": {
+      "Dependentes financeiros": {
         socios: numeroImpactadasSocios ? String(numeroImpactadasSocios) : "",
         gestores: numeroImpactadasGestores ? String(numeroImpactadasGestores) : "",
         colaboradores: numeroImpactadasColaboradores ? String(numeroImpactadasColaboradores) : ""
@@ -585,10 +585,6 @@ export default function CadastroGratuito() {
     // ── Seção 2: Dados da Empresa ────────────────────────────────────
     if (!cnpjValido)
       faltando.push({ id: "cnpj", label: "CNPJ (válido)", secao: "2. Dados da Empresa" });
-    if (!cartaoCnpjFile)
-      faltando.push({ id: "cartaoCnpj", label: "Cartão CNPJ (PDF)", secao: "2. Dados da Empresa" });
-    if (!fichaJuntaFile)
-      faltando.push({ id: "fichaJunta", label: "Ficha da Junta Comercial", secao: "2. Dados da Empresa" });
     if (!razaoSocial)
       faltando.push({ id: "razaoSocial", label: "Razão Social", secao: "2. Dados da Empresa" });
     if (!nomeFantasia)
@@ -599,6 +595,10 @@ export default function CadastroGratuito() {
       faltando.push({ id: "areaEmpresa", label: "Área da Empresa", secao: "2. Dados da Empresa" });
     if (!areaGeografica)
       faltando.push({ id: "areaGeografica", label: "Área Geográfica", secao: "2. Dados da Empresa" });
+    if (!cartaoCnpjFile)
+      faltando.push({ id: "cartaoCnpj", label: "Cartão CNPJ (PDF)", secao: "2. Dados da Empresa" });
+    if (!fichaJuntaFile)
+      faltando.push({ id: "fichaJunta", label: "Ficha da Junta Comercial", secao: "2. Dados da Empresa" });
     if (!sobreEmpresa)
       faltando.push({ id: "sobre", label: "Sobre a Empresa", secao: "2. Dados da Empresa" });
 
@@ -670,24 +670,24 @@ export default function CadastroGratuito() {
         }
       });
 
-      if (autorizaCompartilhamento !== "Sim")
-        faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Sócios e Impacto" });
-
       gestoresDiretosData.forEach((g, idx) => {
-        if (!g.codigoPostal) faltando.push({ id: `gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "2. Dados da Empresa" });
+        if (!g.codigoPostal) faltando.push({ id: `cp-gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "4. Localização" });
       });
       colaboradoresDiretosData.forEach((c, idx) => {
-        if (!c.codigoPostal) faltando.push({ id: `colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "2. Dados da Empresa" });
+        if (!c.codigoPostal) faltando.push({ id: `cp-colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "4. Localização" });
       });
       sociosImpactadosData.forEach((s, idx) => {
-        if (!s.codigoPostal) faltando.push({ id: `socio-imp-${idx}`, label: `CEP Sócio Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+        if (!s.codigoPostal) faltando.push({ id: `cp-socios-impactados-${idx}`, label: `CEP do impactado pelo sócio ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
       gestoresData.forEach((g, idx) => {
-        if (!g.codigoPostal) faltando.push({ id: `gestor-imp-${idx}`, label: `CEP Gestor Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+        if (!g.codigoPostal) faltando.push({ id: `cp-gestores-${idx}`, label: `CEP do impactado pelo gestor ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
       colaboradoresData.forEach((c, idx) => {
-        if (!c.codigoPostal) faltando.push({ id: `colab-imp-${idx}`, label: `CEP Colaborador Impactado ${idx + 1}`, secao: "4. Sócios e Impacto" });
+        if (!c.codigoPostal) faltando.push({ id: `cp-colab-${idx}`, label: `CEP do impactado pelo colaborador ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
+
+      if (autorizaCompartilhamento !== "Sim")
+        faltando.push({ id: "opt-in", label: "Consentimento de Dados (Opt-in)", secao: "4. Autorizações" });
     }
 
     return faltando;
@@ -1922,7 +1922,7 @@ export default function CadastroGratuito() {
                           { label: "Mulheres", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
                           { label: "Pessoas com Deficiência (PCD)", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
                           { label: "Pessoas 60+", bg: "bg-white", labelColor: "text-gray-700 font-semibold" },
-                          { label: "Dependentes financeiros (não entram no Score RIS)", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
+                          { label: "Dependentes financeiros", bg: "bg-purple-50/30", labelColor: "text-[#7030A0] font-semibold text-sm" }
                         ];
 
                         const renderPercent = (qtdStr: string, totalStr: string) => {
@@ -1935,7 +1935,7 @@ export default function CadastroGratuito() {
 
                         return recortes.map((recorte, idx) => {
                           const isTotal = recorte.label === "Total de Pessoas";
-                          const isDep = recorte.label === "Dependentes financeiros (não entram no Score RIS)";
+                          const isDep = recorte.label === "Dependentes financeiros";
                           
                           const key = recorte.label as keyof typeof diversidadeGlobal;
                           const totalSocios = diversidadeGlobal["Total de Pessoas"]?.socios || "";
@@ -1952,11 +1952,7 @@ export default function CadastroGratuito() {
                                     <span className="text-xs text-gray-500 font-normal">({recorte.label.split(" (")[1]}</span>
                                   </>
                                 ) : isDep ? (
-                                  <>
-                                    Dependentes financeiros
-                                    <br/>
-                                    <span className="text-xs font-normal opacity-70">(não entram no Score RIS)</span>
-                                  </>
+                                  "Dependentes financeiros"
                                 ) : (
                                   recorte.label
                                 )}
@@ -1964,6 +1960,9 @@ export default function CadastroGratuito() {
                               
                               {/* Sócios */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
@@ -1977,6 +1976,9 @@ export default function CadastroGratuito() {
 
                               {/* Gestores */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
@@ -1990,6 +1992,9 @@ export default function CadastroGratuito() {
 
                               {/* Colaboradores */}
                               <td className="p-3 text-center border-l border-gray-100">
+                                {!isTotal && !isDep && (
+                                  <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
+                                )}
                                 <Input 
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
