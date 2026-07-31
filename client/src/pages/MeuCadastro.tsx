@@ -1632,7 +1632,9 @@ export default function MeuCadastro() {
                 <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
                   <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Gestores</h4>
-                    <Label htmlFor="numGestoresDiretos" className="text-gray-700 font-medium">Quantidade de gestores:</Label>
+                    <Label htmlFor="numGestoresDiretos" className="text-gray-700 font-medium">
+                      Quantidade de gestores: <span className="font-normal text-sm text-gray-500 ml-1">(Preencha este campo apenas se houver outras pessoas auxiliando você nessa área. Caso não haja, preencha com 0 (zero).)</span>
+                    </Label>
                     <Input id="numGestoresDiretos" type="number" min="0" value={numGestoresDiretos}
                       onChange={(e) => handleNumeroGestoresDiretosChange(e.target.value)} placeholder="Ex: 3" className="h-12 bg-white md:w-1/3" />
                   </div>
@@ -1667,7 +1669,9 @@ export default function MeuCadastro() {
                 <div className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
                   <div className="space-y-2">
                     <h4 className="font-semibold text-gray-800">Colaboradores</h4>
-                    <Label htmlFor="numColaboradoresDiretos" className="text-gray-700 font-medium">Quantidade de colaboradores:</Label>
+                    <Label htmlFor="numColaboradoresDiretos" className="text-gray-700 font-medium">
+                      Quantidade de colaboradores: <span className="font-normal text-sm text-gray-500 ml-1">(Preencha este campo apenas se houver outras pessoas auxiliando você nessa área. Caso não haja, preencha com 0 (zero).)</span>
+                    </Label>
                     <Input id="numColaboradoresDiretos" type="number" min="0" value={numColaboradoresDiretos}
                       onChange={(e) => handleNumeroColaboradoresDiretosChange(e.target.value)} placeholder="Ex: 10" className="h-12 bg-white md:w-1/3" />
                   </div>
