@@ -94,7 +94,6 @@ const CAMPOS_SOCIO_OBRIGATORIOS = [
   "data_nascimento",
   "nacionalidade",
   "raca",
-  "genero",
   "participacao_percentual",
   "participacao_valor",
 ];
