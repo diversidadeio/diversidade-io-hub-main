@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { extrairSociosDoJucesp } from "@/lib/extrairJucesp";
 import { toast } from "sonner";
 import { InfoJuntaComercial } from "@/components/InfoJuntaComercial";
+import { InfoNomeFantasia } from "@/components/InfoNomeFantasia";
 interface SocioData {
   foto: File | null;
   fonteImagem: string;
@@ -1106,7 +1107,9 @@ export default function CadastroGratuito() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="nomeFantasia" className="text-gray-700 font-medium">Nome Fantasia</Label>
+                  <Label htmlFor="nomeFantasia" className="text-gray-700 font-medium flex items-center">
+                    Nome Fantasia <InfoNomeFantasia />
+                  </Label>
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={e=>setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
@@ -1148,6 +1151,7 @@ export default function CadastroGratuito() {
                       <SelectItem value="Comércio">Comércio</SelectItem>
                       <SelectItem value="Governo">Governo</SelectItem>
                       <SelectItem value="Indústria">Indústria</SelectItem>
+                      <SelectItem value="Iniciativa privada">Iniciativa privada</SelectItem>
                       <SelectItem value="ONGs">ONGs</SelectItem>
                       <SelectItem value="Serviços">Serviços</SelectItem>
                     </SelectContent>
@@ -2018,60 +2022,61 @@ export default function CadastroGratuito() {
                 </div>
               </div>
 
-              {/* Autorizações Finais */}
-              <div className="space-y-6 pt-6 pb-6 bg-gradient-to-r from-purple-50 to-white p-6 rounded-xl border border-purple-100">
-                <div className="space-y-3">
-                  <h3 className="text-lg font-bold text-purple-900">1. Tratamento de Dados (Opt-in)</h3>
-                  <p className="text-sm text-gray-700 leading-relaxed text-justify">
-                    Como titular dos dados, você manifesta seu consentimento livre, expresso e inequívoco para a coleta e o tratamento de seus dados pessoais sensíveis (incluindo raça/etnia e dados biométricos), ciente de que eles serão utilizados para fins de identificação, confirmação de identidade e reconhecimento facial, com o objetivo de viabilizar a participação em ações e programas voltados para empreendedores do ecossistema de diversidade (pessoas negras, mulheres, entre outros), conforme nossa <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-semibold">Política de Privacidade</a>.
-                  </p>
-                  <div className="flex items-start gap-3 mt-4 bg-white p-4 rounded-lg border border-purple-100">
-                    <Checkbox
-                      id="opt-in"
-                      checked={autorizaCompartilhamento === "Sim"}
-                      onCheckedChange={(checked) => setAutorizaCompartilhamento(checked ? "Sim" : "Não")}
-                      className="mt-1 w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]"
-                    />
-                    <Label htmlFor="opt-in" className="text-sm font-medium text-gray-800 leading-snug cursor-pointer">
-                      Estou de acordo e dou meu consentimento para o tratamento dos meus dados sensíveis.
-                    </Label>
-                  </div>
-                </div>
-
-                <div className="border-t border-purple-100 pt-6 space-y-3">
-                  <h3 className="text-lg font-bold text-purple-900">2. Revogação (Opt-out)</h3>
-                  <p className="text-sm text-gray-700 leading-relaxed text-justify">
-                    Você pode revogar o seu consentimento a qualquer momento. Caso não deseje mais que seus dados sejam tratados para estas finalidades, clique no botão abaixo ou entre em contato com nosso Encarregado de Dados pelo e-mail: <a href="mailto:adm@diversidade.io" className="text-[#7030A0] font-semibold hover:underline">adm@diversidade.io</a>.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
-                    onClick={() => {
-                      setAutorizaCompartilhamento("Não");
-                      alert("Seu consentimento foi revogado. A caixa de seleção acima foi desmarcada.");
-                    }}
-                  >
-                    Revogar meu Consentimento
-                  </Button>
-                </div>
-
-                <div className="border-t border-purple-100 pt-6 space-y-3">
-                  <h3 className="text-lg font-bold text-purple-900">3. Tenho dúvidas</h3>
-                  <p className="text-sm text-gray-700">
-                    Ficou com alguma dúvida sobre o uso dos seus dados?
-                  </p>
-                  <Button asChild variant="outline" className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 font-medium">
-                    <a href="https://wa.me/5511989832953?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20uso%20dos%20meus%20dados." target="_blank" rel="noopener noreferrer">
-                      Chamar no WhatsApp
-                    </a>
-                  </Button>
-                </div>
-              </div>
-
             </section>
             </>
             )}
+
+            {/* Autorizações Finais */}
+            <div className="space-y-6 pt-6 pb-6 bg-gradient-to-r from-purple-50 to-white p-6 rounded-xl border border-purple-100">
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-purple-900">1. Tratamento de Dados (Opt-in)</h3>
+                <p className="text-sm text-gray-700 leading-relaxed text-justify">
+                  Como titular dos dados, você manifesta seu consentimento livre, expresso e inequívoco para a coleta e o tratamento de seus dados pessoais sensíveis (incluindo raça/etnia e dados biométricos), ciente de que eles serão utilizados para fins de identificação, confirmação de identidade e reconhecimento facial, com o objetivo de viabilizar a participação em ações e programas voltados para empreendedores do ecossistema de diversidade (pessoas negras, mulheres, entre outros), conforme nossa <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-semibold">Política de Privacidade</a>.
+                </p>
+                <div className="flex items-start gap-3 mt-4 bg-white p-4 rounded-lg border border-purple-100">
+                  <Checkbox
+                    id="opt-in"
+                    checked={autorizaCompartilhamento === "Sim"}
+                    onCheckedChange={(checked) => setAutorizaCompartilhamento(checked ? "Sim" : "Não")}
+                    className="mt-1 w-5 h-5 rounded data-[state=checked]:bg-[#7030A0] data-[state=checked]:border-[#7030A0]"
+                  />
+                  <Label htmlFor="opt-in" className="text-sm font-medium text-gray-800 leading-snug cursor-pointer">
+                    Estou de acordo e dou meu consentimento para o tratamento dos meus dados sensíveis.
+                  </Label>
+                </div>
+              </div>
+
+              <div className="border-t border-purple-100 pt-6 space-y-3">
+                <h3 className="text-lg font-bold text-purple-900">2. Revogação (Opt-out)</h3>
+                <p className="text-sm text-gray-700 leading-relaxed text-justify">
+                  Você pode revogar o seu consentimento a qualquer momento. Caso não deseje mais que seus dados sejam tratados para estas finalidades, clique no botão abaixo ou entre em contato com nosso Encarregado de Dados pelo e-mail: <a href="mailto:adm@diversidade.io" className="text-[#7030A0] font-semibold hover:underline">adm@diversidade.io</a>.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
+                  onClick={() => {
+                    setAutorizaCompartilhamento("Não");
+                    alert("Seu consentimento foi revogado. A caixa de seleção acima foi desmarcada.");
+                  }}
+                >
+                  Revogar meu Consentimento
+                </Button>
+              </div>
+
+              <div className="border-t border-purple-100 pt-6 space-y-3">
+                <h3 className="text-lg font-bold text-purple-900">3. Tenho dúvidas</h3>
+                <p className="text-sm text-gray-700">
+                  Ficou com alguma dúvida sobre o uso dos seus dados?
+                </p>
+                <Button asChild variant="outline" className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 font-medium">
+                  <a href="https://wa.me/5511989832953?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20uso%20dos%20meus%20dados." target="_blank" rel="noopener noreferrer">
+                    Chamar no WhatsApp
+                  </a>
+                </Button>
+              </div>
+            </div>
+
 
             <div className="pt-8 flex flex-col sm:flex-row gap-6 items-center justify-between border-t border-gray-200">
               <p className="text-sm text-gray-500">

@@ -19,6 +19,7 @@ import { Download, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { InfoJuntaComercial } from "@/components/InfoJuntaComercial";
+import { InfoNomeFantasia } from "@/components/InfoNomeFantasia";
 interface SocioData {
   foto: File | null;
   fotoUrl?: string | null;
@@ -137,6 +138,7 @@ export default function MeuCadastro() {
   const [sobreEmpresa, setSobreEmpresa] = useState("");
 
   // 3. Financeiro
+  const mostrarCompleto = acessoTipo.length === 0 || acessoTipo.includes("EMPREENDIMENTO DIVERSO");
   const [emiteNotaFiscal, setEmiteNotaFiscal] = useState("");
   const [temContaPJ, setTemContaPJ] = useState("");
   const [formasPagamento, setFormasPagamento] = useState<string[]>([]);
@@ -1135,8 +1137,10 @@ export default function MeuCadastro() {
                   <Input id="razaoSocial" required value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} placeholder="Razão social da empresa" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="nomeFantasia" className="text-gray-700 font-medium">Nome Fantasia</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="nomeFantasia" className="text-gray-700 font-medium flex items-center">
+                    Nome Fantasia <InfoNomeFantasia />
+                  </Label>
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
@@ -1146,8 +1150,7 @@ export default function MeuCadastro() {
                     {[
                       "EMPRESA OU INICIATIVA INCENTIVADORA",
                       "FORNECEDOR INCLUSIVO",
-                      "EMPREENDIMENTO DIVERSO",
-                      "OUTRO"
+                      "EMPREENDIMENTO DIVERSO"
                     ].map((opcao) => (
                       <div key={opcao} className="flex items-center space-x-2">
                         <Checkbox 
@@ -1162,20 +1165,11 @@ export default function MeuCadastro() {
                           }}
                         />
                         <Label htmlFor={`acesso-${opcao}`} className="font-normal cursor-pointer">
-                          {opcao === "OUTRO" ? "OUTRO - CITE AQUI" : opcao}
+                          {opcao}
                         </Label>
                       </div>
                     ))}
                   </div>
-                  {acessoTipo.includes("OUTRO") && (
-                    <Input 
-                      required 
-                      value={acessoTipoOutro} 
-                      onChange={e=>setAcessoTipoOutro(e.target.value)} 
-                      placeholder="Qual o seu tipo de acesso?" 
-                      className="h-12 bg-gray-50 focus:bg-white mt-2" 
-                    />
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1188,6 +1182,7 @@ export default function MeuCadastro() {
                       <SelectItem value="Comércio">Comércio</SelectItem>
                       <SelectItem value="Governo">Governo</SelectItem>
                       <SelectItem value="Indústria">Indústria</SelectItem>
+                      <SelectItem value="Iniciativa privada">Iniciativa privada</SelectItem>
                       <SelectItem value="ONGs">ONGs</SelectItem>
                       <SelectItem value="Serviços">Serviços</SelectItem>
                     </SelectContent>
@@ -1280,6 +1275,8 @@ export default function MeuCadastro() {
               </div>
             </section>
 
+            {mostrarCompleto && (
+              <>
             {/* 3. Financeiro e Operacional */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
@@ -1946,6 +1943,9 @@ export default function MeuCadastro() {
                   </table>
                 </div>
               </div>
+            </section>
+            </>
+            )}
 
               {/* Autorizações Finais */}
               <div className="space-y-6 pt-6 pb-6 bg-gradient-to-r from-purple-50 to-white p-6 rounded-xl border border-purple-100">
@@ -1999,7 +1999,6 @@ export default function MeuCadastro() {
                   </Button>
                 </div>
               </div>
-            </section>
 
             <div className="pt-8 flex flex-col sm:flex-row gap-6 items-center justify-between border-t border-gray-200">
               <p className="text-sm text-gray-500">
