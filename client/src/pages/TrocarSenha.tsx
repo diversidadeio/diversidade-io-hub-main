@@ -93,9 +93,20 @@ export default function TrocarSenha() {
 
       if (error) throw error;
 
-      // Obtém o email da sessão atual (usuário convidado pode não ter sessão no AuthContext)
+      // Obtém a sessão atual (usuário convidado vem do fluxo de recovery)
       const { data: sessaoAtual } = await supabase.auth.getSession();
+      const authUserId = sessaoAtual?.session?.user?.id;
       const emailAtual = usuario?.email || sessaoAtual?.session?.user?.email;
+
+      // Ativa o usuário convidado: atualiza status de 'pendente' para 'ativo'
+      // Isso é necessário para que o login funcione após a definição da senha
+      if (authUserId) {
+        await supabase
+          .from('empresa_usuarios')
+          .update({ status: 'ativo' })
+          .eq('auth_user_id', authUserId)
+          .eq('status', 'pendente');
+      }
 
       // Limpa a flag de senha_temporaria no banco de dados usando a RPC existente
       if (usuario?.empresaId) {
@@ -117,6 +128,7 @@ export default function TrocarSenha() {
       
       // Redireciona para o login do app (não a home do marketing)
       window.location.href = "/login";
+
 
       
     } catch (err: any) {
