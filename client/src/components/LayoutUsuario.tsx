@@ -41,11 +41,6 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
 
   const todosMenuItems = [
     {
-      path: "/meu-cadastro",
-      icon: FileText,
-      label: "Meu Cadastro",
-    },
-    {
       path: "/meu-cadastro/pesquisas",
       icon: Search,
       label: "Pesquisas",
@@ -56,6 +51,11 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
       icon: Users,
       label: "Usuários",
       apenasAprovados: true,
+    },
+    {
+      path: "/meu-cadastro",
+      icon: FileText,
+      label: "Meu Cadastro",
     },
   ];
 

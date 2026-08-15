@@ -90,8 +90,10 @@ export default function Login() {
         navigate("/trocar-senha");
       } else if (resultado.tipoUsuario === 'adm') {
         navigate("/adm");
-      } else {
+      } else if (resultado.isPendente) {
         navigate("/meu-cadastro");
+      } else {
+        navigate("/meu-cadastro/pesquisas");
       }
     } else {
       setErro(resultado.erro ?? "Erro ao realizar login.");

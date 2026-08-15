@@ -25,7 +25,7 @@ interface AuthContextType {
   isPendente: boolean;
   senhaTemporaria: boolean;
   isCarregando: boolean;
-  login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }>;
+  login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean; isPendente?: boolean }>;
   logout: () => void;
   atualizarSessao: (dados: Partial<UsuarioSessao>) => void;
 }
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     senha: string
-  ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean }> => {
+  ): Promise<{ sucesso: boolean; erro?: string; tipoUsuario?: 'empresa' | 'adm'; senhaTemporaria?: boolean; isPendente?: boolean }> => {
     try {
       // 1. Autentica no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -188,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sucesso: true,
         tipoUsuario: sessao.tipoUsuario,
         senhaTemporaria: isSenhaTemporaria,
+        isPendente: sessao.tipoUsuario !== 'adm' && sessao.statusAprovacao !== 'aprovado',
       };
     } catch (err) {
       console.error("Erro ao realizar login:", err);
