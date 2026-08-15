@@ -30,10 +30,10 @@ export default function Usuarios() {
       if (!usuario) return;
       
       try {
-        // Verifica se o usuário atual é o admin criador
-        // A lógica do admin: ou é o dono original da empresa, ou foi inserido na tabela com papel = 'admin'
-        const isDono = true; // Por enquanto, consideramos que o AuthContext retorna a 'empresa' logada. Portanto ele é o admin/dono.
-        setIsLider(isDono);
+        // Verifica se o usuário atual tem papel de 'admin' na empresa.
+        // Apenas admins podem convidar e remover outros membros.
+        const isAdmin = (usuario as any).papel === 'admin';
+        setIsLider(isAdmin);
 
         const { data, error } = await supabase
           .from('empresa_usuarios')
