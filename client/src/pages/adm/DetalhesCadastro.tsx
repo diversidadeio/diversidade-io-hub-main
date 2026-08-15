@@ -2,13 +2,171 @@ import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { registrarLog } from "@/lib/registrarLog";
+
+// ─── Lógica de completude (espelho do Cadastros.tsx) ────────────────────────
+
+const CAMPOS_OBRIGATORIOS_EMPRESA = [
+  { campo: "razao_social",       label: "Razão Social",        secao: "Dados da Empresa" },
+  { campo: "cnpj",               label: "CNPJ",                secao: "Dados da Empresa" },
+  { campo: "nome_responsavel",   label: "Nome do Responsável", secao: "Responsável" },
+  { campo: "telefone_principal", label: "Telefone Principal",  secao: "Responsável" },
+  { campo: "area_empresa",       label: "Área de Atuação",     secao: "Dados da Empresa" },
+  { campo: "sobre_empresa",      label: "Sobre a Empresa",     secao: "Dados da Empresa" },
+  { campo: "logo_empresa_url",   label: "Logo da Empresa",     secao: "Dados da Empresa" },
+];
+
+const CAMPOS_OBRIGATORIOS_SOCIO = [
+  { campo: "nome",                    label: "Nome" },
+  { campo: "cpf",                     label: "CPF" },
+  { campo: "email",                   label: "E-mail" },
+  { campo: "cep",                     label: "CEP" },
+  { campo: "data_nascimento",         label: "Data de Nascimento" },
+  { campo: "nacionalidade",           label: "Nacionalidade" },
+  { campo: "raca",                    label: "Raça/Cor" },
+  { campo: "participacao_percentual", label: "Participação %" },
+  { campo: "participacao_valor",      label: "Valor da Participação" },
+];
+
+interface ItemFaltando {
+  label: string;
+  secao: string;
+}
+
+function calcularCamposFaltando(emp: any, listaSocios: any[]): ItemFaltando[] {
+  const faltando: ItemFaltando[] = [];
+
+  for (const { campo, label, secao } of CAMPOS_OBRIGATORIOS_EMPRESA) {
+    if (!emp[campo] || String(emp[campo]).trim() === "") {
+      faltando.push({ label, secao });
+    }
+  }
+
+  if (listaSocios.length === 0) {
+    faltando.push({ label: "Pelo menos 1 sócio cadastrado", secao: "Quadro Societário" });
+  } else {
+    listaSocios.forEach((socio, idx) => {
+      const secao = `Sócio ${idx + 1}${socio.nome ? ` — ${socio.nome}` : ""}`;
+      for (const { campo, label } of CAMPOS_OBRIGATORIOS_SOCIO) {
+        if (socio[campo] == null || String(socio[campo]).trim() === "") {
+          faltando.push({ label, secao });
+        }
+      }
+    });
+  }
+
+  return faltando;
+}
+
+// ─── Painel flutuante de campos faltando (somente leitura, para admin) ───────
+
+function PainelCamposFaltandoAdm({ empresa, socios }: { empresa: any; socios: any[] }) {
+  const [aberto, setAberto] = useState(true);
+
+  const itens = calcularCamposFaltando(empresa, socios);
+  const tudoOk = itens.length === 0;
+
+  const grupos = new Map<string, string[]>();
+  itens.forEach(({ label, secao }) => {
+    if (!grupos.has(secao)) grupos.set(secao, []);
+    grupos.get(secao)!.push(label);
+  });
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        right: "16px",
+        bottom: "24px",
+        width: "290px",
+        zIndex: 50,
+        borderRadius: "12px",
+        boxShadow: "0 8px 32px rgba(112, 48, 160, 0.18)",
+        border: tudoOk ? "2px solid #22c55e" : "2px solid #ef4444",
+        overflow: "hidden",
+        background: "#ffffff",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 14px",
+          background: tudoOk
+            ? "linear-gradient(135deg, #16a34a, #22c55e)"
+            : "linear-gradient(135deg, #ef4444, #dc2626)",
+          color: "#fff",
+          cursor: "pointer",
+          border: "none",
+          gap: "8px",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "13px" }}>
+          {tudoOk ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          {tudoOk
+            ? "✅ Cadastro completo!"
+            : `${itens.length} campo${itens.length > 1 ? "s" : ""} faltando`}
+        </span>
+        {aberto ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+      </button>
+
+      {aberto && (
+        <div style={{ maxHeight: "420px", overflowY: "auto", padding: "8px 0" }}>
+          {tudoOk ? (
+            <p style={{ padding: "12px 14px", fontSize: "13px", color: "#16a34a", textAlign: "center" }}>
+              Todos os campos obrigatórios estão preenchidos. 🎉
+            </p>
+          ) : (
+            Array.from(grupos.entries()).map(([secao, campos]) => (
+              <div key={secao}>
+                <p
+                  style={{
+                    padding: "6px 14px 4px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: "#ef4444",
+                    borderTop: "1px solid #f0e8f8",
+                    marginTop: "4px",
+                  }}
+                >
+                  {secao}
+                </p>
+                {campos.map((campo, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "7px 14px 7px 22px",
+                      fontSize: "13px",
+                      color: "#374151",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <span style={{ color: "#FF9500", fontSize: "10px" }}>●</span>
+                    {campo}
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DetalhesCadastroAdm() {
   const [, params] = useRoute("/adm/cadastros/:id");
@@ -468,6 +626,9 @@ export default function DetalhesCadastroAdm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Painel flutuante de campos faltando — visível apenas quando os dados já carregaram */}
+      <PainelCamposFaltandoAdm empresa={empresa} socios={socios} />
     </LayoutAdm>
   );
 }
