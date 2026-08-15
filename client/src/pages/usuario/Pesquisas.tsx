@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAnon } from "@/lib/supabase";
 import { Link } from "wouter";
 import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -19,15 +19,23 @@ interface FiltrosState {
   portes: string[];
   completude: CompletudeFiltro;
   ordenacao: OrdenacaoFiltro;
+  etariedade_60: boolean;
+  racas: string[];
+  sexos: string[];
 }
 
 const FILTROS_PADRAO: FiltrosState = {
   portes: [],
   completude: "todos",
   ordenacao: "recentes",
+  etariedade_60: false,
+  racas: [],
+  sexos: [],
 };
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
+const RACAS_DISPONIVEIS = ["Pardo", "Preto", "Branco", "Amarelo", "Indígena", "Outro"];
+const SEXOS_DISPONIVEIS = ["Masculino", "Feminino", "Outro", "Prefiro não declarar"];
 
 const CAMPOS_OBRIGATORIOS = [
   "razao_social",
@@ -93,6 +101,18 @@ const OPCOES_POR_PAGINA = [10, 20, 50, 100];
 export default function Pesquisas() {
   const { usuario } = useAuth();
   const [cadastros, setCadastros] = useState<any[]>([]);
+  const [isIncentivadora, setIsIncentivadora] = useState(false);
+
+  useEffect(() => {
+    async function checkIncentivadora() {
+        if (!usuario) return;
+        const { data } = await supabase.from('empresas').select('acesso_tipo').eq('id', (usuario as any).empresaId).single();
+        if (data?.acesso_tipo && data.acesso_tipo.toUpperCase().includes('EMPRESA OU INICIATIVA INCENTIVADORA')) {
+            setIsIncentivadora(true);
+        }
+    }
+    checkIncentivadora();
+  }, [usuario]);
   const [socios, setSocios] = useState<Record<string, any[]>>({});
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
@@ -160,9 +180,9 @@ export default function Pesquisas() {
         setCadastros(data || []);
 
         // Buscar sócios para completude
-        const { data: sociosData } = await supabase
+        const { data: sociosData } = await supabaseAnon
           .from("socios")
-          .select("empresa_id, nome, cpf, email, cep, data_nascimento, nacionalidade, raca, participacao_percentual, participacao_valor");
+          .select("empresa_id, nome, cpf, email, cep, data_nascimento, nacionalidade, raca, sexo, etariedade, participacao_percentual, participacao_valor");
         
         const sociosMap: Record<string, any[]> = {};
         (sociosData || []).forEach((s: any) => {
@@ -203,7 +223,22 @@ export default function Pesquisas() {
         (filtrosAtivos.completude === "completo" && completude === 100) ||
         (filtrosAtivos.completude === "incompleto" && completude < 100);
 
-      return matchBusca && matchPorte && matchCompletude;
+      const matchEtariedade =
+        !filtrosAtivos.etariedade_60 ||
+        listaSocios.some((s: any) => {
+          const e = parseInt(s.etariedade);
+          return !isNaN(e) && e >= 60;
+        });
+
+      const matchRaca =
+        filtrosAtivos.racas.length === 0 ||
+        listaSocios.some((s: any) => filtrosAtivos.racas.includes(s.raca));
+
+      const matchSexo =
+        filtrosAtivos.sexos.length === 0 ||
+        listaSocios.some((s: any) => s.sexo && filtrosAtivos.sexos.some((fs: string) => s.sexo.startsWith(fs)));
+
+      return matchBusca && matchPorte && matchCompletude && matchEtariedade && matchRaca && matchSexo;
     });
 
     lista = [...lista].sort((a, b) => {
@@ -228,14 +263,21 @@ export default function Pesquisas() {
     if (filtrosAtivos.portes.length > 0) count++;
     if (filtrosAtivos.completude !== "todos") count++;
     if (filtrosAtivos.ordenacao !== "recentes") count++;
+    if (filtrosAtivos.etariedade_60) count++;
+    if (filtrosAtivos.racas.length > 0) count++;
+    if (filtrosAtivos.sexos.length > 0) count++;
     return count;
   }, [filtrosAtivos]);
 
   function removerFiltro(chave: keyof FiltrosState) {
-    setFiltrosAtivos((prev) => ({
-      ...prev,
-      [chave]: chave === "portes" ? [] : chave === "ordenacao" ? "recentes" : chave === "completude" ? "todos" : "",
-    }));
+    setFiltrosAtivos((prev) => {
+      const next: any = { ...prev };
+      if (chave === "portes" || chave === "racas" || chave === "sexos") next[chave] = [];
+      else if (chave === "etariedade_60") next[chave] = false;
+      else if (chave === "ordenacao") next[chave] = "recentes";
+      else if (chave === "completude") next[chave] = "todos";
+      return next as FiltrosState;
+    });
   }
 
   const tagsFiltros: { label: string; chave: keyof FiltrosState }[] = [];
@@ -245,6 +287,9 @@ export default function Pesquisas() {
     const labels: Record<string, string> = { antigos: "Mais antigos", nome_az: "Nome A→Z", nome_za: "Nome Z→A" };
     tagsFiltros.push({ label: `Ordem: ${labels[filtrosAtivos.ordenacao]}`, chave: "ordenacao" });
   }
+  if (filtrosAtivos.etariedade_60) tagsFiltros.push({ label: "Sócios 60+", chave: "etariedade_60" });
+  if (filtrosAtivos.racas.length > 0) tagsFiltros.push({ label: `Raça: ${filtrosAtivos.racas.join(", ")}`, chave: "racas" });
+  if (filtrosAtivos.sexos.length > 0) tagsFiltros.push({ label: `Sexo: ${filtrosAtivos.sexos.join(", ")}`, chave: "sexos" });
 
   function abrirModal() { setFiltrosTemp(filtrosAtivos); setModalAberto(true); }
   function aplicarFiltros() { setFiltrosAtivos(filtrosTemp); setModalAberto(false); setPaginaAtual(1); }
@@ -565,6 +610,73 @@ export default function Pesquisas() {
             </div>
           </div>
 
+            {/* Filtro: Sócios 60+ */}
+            {isIncentivadora && (
+              <>
+                <Separator className="dark:border-gray-700" />
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Perfil dos Sócios</h4>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="filtro-etariedade"
+                      checked={filtrosTemp.etariedade_60}
+                      onCheckedChange={(checked) =>
+                        setFiltrosTemp((prev) => ({ ...prev, etariedade_60: !!checked }))
+                      }
+                    />
+                    <Label htmlFor="filtro-etariedade" className="text-gray-700 dark:text-gray-300 font-normal">
+                      Ter alguém 60+ (Etariedade)
+                    </Label>
+                  </div>
+
+                  <h5 className="font-medium text-sm text-gray-800 dark:text-gray-200 mt-4 mb-2">Raça</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    {RACAS_DISPONIVEIS.map((raca) => (
+                      <div key={raca} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`filtro-raca-${raca}`}
+                          checked={filtrosTemp.racas.includes(raca)}
+                          onCheckedChange={(checked) => {
+                            setFiltrosTemp((prev) => ({
+                              ...prev,
+                              racas: checked
+                                ? [...prev.racas, raca]
+                                : prev.racas.filter((r) => r !== raca),
+                            }));
+                          }}
+                        />
+                        <Label htmlFor={`filtro-raca-${raca}`} className="text-gray-700 dark:text-gray-300 font-normal truncate">
+                          {raca}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <h5 className="font-medium text-sm text-gray-800 dark:text-gray-200 mt-4 mb-2">Sexo</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    {SEXOS_DISPONIVEIS.map((sexo) => (
+                      <div key={sexo} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`filtro-sexo-${sexo}`}
+                          checked={filtrosTemp.sexos.includes(sexo)}
+                          onCheckedChange={(checked) => {
+                            setFiltrosTemp((prev) => ({
+                              ...prev,
+                              sexos: checked
+                                ? [...prev.sexos, sexo]
+                                : prev.sexos.filter((s) => s !== sexo),
+                            }));
+                          }}
+                        />
+                        <Label htmlFor={`filtro-sexo-${sexo}`} className="text-gray-700 dark:text-gray-300 font-normal truncate">
+                          {sexo}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           <DialogFooter className="flex flex-row justify-between gap-2 pt-2">
             <Button
               variant="outline"
