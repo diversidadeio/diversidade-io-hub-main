@@ -114,24 +114,20 @@ export default function Usuarios() {
     if (!confirm(`Tem certeza que deseja remover ${email}?\n\nEsta ação irá revogar o acesso do usuário imediatamente.`)) return;
     
     try {
-      // Obtém o auth_user_id do usuário logado para validação no servidor
-      const { data: sessao } = await supabase.auth.getSession();
-      const solicitanteAuthId = sessao?.session?.user?.id;
-
-      if (!solicitanteAuthId) {
-        toast.error("Sessão expirada. Faça login novamente.");
+      if (!usuario?.email) {
+        toast.error("Sessão inválida. Faça login novamente.");
         return;
       }
 
       // Chama a API do servidor — usa supabaseAdmin para garantir a deleção
-      // mesmo que a RLS do cliente rejeite, e também remove do Supabase Auth
+      // e também remove do Supabase Auth, revogando o acesso completamente
       const resposta = await fetch('/api/remover-usuario', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           empresaUsuarioId: id,
           empresaId: (usuario as any)?.empresaId,
-          solicitanteAuthId,
+          solicitanteEmail: usuario.email,
         })
       });
 
@@ -154,6 +150,7 @@ export default function Usuarios() {
       toast.error("Erro ao remover: " + err.message);
     }
   };
+
 
   const getInitials = (name: string) => {
     if (!name) return "U";

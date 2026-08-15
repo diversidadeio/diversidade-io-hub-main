@@ -13,23 +13,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { empresaUsuarioId, empresaId, solicitanteAuthId } = req.body;
+    const { empresaUsuarioId, empresaId, solicitanteEmail } = req.body;
 
-    if (!empresaUsuarioId || !empresaId || !solicitanteAuthId) {
+    if (!empresaUsuarioId || !empresaId || !solicitanteEmail) {
       return res.status(400).json({ erro: "Dados incompletos." });
     }
 
-    // 1. Verifica se quem solicita a remocao e admin da empresa
+    // 1. Valida pelo email quem esta solicitando a remocao e se e admin.
+    // Usamos supabaseAdmin para garantir que a consulta bypassa RLS.
     const { data: solicitante, error: solicitanteError } = await supabaseAdmin
       .from("empresa_usuarios")
-      .select("papel, empresa_id")
-      .eq("auth_user_id", solicitanteAuthId)
+      .select("papel, auth_user_id")
+      .eq("email", solicitanteEmail)
       .eq("empresa_id", empresaId)
       .eq("status", "ativo")
       .maybeSingle();
 
     if (solicitanteError || !solicitante) {
-      return res.status(403).json({ erro: "Usuario solicitante nao encontrado." });
+      return res.status(403).json({ erro: "Usuario solicitante nao encontrado na empresa." });
     }
 
     if (solicitante.papel !== "admin") {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
     }
 
     // 4. Garante que o admin nao esta tentando se remover
-    if (usuarioAlvo.auth_user_id === solicitanteAuthId) {
+    if (usuarioAlvo.email === solicitanteEmail) {
       return res.status(400).json({ erro: "Voce nao pode remover a si mesmo." });
     }
 
