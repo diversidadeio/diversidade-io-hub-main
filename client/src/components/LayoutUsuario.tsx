@@ -55,7 +55,7 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
     {
       path: "/meu-cadastro",
       icon: FileText,
-      label: "Meu Cadastro",
+      label: "Editar Cadastro",
     },
   ];
 

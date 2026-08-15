@@ -1004,7 +1004,7 @@ export default function MeuCadastro() {
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           {/* Cabeçalho do formulário */}
           <div className="bg-gradient-to-r from-[#0F3A7D] to-[#7030A0] p-8 md:p-12 text-white">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{color: '#FFFFFF'}}>Meu Cadastro</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{color: '#FFFFFF'}}>Editar Cadastro</h1>
             <p className="text-lg opacity-90">
               Seus dados estão preenchidos abaixo. Edite o que precisar e salve as alterações.
             </p>
