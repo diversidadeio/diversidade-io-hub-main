@@ -326,7 +326,7 @@ export default function DetalhesCadastroAdm() {
           <Dialog>
             <DialogTrigger asChild>
               <div className="block w-24 h-24 border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white">
-                <img src={value} alt={label} className={`w-full h-full object-cover ${isPng ? 'p-1' : ''}`} />
+                <img src={value} alt={label} className={`w-full h-full object-contain ${isPng ? 'p-1' : ''}`} />
               </div>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl border-none shadow-none flex justify-center items-center overflow-hidden bg-transparent">
