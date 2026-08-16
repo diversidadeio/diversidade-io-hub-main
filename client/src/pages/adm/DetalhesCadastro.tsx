@@ -314,6 +314,9 @@ export default function DetalhesCadastroAdm() {
 
   const renderField = (label: string, value: any, type: 'text' | 'link' | 'image' = 'text') => {
     const isPng = typeof value === 'string' && value.toLowerCase().includes('.png');
+    const isFoto = label === "Foto do Responsável";
+    const boxSize = isFoto ? "w-24 h-24" : "w-48 h-48";
+    const objectFit = isFoto ? "object-cover" : "object-contain";
     
     return (
       <div className="mb-4">
@@ -325,8 +328,8 @@ export default function DetalhesCadastroAdm() {
         ) : type === 'image' && value ? (
           <Dialog>
             <DialogTrigger asChild>
-              <div className="block w-24 h-24 border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white">
-                <img src={value} alt={label} className={`w-full h-full object-contain ${isPng ? 'p-1' : ''}`} />
+              <div className={`block ${boxSize} border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white`}>
+                <img src={value} alt={label} className={`w-full h-full ${objectFit} ${isPng ? 'p-1' : ''}`} />
               </div>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl border-none shadow-none flex justify-center items-center overflow-hidden bg-transparent">
