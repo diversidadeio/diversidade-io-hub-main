@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -12,6 +12,7 @@ import {
   Sun,
   Settings,
   Clock,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,10 +35,27 @@ interface LayoutUsuarioProps {
 export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
   const [location] = useLocation();
   const [modalPerfilAberto, setModalPerfilAberto] = useState(false);
+  const [isIncentivadora, setIsIncentivadora] = useState(false);
   const { logout, usuario, isPendente } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const currentPath = activePath || location;
+
+  // Verifica se o usuário é do tipo incentivadora para exibir menu de solicitações
+  useEffect(() => {
+    async function checkIncentivadora() {
+      if (!usuario) return;
+      const { data } = await supabase
+        .from("empresas")
+        .select("acesso_tipo")
+        .eq("id", (usuario as any).empresaId)
+        .single();
+      if (data?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+        setIsIncentivadora(true);
+      }
+    }
+    checkIncentivadora();
+  }, [usuario]);
 
   const todosMenuItems = [
     {
@@ -45,6 +63,13 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
       icon: Search,
       label: "Pesquisas",
       apenasAprovados: true,
+    },
+    {
+      path: "/meu-cadastro/minhas-solicitacoes",
+      icon: Send,
+      label: "Minhas Solicitações",
+      apenasAprovados: true,
+      apenasIncentivadora: true,
     },
     {
       path: "/meu-cadastro/usuarios",
@@ -59,8 +84,12 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
     },
   ];
 
-  // Filtra menu para empresas pendentes
-  const menuItems = todosMenuItems.filter(item => !item.apenasAprovados || !isPendente);
+  // Filtra menu: remove itens de aprovação se pendente, remove itens de incentivadora se não for
+  const menuItems = todosMenuItems.filter((item) => {
+    if (item.apenasAprovados && isPendente) return false;
+    if ((item as any).apenasIncentivadora && !isIncentivadora) return false;
+    return true;
+  });
 
   const handleLogout = async () => {
     try {
@@ -75,7 +104,7 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
     
-    if (usuario?.id) {
+    if (usuario?.empresaId) {
       try {
         const { error } = await supabase
           .from("empresa_usuarios")
@@ -101,8 +130,8 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
       .toUpperCase();
   };
 
-  const nomeExibicao = (usuario as any)?.nome || usuario?.nome_responsavel || usuario?.email || "Usuário";
-  const fotoExibicao = (usuario as any)?.fotoUrl || usuario?.foto_responsavel_url || null;
+  const nomeExibicao = usuario?.nome || usuario?.nomeResponsavel || usuario?.email || "Usuário";
+  const fotoExibicao = usuario?.fotoUrl || null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex flex-col">

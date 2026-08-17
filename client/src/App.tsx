@@ -18,7 +18,9 @@ import DetalhesCadastroAdm from "./pages/adm/DetalhesCadastro";
 import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
 import AdministradoresAdm from "./pages/adm/Administradores";
+import SolicitacoesBuscaAdm from "./pages/adm/SolicitacoesBusca";
 import Pesquisas from "./pages/usuario/Pesquisas";
+import MinhasSolicitacoes from "./pages/usuario/MinhasSolicitacoes";
 import Usuarios from "./pages/usuario/Usuarios";
 import EmpresaDetalhes from "./pages/usuario/EmpresaDetalhes";
 import { useAuth } from "./contexts/AuthContext";
@@ -111,6 +113,7 @@ function Router() {
       {/* Rotas da Área do Usuário Logado */}
       <RotaProtegidaNormal path={"/meu-cadastro"} component={MeuCadastro} />
       <RotaAprovada path={"/meu-cadastro/pesquisas"} component={Pesquisas} />
+      <RotaAprovada path={"/meu-cadastro/minhas-solicitacoes"} component={MinhasSolicitacoes} />
       <RotaAprovada path={"/meu-cadastro/usuarios"} component={Usuarios} />
       <RotaAprovada path={"/empresas/:id"} component={EmpresaDetalhes} />
       
@@ -120,6 +123,7 @@ function Router() {
       <RotaProtegidaAdm path={"/adm/cadastros"} component={CadastrosAdm} />
       <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={DetalhesCadastroAdm} />
       <RotaProtegidaAdm path={"/adm/exclusoes"} component={ExclusoesAdm} />
+      <RotaProtegidaAdm path={"/adm/solicitacoes-busca"} component={SolicitacoesBuscaAdm} />
       <RotaProtegidaAdm path={"/adm/logs"} component={LogsAdm} />
 
       <Route path={"/404"} component={NotFound} />
