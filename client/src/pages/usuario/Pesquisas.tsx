@@ -162,10 +162,11 @@ export default function Pesquisas() {
       setSolErro('Informe ao menos um CNAE.');
       return;
     }
-    if (!solCidade.trim()) {
+    if (solModalidade !== 'online' && !solCidade.trim()) {
       setSolErro('Informe a cidade onde o serviço será prestado.');
       return;
     }
+    const cidadeFinal = solModalidade === 'online' ? 'Remoto (Online)' : solCidade.trim();
     setSolEnviando(true);
     try {
       let documentoUrl: string | null = null;
@@ -188,7 +189,7 @@ export default function Pesquisas() {
       const { error: insertErr } = await supabase.from('solicitacoes_busca').insert({
         empresa_id: (usuario as any).empresaId,
         cnaes: cnaesFiltrados,
-        cidade: solCidade.trim(),
+        cidade: cidadeFinal,
         modalidade: solModalidade,
         descricao: solDescricao.trim() || null,
         documento_url: documentoUrl,
@@ -200,7 +201,7 @@ export default function Pesquisas() {
         tipo_evento: 'solicitacao_busca_empreendedores',
         email: usuario?.email,
         empresa_id: (usuario as any)?.empresaId,
-        detalhes: `CNAEs: ${cnaesFiltrados.join(', ')} | Cidade: ${solCidade.trim()} | Modalidade: ${solModalidade}`,
+        detalhes: `CNAEs: ${cnaesFiltrados.join(', ')} | Cidade: ${cidadeFinal} | Modalidade: ${solModalidade}`,
       });
     } catch (err: any) {
       setSolErro(err.message || 'Erro inesperado. Tente novamente.');
@@ -874,21 +875,6 @@ export default function Pesquisas() {
 
               <Separator className="dark:border-gray-700" />
 
-              {/* Cidade */}
-              <div>
-                <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
-                  Cidade onde o serviço será prestado
-                </Label>
-                <Input
-                  placeholder="Ex: São Paulo, SP"
-                  value={solCidade}
-                  onChange={(e) => setSolCidade(e.target.value)}
-                  className="h-10 dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-                />
-              </div>
-
-              <Separator className="dark:border-gray-700" />
-
               {/* Modalidade */}
               <div>
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -904,7 +890,10 @@ export default function Pesquisas() {
                   ).map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => setSolModalidade(value)}
+                      onClick={() => {
+                        setSolModalidade(value);
+                        if (value === 'online') setSolCidade(''); // limpa a cidade se mudar pra online
+                      }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         solModalidade === value
                           ? 'bg-[#7030A0] text-white border-[#7030A0]'
@@ -916,6 +905,25 @@ export default function Pesquisas() {
                   ))}
                 </div>
               </div>
+
+              {solModalidade !== 'online' && (
+                <>
+                  <Separator className="dark:border-gray-700" />
+
+                  {/* Cidade */}
+                  <div>
+                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                      Cidade onde o serviço será prestado
+                    </Label>
+                    <Input
+                      placeholder="Ex: São Paulo, SP"
+                      value={solCidade}
+                      onChange={(e) => setSolCidade(e.target.value)}
+                      className="h-10 dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                    />
+                  </div>
+                </>
+              )}
 
               <Separator className="dark:border-gray-700" />
 

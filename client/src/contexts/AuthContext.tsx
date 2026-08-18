@@ -51,6 +51,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUsuario(null);
         } else {
           setUsuario(dadosSessao);
+          // Revalida status de aprovação em background
+          if (dadosSessao.tipoUsuario === 'empresa' && dadosSessao.empresaId) {
+            supabase
+              .from('empresas')
+              .select('status_aprovacao')
+              .eq('id', dadosSessao.empresaId)
+              .single()
+              .then(({ data }) => {
+                if (data && data.status_aprovacao !== dadosSessao.statusAprovacao) {
+                  const novaSessao = { ...dadosSessao, statusAprovacao: data.status_aprovacao };
+                  localStorage.setItem(CHAVE_SESSAO, JSON.stringify(novaSessao));
+                  setUsuario(novaSessao);
+                }
+              });
+          }
         }
       }
     } catch {

@@ -48,17 +48,19 @@ function calcularCamposFaltando(emp: any, listaSocios: any[]): ItemFaltando[] {
     }
   }
 
-  if (listaSocios.length === 0) {
-    faltando.push({ label: "Pelo menos 1 sócio cadastrado", secao: "Quadro Societário" });
-  } else {
-    listaSocios.forEach((socio, idx) => {
-      const secao = `Sócio ${idx + 1}${socio.nome ? ` — ${socio.nome}` : ""}`;
-      for (const { campo, label } of CAMPOS_OBRIGATORIOS_SOCIO) {
-        if (socio[campo] == null || String(socio[campo]).trim() === "") {
-          faltando.push({ label, secao });
+  if (emp.acesso_tipo !== "EMPRESA OU INICIATIVA INCENTIVADORA") {
+    if (listaSocios.length === 0) {
+      faltando.push({ label: "Pelo menos 1 sócio cadastrado", secao: "Quadro Societário" });
+    } else {
+      listaSocios.forEach((socio, idx) => {
+        const secao = `Sócio ${idx + 1}${socio.nome ? ` — ${socio.nome}` : ""}`;
+        for (const { campo, label } of CAMPOS_OBRIGATORIOS_SOCIO) {
+          if (socio[campo] == null || String(socio[campo]).trim() === "") {
+            faltando.push({ label, secao });
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   return faltando;

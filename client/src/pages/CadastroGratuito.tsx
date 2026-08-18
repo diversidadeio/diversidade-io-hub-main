@@ -615,61 +615,65 @@ export default function CadastroGratuito() {
         faltando.push({ id: "temContaPJ", label: "Tem Conta Bancária PJ?", secao: "3. Financeiro" });
 
       // ── Seção 4: Sócios e Impacto ────────────────────────────────────
-      if (!eSocio)
-        faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
-      if (!temNegrosSocios)
-        faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
-      if (!numeroSocios)
-        faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
+      if (acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA") {
+        if (!eSocio)
+          faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
+        if (!temNegrosSocios)
+          faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
+        if (!numeroSocios)
+          faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
+      }
 
       // Campos dinâmicos de cada sócio
-      sociosData.forEach((socio, idx) => {
-        const secaoSocio = `4. Sócio ${idx + 1}`;
-        const idBase = `socio-card-${idx}`;
-        if (!socio.foto)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Foto`, secao: secaoSocio });
-        if (!socio.fonteImagem)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Fonte da Imagem`, secao: secaoSocio });
-        if (!socio.nome)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
-        if (!socio.cpf)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
-        if (!socio.participacaoValor)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Valor da Participação`, secao: secaoSocio });
-        if (!socio.participacaoPercentual)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Percentual da Empresa`, secao: secaoSocio });
-        if (!socio.email)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: E-mail`, secao: secaoSocio });
-        if (!socio.dataNascimento)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
-        if (!socio.cep)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CEP`, secao: secaoSocio });
-        if (!socio.nacionalidade)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nacionalidade`, secao: secaoSocio });
-        if (!socio.etariedade)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Idade`, secao: secaoSocio });
-        if (!socio.raca)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
-        if (!socio.sexo)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
-        if (socio.sexo === "Outro" && !socio.sexoOutro)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo (Qual)`, secao: secaoSocio });
+      if (acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA") {
+        sociosData.forEach((socio, idx) => {
+          const secaoSocio = `4. Sócio ${idx + 1}`;
+          const idBase = `socio-card-${idx}`;
+          if (!socio.foto)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Foto`, secao: secaoSocio });
+          if (!socio.fonteImagem)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Fonte da Imagem`, secao: secaoSocio });
+          if (!socio.nome)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nome`, secao: secaoSocio });
+          if (!socio.cpf)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CPF`, secao: secaoSocio });
+          if (!socio.participacaoValor)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Valor da Participação`, secao: secaoSocio });
+          if (!socio.participacaoPercentual)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Percentual da Empresa`, secao: secaoSocio });
+          if (!socio.email)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: E-mail`, secao: secaoSocio });
+          if (!socio.dataNascimento)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
+          if (!socio.cep)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CEP`, secao: secaoSocio });
+          if (!socio.nacionalidade)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nacionalidade`, secao: secaoSocio });
+          if (!socio.etariedade)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Idade`, secao: secaoSocio });
+          if (!socio.raca)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Raça/Cor`, secao: secaoSocio });
+          if (!socio.sexo)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo`, secao: secaoSocio });
+          if (socio.sexo === "Outro" && !socio.sexoOutro)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Sexo (Qual)`, secao: secaoSocio });
 
-        if (!socio.deficiencia || socio.deficiencia.length === 0)
-          faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
-        else {
-          if (socio.deficiencia.includes("Deficiência auditiva") && !socio.deficienciaAuditivaGrau)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Auditiva`, secao: secaoSocio });
-          if (socio.deficiencia.includes("Deficiência física") && !socio.deficienciaFisicaGrau)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Física`, secao: secaoSocio });
-          if (socio.deficiencia.includes("Deficiência intelectual") && !socio.deficienciaIntelectualGrau)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Intelectual`, secao: secaoSocio });
-          if (socio.deficiencia.includes("Deficiência psicossocial") && !socio.deficienciaPsicossocialGrau)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Psicossocial`, secao: secaoSocio });
-          if (socio.deficiencia.includes("Deficiência visual") && !socio.deficienciaVisualGrau)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Visual`, secao: secaoSocio });
-        }
-      });
+          if (!socio.deficiencia || socio.deficiencia.length === 0)
+            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Possui deficiência?`, secao: secaoSocio });
+          else {
+            if (socio.deficiencia.includes("Deficiência auditiva") && !socio.deficienciaAuditivaGrau)
+              faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Auditiva`, secao: secaoSocio });
+            if (socio.deficiencia.includes("Deficiência física") && !socio.deficienciaFisicaGrau)
+              faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Física`, secao: secaoSocio });
+            if (socio.deficiencia.includes("Deficiência intelectual") && !socio.deficienciaIntelectualGrau)
+              faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Intelectual`, secao: secaoSocio });
+            if (socio.deficiencia.includes("Deficiência psicossocial") && !socio.deficienciaPsicossocialGrau)
+              faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Psicossocial`, secao: secaoSocio });
+            if (socio.deficiencia.includes("Deficiência visual") && !socio.deficienciaVisualGrau)
+              faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Grau da Deficiência Visual`, secao: secaoSocio });
+          }
+        });
+      }
 
       gestoresDiretosData.forEach((g, idx) => {
         if (!g.codigoPostal) faltando.push({ id: `cp-gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "4. Localização" });
@@ -1310,20 +1314,22 @@ export default function CadastroGratuito() {
               </div>
 
               {/* Aviso LGPD para terceiros */}
-              <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-900 mb-6">
-                <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
-                  <div className="space-y-2">
-                    <p className="font-semibold">Aviso Importante sobre Dados de Terceiros (LGPD)</p>
-                    <p className="text-sm leading-relaxed">
-                      Você está prestes a preencher informações pessoais e dados sensíveis (como raça/etnia e orientação sexual) dos sócios da empresa. Ao prosseguir, <strong>você declara ter coletado o consentimento prévio e expresso de cada titular</strong> para que a Diversidade.io realize o tratamento destes dados, conforme nossa <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-semibold">Política de Privacidade</a>.
-                    </p>
+              {acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA" && (
+                <>
+                  <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-900 mb-6">
+                    <div className="flex items-start gap-3">
+                      <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+                      <div className="space-y-2">
+                        <p className="font-semibold">Aviso Importante sobre Dados de Terceiros (LGPD)</p>
+                        <p className="text-sm leading-relaxed">
+                          Você está prestes a preencher informações pessoais e dados sensíveis (como raça/etnia e orientação sexual) dos sócios da empresa. Ao prosseguir, <strong>você declara ter coletado o consentimento prévio e expresso de cada titular</strong> para que a Diversidade.io realize o tratamento destes dados, conforme nossa <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-semibold">Política de Privacidade</a>.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid md:grid-cols-2 gap-6 bg-purple-50/50 p-6 rounded-xl border border-purple-100">
-                <div id="eSocio" className="space-y-3">
+                  <div className="grid md:grid-cols-2 gap-6 bg-purple-50/50 p-6 rounded-xl border border-purple-100">
+                    <div id="eSocio" className="space-y-3">
                   <Label className="text-gray-800 font-semibold">Você é sócio da empresa?</Label>
                   <RadioGroup onValueChange={setESocio} required className="flex gap-6 mt-2">
                     <div className="flex items-center space-x-2">
@@ -1672,6 +1678,8 @@ export default function CadastroGratuito() {
                   </div>
                 )}
               </div>
+            </>
+          )}
 
               {/* Localização dos Gestores e Colaboradores */}
               <div className="space-y-6 pt-6">
