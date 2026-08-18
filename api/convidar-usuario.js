@@ -83,17 +83,20 @@ export default async function handler(req, res) {
     }
 
     // 4. Gerar link de recuperação para o usuário definir a senha
-    // O redirect_to deve apontar para /trocar-senha do app, não a home do marketing
+    // O redirect_to deve apontar para /trocar-senha do app.
+    // Usamos o origin do request para funcionar tanto em localhost quanto em produção.
+    const origin = req.body.origin || "https://www.diversidade.io";
+    const redirectToUrl = `${origin}/trocar-senha`;
+
     const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
       options: {
-        redirectTo: "https://www.diversidade.io/trocar-senha",
+        redirectTo: redirectToUrl,
       },
     });
-    const linkAcesso =
-      linkData?.properties?.action_link ||
-      "https://www.diversidade.io/trocar-senha";
+    
+    const linkAcesso = linkData?.properties?.action_link || redirectToUrl;
 
     // 5. Enviar e-mail via Resend
     const RESEND_API_KEY = process.env.RESEND_API_KEY;

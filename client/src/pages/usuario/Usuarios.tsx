@@ -73,7 +73,8 @@ export default function Usuarios() {
           nome: conviteNome,
           email: conviteEmail,
           papel: convitePapel,
-          convidadoPorEmail: usuario?.email
+          convidadoPorEmail: usuario?.email,
+          origin: window.location.origin // Passa a URL atual (localhost ou diversidade.io)
         })
       });
 
