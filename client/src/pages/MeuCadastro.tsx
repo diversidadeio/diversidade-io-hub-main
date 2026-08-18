@@ -998,6 +998,24 @@ export default function MeuCadastro() {
     );
   }
 
+  if (!isAdmin) {
+    return (
+      <LayoutUsuario activePath="/meu-cadastro">
+        <div className="container mx-auto max-w-5xl py-8">
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 p-12 text-center">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Acesso Restrito</h2>
+            <p className="text-gray-600 max-w-lg mx-auto text-lg">
+              Você é um usuário com permissões limitadas. Apenas os administradores da empresa podem visualizar e editar os dados cadastrais.
+            </p>
+          </div>
+        </div>
+      </LayoutUsuario>
+    );
+  }
+
   return (
     <LayoutUsuario activePath="/meu-cadastro">
       <div className="container mx-auto max-w-5xl py-8">

@@ -78,16 +78,22 @@ export default function MinhasSolicitacoes() {
   const [modalAberto, setModalAberto] = useState(false);
   const [empresasDict, setEmpresasDict] = useState<Record<string, any>>({});
   const [usuariosEmpresa, setUsuariosEmpresa] = useState<any[]>([]);
-  const isAdmin = (usuario as any)?.role === "admin";
-  const [filtroUsuarioId, setFiltroUsuarioId] = useState<string>(isAdmin ? "todos" : "meus");
+  const isAdmin = (usuario as any)?.papel === "admin";
+  const [filtroUsuarioId, setFiltroUsuarioId] = useState<string>("todos");
 
   const carregarUsuarios = async () => {
     if (!isAdmin || !usuario) return;
+
     const { data } = await supabase
-      .from("usuarios")
-      .select("id, nome")
-      .eq("empresa_id", (usuario as any).empresaId);
-    setUsuariosEmpresa(data || []);
+      .from("empresa_usuarios")
+      .select("id, nome, email")
+      .eq("empresa_id", (usuario as any).empresaId)
+      .eq("status", "ativo");
+
+    const todos = data || [];
+
+    // Remove o próprio admin da lista "Por Usuário" do dropdown
+    setUsuariosEmpresa(todos.filter((u: any) => u.email !== usuario.email));
   };
 
   const carregar = async () => {
@@ -100,17 +106,18 @@ export default function MinhasSolicitacoes() {
         .select("*")
         .eq("empresa_id", (usuario as any).empresaId);
 
-      // Regra de acesso:
-      const uid = usuario.id || "00000000-0000-0000-0000-000000000000";
+      const uid = usuario.id;
 
       if (isAdmin) {
-        if (filtroUsuarioId === "meus") {
-          query = query.or(`usuario_id.eq.${uid},usuario_id.is.null`);
+        if (filtroUsuarioId === "meus" && uid) {
+          query = query.eq("usuario_id", uid);
         } else if (filtroUsuarioId !== "todos") {
           query = query.eq("usuario_id", filtroUsuarioId);
         }
+        // Se for "todos", não filtra por usuario_id (vê toda a empresa)
       } else {
-        query = query.or(`usuario_id.eq.${uid},usuario_id.is.null`); // usuário comum sempre vê as dele (e as antigas s/ dono)
+        // Usuário comum SEMPRE vê apenas as estritamente dele
+        if (uid) query = query.eq("usuario_id", uid);
       }
 
       const { data, error } = await query.order("criado_em", { ascending: false });
@@ -168,21 +175,23 @@ export default function MinhasSolicitacoes() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {isAdmin && usuariosEmpresa.length > 0 && (
+            {isAdmin && (
               <select
                 value={filtroUsuarioId}
                 onChange={(e) => setFiltroUsuarioId(e.target.value)}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all max-w-[200px]"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all max-w-[220px]"
               >
-                <option value="meus">Somente Minhas</option>
                 <option value="todos">Visualizar Todas (Empresa)</option>
-                <optgroup label="Por Usuário">
-                  {usuariosEmpresa.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nome}
-                    </option>
-                  ))}
-                </optgroup>
+                <option value="meus">Minhas Solicitações</option>
+                {usuariosEmpresa.length > 0 && (
+                  <optgroup label="Por Usuário">
+                    {usuariosEmpresa.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nome}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             )}
             <button
@@ -292,6 +301,28 @@ export default function MinhasSolicitacoes() {
                   {/* Detalhes expandidos */}
                   {aberto && (
                     <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-5 space-y-5 bg-gray-50/50 dark:bg-gray-700/20">
+                      {/* Solicitante (visível apenas para admin) */}
+                      {isAdmin && sol.usuario_id && (() => {
+                        const solicitante = usuariosEmpresa.find(u => u.auth_user_id === sol.usuario_id);
+                        if (!solicitante) return null;
+                        return (
+                          <div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wider flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5" /> Solicitado por
+                            </p>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-700 dark:text-purple-300 font-bold text-sm flex-shrink-0">
+                                {solicitante.nome?.charAt(0)?.toUpperCase() || "?"}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white">{solicitante.nome}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{solicitante.email}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Status (visível em mobile) */}
                       <div className="sm:hidden">
                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 font-medium uppercase tracking-wider">

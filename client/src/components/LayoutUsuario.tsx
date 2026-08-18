@@ -81,6 +81,7 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
       path: "/meu-cadastro",
       icon: FileText,
       label: "Editar Cadastro",
+      apenasAdmin: true,
     },
   ];
 
@@ -88,6 +89,7 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
   const menuItems = todosMenuItems.filter((item) => {
     if (item.apenasAprovados && isPendente) return false;
     if ((item as any).apenasIncentivadora && !isIncentivadora) return false;
+    if ((item as any).apenasAdmin && usuario?.papel !== 'admin') return false;
     return true;
   });
 
