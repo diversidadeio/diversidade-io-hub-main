@@ -86,14 +86,15 @@ export default function MinhasSolicitacoes() {
 
     const { data } = await supabase
       .from("empresa_usuarios")
-      .select("id, nome, email")
+      .select("id, nome, email, auth_user_id")
       .eq("empresa_id", (usuario as any).empresaId)
       .eq("status", "ativo");
 
-    const todos = data || [];
-
-    // Remove o próprio admin da lista "Por Usuário" do dropdown
-    setUsuariosEmpresa(todos.filter((u: any) => u.email !== usuario.email));
+    // Remove o admin logado para não duplicar com "Minhas Solicitações"
+    const usuariosSemAdmin = (data || []).filter(u => 
+      u.auth_user_id !== usuario?.id && u.id !== (usuario as any).id
+    );
+    setUsuariosEmpresa(usuariosSemAdmin);
   };
 
   const carregar = async () => {
@@ -186,7 +187,7 @@ export default function MinhasSolicitacoes() {
                 {usuariosEmpresa.length > 0 && (
                   <optgroup label="Por Usuário">
                     {usuariosEmpresa.map((u) => (
-                      <option key={u.id} value={u.id}>
+                      <option key={u.id} value={u.auth_user_id || u.id}>
                         {u.nome}
                       </option>
                     ))}
@@ -275,7 +276,9 @@ export default function MinhasSolicitacoes() {
                           {isAdmin && sol.usuario_id && (
                             <span className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300">
                               <Users className="w-3 h-3" />
-                              {usuariosEmpresa.find(u => u.id === sol.usuario_id)?.nome || "Usuário"}
+                              {sol.usuario_id === usuario?.id 
+                                ? usuario?.nome 
+                                : (usuariosEmpresa.find(u => u.auth_user_id === sol.usuario_id || u.id === sol.usuario_id)?.nome || "Usuário")}
                             </span>
                           )}
                         </div>
@@ -303,7 +306,10 @@ export default function MinhasSolicitacoes() {
                     <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-5 space-y-5 bg-gray-50/50 dark:bg-gray-700/20">
                       {/* Solicitante (visível apenas para admin) */}
                       {isAdmin && sol.usuario_id && (() => {
-                        const solicitante = usuariosEmpresa.find(u => u.auth_user_id === sol.usuario_id);
+                        let solicitante = usuariosEmpresa.find(u => u.auth_user_id === sol.usuario_id || u.id === sol.usuario_id);
+                        if (!solicitante && sol.usuario_id === usuario?.id) {
+                          solicitante = { nome: usuario?.nome, email: usuario?.email };
+                        }
                         if (!solicitante) return null;
                         return (
                           <div>
