@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase, supabaseAnon } from "@/lib/supabase";
-import { Loader2, ArrowLeft, ExternalLink, Building2, User } from "lucide-react";
+import { Loader2, ArrowLeft, ExternalLink, Building2, User, FileText, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { registrarLog } from "@/lib/registrarLog";
+import MapaImpactados from "@/components/MapaImpactados";
 
 export default function EmpresaDetalhes() {
   const [, params] = useRoute("/empresas/:id");
@@ -16,6 +17,8 @@ export default function EmpresaDetalhes() {
   const [carregando, setCarregando] = useState(true);
   const [empresa, setEmpresa] = useState<any>(null);
   const [socios, setSocios] = useState<any[]>([]);
+  const [ceps, setCeps] = useState<any[]>([]);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
   const [erro, setErro] = useState("");
   const [isIncentivadora, setIsIncentivadora] = useState(false);
 
@@ -35,6 +38,9 @@ export default function EmpresaDetalhes() {
 
         const { data: sociosData } = await supabaseAnon.from('socios').select('*').eq('empresa_id', id);
         if (sociosData) setSocios(sociosData);
+
+        const { data: cepsData } = await supabaseAnon.from('ceps_impactados').select('*').eq('empresa_id', id);
+        if (cepsData) setCeps(cepsData);
 
         if (usuario?.empresaId) {
           const { data: userData } = await supabase.from('empresas').select('acesso_tipo').eq('id', (usuario as any).empresaId).single();
@@ -181,7 +187,7 @@ export default function EmpresaDetalhes() {
             {renderField("Área Geográfica", empresa.area_geografica)}
             {renderField("Logo da Empresa", empresa.logo_empresa_url, 'image')}
             {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, 'link')}
-            {/* OMITIDO PROPOSITALMENTE: Ficha da Junta Comercial */}
+            {isIncentivadora && renderField("Ficha da Junta Comercial", empresa.ficha_junta_url, 'link')}
           </div>
           <div className="mt-4">
             {renderField("Sobre a Empresa", empresa.sobre_empresa)}
@@ -199,6 +205,133 @@ export default function EmpresaDetalhes() {
               </>
             )}
           </div>
+
+          {/* Dados do Impacto Social (Apenas para Incentivadoras) */}
+          {isIncentivadora && (
+            <>
+              <div className="flex items-center justify-between mt-12 mb-6 border-b border-gray-100 dark:border-gray-700 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg text-purple-700 dark:text-purple-300">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Dados do Impacto Social</h3>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/50 h-9"
+                  onClick={() => setMostrarMapa(!mostrarMapa)}
+                >
+                  <MapPin className="w-4 h-4" />
+                  {mostrarMapa ? "Ocultar Mapa" : "Ver no Mapa"}
+                </Button>
+              </div>
+
+              {/* Sub-seção: Localização Direta */}
+              <div className="mb-8">
+                <h4 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#7030A0] inline-block"></span>
+                  Localização dos Sócios, Gestores e Colaboradores
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <h5 className="font-semibold text-[#F97316] mb-2 border-b border-[#F97316]/20 pb-1 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-[#F97316]"></span>
+                      Sócios
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                      {socios.filter(s => s.cep).map(s => (
+                        <li key={s.id}>• {s.cep} <br/><span className="text-xs text-gray-400">{s.cep_endereco}</span></li>
+                      ))}
+                      {socios.filter(s => s.cep).length === 0 && <span className="italic">Nenhum</span>}
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-[#7030A0] mb-2 border-b border-[#7030A0]/20 pb-1 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-[#7030A0]"></span>
+                      Gestores
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                      {ceps.filter(c => c.tipo === 'GESTOR_DIRETO').map(c => (
+                        <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
+                      ))}
+                      {ceps.filter(c => c.tipo === 'GESTOR_DIRETO').length === 0 && <span className="italic">Nenhum</span>}
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-[#0EA5E9] mb-2 border-b border-[#0EA5E9]/20 pb-1 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-[#0EA5E9]"></span>
+                      Colaboradores
+                    </h5>
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                      {ceps.filter(c => c.tipo === 'COLABORADOR_DIRETO').map(c => (
+                        <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
+                      ))}
+                      {ceps.filter(c => c.tipo === 'COLABORADOR_DIRETO').length === 0 && <span className="italic">Nenhum</span>}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-seção: Pessoas Impactadas */}
+              <div className="mb-8">
+                <h4 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
+                  Pessoas Impactadas Financeiramente
+                </h4>
+                {ceps.filter(c => ['GESTOR','SOCIO','COLABORADOR'].includes(c.tipo)).length === 0 ? (
+                  <p className="text-gray-500 italic text-sm mb-4">Nenhum CEP de pessoa impactada registrado.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <h5 className="font-semibold text-[#9333EA] mb-2 border-b border-[#9333EA]/20 pb-1 flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-[#9333EA]"></span>
+                        Impactados pelo Gestor
+                      </h5>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        {ceps.filter(c => c.tipo === 'GESTOR').map(c => (
+                          <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
+                        ))}
+                        {ceps.filter(c => c.tipo === 'GESTOR').length === 0 && <span className="italic">Nenhum</span>}
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-[#EAB308] mb-2 border-b border-[#EAB308]/20 pb-1 flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-[#EAB308]"></span>
+                        Impactados pelo Sócio
+                      </h5>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        {ceps.filter(c => c.tipo === 'SOCIO').map(c => (
+                          <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
+                        ))}
+                        {ceps.filter(c => c.tipo === 'SOCIO').length === 0 && <span className="italic">Nenhum</span>}
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-[#22C55E] mb-2 border-b border-[#22C55E]/20 pb-1 flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-[#22C55E]"></span>
+                        Impactados pelo Colaborador
+                      </h5>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        {ceps.filter(c => c.tipo === 'COLABORADOR').map(c => (
+                          <li key={c.id}>• {c.cep} <br/><span className="text-xs text-gray-400">{c.endereco_validado}</span></li>
+                        ))}
+                        {ceps.filter(c => c.tipo === 'COLABORADOR').length === 0 && <span className="italic">Nenhum</span>}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {mostrarMapa && (
+                <MapaImpactados ceps={[
+                  ...socios
+                    .filter(s => s.cep)
+                    .map(s => ({ id: `socio-${s.id}`, tipo: 'SOCIO_DIRETO', cep: s.cep, endereco_validado: s.cep_endereco, pais: 'BR' })),
+                  ...ceps,
+                ]} />
+              )}
+            </>
+          )}
 
         </div>
       </div>

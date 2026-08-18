@@ -272,7 +272,7 @@ export default function Usuarios() {
       </div>
 
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="sm:max-w-md dark:bg-gray-800 dark:border-gray-700 dark:text-white">
+        <DialogContent className="sm:max-w-2xl dark:bg-gray-800 dark:border-gray-700 dark:text-white">
           <DialogHeader>
             <DialogTitle>Convidar Usuário</DialogTitle>
             <DialogDescription className="dark:text-gray-400">
@@ -301,17 +301,36 @@ export default function Usuarios() {
                 className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="papel" className="dark:text-gray-200">Nível de Acesso</Label>
-              <Select value={convitePapel} onValueChange={setConvitePapel}>
-                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                  <SelectItem value="usuario">Usuário Comum (não convida, não apaga)</SelectItem>
-                  <SelectItem value="admin">Administrador (gestão total)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2 pt-2">
+              <Label className="dark:text-gray-200 mb-2 block">Nível de Acesso</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                  className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                    convitePapel === "admin"
+                      ? "border-[#7030A0] bg-[#7030A0]/5 shadow-sm dark:bg-[#7030A0]/20"
+                      : "border-gray-200 dark:border-gray-700 hover:border-[#7030A0]/50"
+                  }`}
+                  onClick={() => setConvitePapel("admin")}
+                >
+                  <h3 className={`font-semibold mb-2 ${convitePapel === "admin" ? "text-[#7030A0] dark:text-[#d8b4fe]" : "text-gray-900 dark:text-white"}`}>Administrador</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Pleno acesso e edição. Pode alterar dados, gerenciar usuários, realizar buscas e solicitar empresas.
+                  </p>
+                </div>
+                <div
+                  className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                    convitePapel === "usuario"
+                      ? "border-[#7030A0] bg-[#7030A0]/5 shadow-sm dark:bg-[#7030A0]/20"
+                      : "border-gray-200 dark:border-gray-700 hover:border-[#7030A0]/50"
+                  }`}
+                  onClick={() => setConvitePapel("usuario")}
+                >
+                  <h3 className={`font-semibold mb-2 ${convitePapel === "usuario" ? "text-[#7030A0] dark:text-[#d8b4fe]" : "text-gray-900 dark:text-white"}`}>Usuário</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Pode pesquisar empreendedores e solicitar empresas informando, no mínimo, dois CNAEs.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
