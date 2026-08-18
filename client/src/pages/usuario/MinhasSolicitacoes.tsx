@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "wouter";
 import {
   Loader2,
   Send,
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Users,
 } from "lucide-react";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
@@ -65,33 +67,88 @@ const ROTULOS_MODALIDADE: Record<string, string> = {
   ambos: "✅ Online e Presencial",
 };
 
+import { ModalSolicitarBusca } from "@/components/usuario/ModalSolicitarBusca";
+
 // ── Componente ───────────────────────────────────────────────────────────────
 export default function MinhasSolicitacoes() {
   const { usuario } = useAuth();
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoBusca[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [empresasDict, setEmpresasDict] = useState<Record<string, any>>({});
+  const [usuariosEmpresa, setUsuariosEmpresa] = useState<any[]>([]);
+  const isAdmin = (usuario as any)?.role === "admin";
+  const [filtroUsuarioId, setFiltroUsuarioId] = useState<string>(isAdmin ? "todos" : "meus");
+
+  const carregarUsuarios = async () => {
+    if (!isAdmin || !usuario) return;
+    const { data } = await supabase
+      .from("usuarios")
+      .select("id, nome")
+      .eq("empresa_id", (usuario as any).empresaId);
+    setUsuariosEmpresa(data || []);
+  };
+
+  const carregar = async () => {
+    if (!usuario) return;
+    try {
+      setCarregando(true);
+      
+      let query = supabase
+        .from("solicitacoes_busca")
+        .select("*")
+        .eq("empresa_id", (usuario as any).empresaId);
+
+      // Regra de acesso:
+      const uid = usuario.id || "00000000-0000-0000-0000-000000000000";
+
+      if (isAdmin) {
+        if (filtroUsuarioId === "meus") {
+          query = query.or(`usuario_id.eq.${uid},usuario_id.is.null`);
+        } else if (filtroUsuarioId !== "todos") {
+          query = query.eq("usuario_id", filtroUsuarioId);
+        }
+      } else {
+        query = query.or(`usuario_id.eq.${uid},usuario_id.is.null`); // usuário comum sempre vê as dele (e as antigas s/ dono)
+      }
+
+      const { data, error } = await query.order("criado_em", { ascending: false });
+
+      if (error) throw error;
+      setSolicitacoes(data || []);
+
+      // Busca dados das empresas indicadas
+      const indicadasIds = new Set<string>();
+      (data || []).forEach(sol => {
+        if (sol.empresas_indicadas) {
+          sol.empresas_indicadas.forEach((id: string) => indicadasIds.add(id));
+        }
+      });
+      if (indicadasIds.size > 0) {
+        const { data: empData } = await supabase
+          .from("empresas")
+          .select("id, razao_social, cnpj, email")
+          .in("id", Array.from(indicadasIds));
+        const empDict: Record<string, any> = {};
+        (empData || []).forEach(e => { empDict[e.id] = e; });
+        setEmpresasDict(empDict);
+      }
+
+    } catch (err) {
+      console.error("Erro ao carregar solicitações:", err);
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   useEffect(() => {
-    async function carregar() {
-      if (!usuario) return;
-      try {
-        const { data, error } = await supabase
-          .from("solicitacoes_busca")
-          .select("*")
-          .eq("empresa_id", (usuario as any).empresaId)
-          .order("criado_em", { ascending: false });
-
-        if (error) throw error;
-        setSolicitacoes(data || []);
-      } catch (err) {
-        console.error("Erro ao carregar solicitações:", err);
-      } finally {
-        setCarregando(false);
-      }
-    }
-    carregar();
+    carregarUsuarios();
   }, [usuario]);
+
+  useEffect(() => {
+    carregar();
+  }, [usuario, filtroUsuarioId]);
 
   function toggleExpandido(id: string) {
     setExpandido((prev) => (prev === id ? null : id));
@@ -101,13 +158,41 @@ export default function MinhasSolicitacoes() {
     <LayoutUsuario activePath="/meu-cadastro/minhas-solicitacoes">
       <div className="space-y-6 max-w-4xl mx-auto">
         {/* Cabeçalho */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Minhas Solicitações
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Acompanhe o status das suas solicitações de busca de empreendedores.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Minhas Solicitações
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Acompanhe o status das suas solicitações de busca de empreendedores.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {isAdmin && usuariosEmpresa.length > 0 && (
+              <select
+                value={filtroUsuarioId}
+                onChange={(e) => setFiltroUsuarioId(e.target.value)}
+                className="px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all max-w-[200px]"
+              >
+                <option value="meus">Somente Minhas</option>
+                <option value="todos">Visualizar Todas (Empresa)</option>
+                <optgroup label="Por Usuário">
+                  {usuariosEmpresa.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            )}
+            <button
+              onClick={() => setModalAberto(true)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors bg-[#7030A0] text-white border border-[#7030A0] hover:bg-purple-800"
+            >
+              <Send className="w-4 h-4" />
+              Solicitar Busca
+            </button>
+          </div>
         </div>
 
         {/* Conteúdo */}
@@ -178,6 +263,12 @@ export default function MinhasSolicitacoes() {
                               year: "numeric",
                             })}
                           </span>
+                          {isAdmin && sol.usuario_id && (
+                            <span className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300">
+                              <Users className="w-3 h-3" />
+                              {usuariosEmpresa.find(u => u.id === sol.usuario_id)?.nome || "Usuário"}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -282,6 +373,35 @@ export default function MinhasSolicitacoes() {
                         </div>
                       )}
 
+                      {/* Empresas Indicadas */}
+                      {sol.empresas_indicadas && sol.empresas_indicadas.length > 0 && (
+                        <div>
+                          <p className="text-xs text-[#7030A0] mb-2 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5" /> Empreendedores Encontrados
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {sol.empresas_indicadas.map((empId: string) => {
+                              const emp = empresasDict[empId];
+                              if (!emp) return null;
+                              return (
+                                <div key={empId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg gap-2">
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{emp.razao_social}</p>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{emp.cnpj}</p>
+                                    {emp.email && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{emp.email}</p>}
+                                  </div>
+                                  <Link href={`/empresas/${empId}`}>
+                                    <a className="inline-flex flex-shrink-0 items-center justify-center px-4 py-2 text-xs font-medium text-white bg-[#7030A0] hover:bg-purple-800 dark:bg-purple-600 dark:hover:bg-purple-700 rounded-lg transition-colors">
+                                      Ver Detalhes
+                                    </a>
+                                  </Link>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Documento */}
                       {sol.documento_url && (
                         <div>
@@ -307,6 +427,12 @@ export default function MinhasSolicitacoes() {
           </div>
         )}
       </div>
+
+      <ModalSolicitarBusca
+        aberto={modalAberto}
+        onOpenChange={setModalAberto}
+        onSucesso={carregar} // Recarrega a lista ao enviar com sucesso
+      />
     </LayoutUsuario>
   );
 }

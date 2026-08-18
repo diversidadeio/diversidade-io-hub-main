@@ -6,6 +6,7 @@ import { registrarLog } from "@/lib/registrarLog";
  * Dados do usuário autenticado na sessão.
  */
 interface UsuarioSessao {
+  id: string;
   empresaId: string;
   email: string;
   nome: string;
@@ -176,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 4. Monta a sessão local (expira em 8 horas)
       const OITO_HORAS_EM_MS = 8 * 60 * 60 * 1000;
       const sessao: UsuarioSessao = {
+        id: userData.id || authData.user.id,
         empresaId: userData.empresa_id,
         email: userData.email,
         nome: userData.nome,

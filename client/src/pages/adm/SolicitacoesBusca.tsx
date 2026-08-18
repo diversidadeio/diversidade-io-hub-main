@@ -2,22 +2,20 @@ import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import {
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Eye,
-  FileText,
-  MapPin,
-  Monitor,
-  Users,
-  ExternalLink,
-  RefreshCw,
+  Loader2, AlertCircle, CheckCircle2, Clock, Eye, FileText,
+  MapPin, Monitor, Users, ExternalLink, RefreshCw,
+  ChevronLeft, ChevronRight, SlidersHorizontal, X, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
+const RACAS_DISPONIVEIS = ["Pardo", "Preto", "Branco", "Amarelo", "Indígena", "Outro"];
+const SEXOS_DISPONIVEIS = ["Masculino", "Feminino", "Outro", "Prefiro não declarar"];
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface SolicitacaoBusca {
@@ -36,6 +34,7 @@ interface SolicitacaoBusca {
   email_empresa?: string;
   nome_responsavel?: string;
   telefone_principal?: string;
+  empresas_indicadas?: string[];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -62,9 +61,157 @@ export default function SolicitacoesAdm() {
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [atualizandoStatus, setAtualizandoStatus] = useState(false);
 
+  // Estados para as empresas indicadas
+  const [empresasIndicadasList, setEmpresasIndicadasList] = useState<any[]>([]);
+  const [termoBusca, setTermoBusca] = useState("");
+  const [atualizandoIndicacoes, setAtualizandoIndicacoes] = useState(false);
+
+  // --- LÓGICA COPIADA DE PESQUISAS PARA OS FILTROS DA BUSCA DE INDICAÇÃO ---
+  const [todasEmpresas, setTodasEmpresas] = useState<any[]>([]);
+  const [todosSocios, setTodosSocios] = useState<Record<string, any[]>>({});
+  const [carregandoTodasEmpresas, setCarregandoTodasEmpresas] = useState(false);
+
+  // Filtros
+  const [modalFiltroAberto, setModalFiltroAberto] = useState(false);
+  const FILTROS_PADRAO = { portes: [] as string[], completude: "todos", ordenacao: "recentes", etariedade_60: false, racas: [] as string[], sexos: [] as string[] };
+  const [filtrosTemp, setFiltrosTemp] = useState(FILTROS_PADRAO);
+  const [filtrosAtivos, setFiltrosAtivos] = useState(FILTROS_PADRAO);
+  
+  // Paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const porPagina = 10;
+
   useEffect(() => {
     carregarSolicitacoes();
+    carregarTodasEmpresas();
   }, []);
+
+  async function carregarTodasEmpresas() {
+    setCarregandoTodasEmpresas(true);
+    try {
+      let query = supabase
+        .from("empresas")
+        .select("*")
+        .eq('status_aprovacao', 'aprovado')
+        .not('acesso_tipo', 'ilike', '%EMPRESA OU INICIATIVA INCENTIVADORA%');
+
+      // Se houver uma solicitação selecionada, removemos a própria empresa que está pedindo a busca
+      if (selecionada?.empresa_id) {
+        query = query.neq('id', selecionada.empresa_id);
+      }
+
+      const { data: empData } = await query;
+      const { data: socData } = await supabase.from("socios").select("*");
+      
+      const sociosMap: Record<string, any[]> = {};
+      (socData || []).forEach(s => {
+        if (!sociosMap[s.empresa_id]) sociosMap[s.empresa_id] = [];
+        sociosMap[s.empresa_id].push(s);
+      });
+      setTodosSocios(sociosMap);
+      setTodasEmpresas(empData || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCarregandoTodasEmpresas(false);
+    }
+  }
+
+  // Refaz a busca toda vez que abrir um modal diferente, para ignorar o solicitante atual
+  useEffect(() => {
+    if (selecionada) {
+      carregarTodasEmpresas();
+    }
+  }, [selecionada?.id]);
+
+  // Util para completude
+  function calcularCompletude(empresa: any, socios: any[]) {
+    let preenchidos = 0;
+    const CAMPOS_OBRIGATORIOS = ["razao_social", "cnpj", "nome_responsavel", "telefone_principal", "area_empresa", "sobre_empresa", "logo_empresa_url"];
+    const CAMPOS_SOCIO = ["nome", "cpf", "email", "cep", "data_nascimento", "nacionalidade", "raca", "sexo"];
+    
+    CAMPOS_OBRIGATORIOS.forEach(c => { if (empresa[c]) preenchidos++; });
+    let reqSocio = 0;
+    let preSocio = 0;
+    socios.forEach(s => {
+      CAMPOS_SOCIO.forEach(c => {
+        reqSocio++;
+        if (s[c]) preSocio++;
+      });
+    });
+    const totalSocio = reqSocio === 0 ? 1 : reqSocio;
+    const valSocio = reqSocio === 0 ? 1 : preSocio;
+    const completudeEmpresa = preenchidos / CAMPOS_OBRIGATORIOS.length;
+    const completudeSocio = valSocio / totalSocio;
+    return Math.round((completudeEmpresa * 0.5 + completudeSocio * 0.5) * 100);
+  }
+
+  const empresasFiltradas = (() => {
+    let lista = todasEmpresas.filter(emp => {
+      const termo = termoBusca.toLowerCase();
+      const termoSemPontuacao = termo.replace(/[^\d]/g, '');
+      const cnpjLimpo = emp.cnpj ? emp.cnpj.replace(/[^\d]/g, '') : '';
+
+      const matchBusca = !termo || 
+        (emp.razao_social && emp.razao_social.toLowerCase().includes(termo)) || 
+        (emp.email && emp.email.toLowerCase().includes(termo)) || 
+        (termoSemPontuacao && cnpjLimpo.includes(termoSemPontuacao));
+      
+      const matchPorte = filtrosAtivos.portes.length === 0 || filtrosAtivos.portes.includes(emp.porte_empresa);
+      
+      const listaSocios = todosSocios[emp.id] || [];
+      const completude = calcularCompletude(emp, listaSocios);
+      const matchCompletude = filtrosAtivos.completude === "todos" || 
+        (filtrosAtivos.completude === "completo" && completude === 100) || 
+        (filtrosAtivos.completude === "incompleto" && completude < 100);
+      
+      const matchEtariedade = !filtrosAtivos.etariedade_60 || listaSocios.some((s:any) => parseInt(s.etariedade) >= 60);
+      const matchRaca = filtrosAtivos.racas.length === 0 || listaSocios.some((s:any) => filtrosAtivos.racas.includes(s.raca));
+      const matchSexo = filtrosAtivos.sexos.length === 0 || listaSocios.some((s:any) => s.sexo && filtrosAtivos.sexos.some(fs => s.sexo.startsWith(fs)));
+      
+      const isAlreadyIndicated = selecionada?.empresas_indicadas?.includes(emp.id);
+
+      return matchBusca && matchPorte && matchCompletude && matchEtariedade && matchRaca && matchSexo && !isAlreadyIndicated;
+    });
+
+    lista = [...lista].sort((a, b) => {
+      if (filtrosAtivos.ordenacao === "antigos") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (filtrosAtivos.ordenacao === "nome_az") return (a.razao_social || "").localeCompare(b.razao_social || "");
+      if (filtrosAtivos.ordenacao === "nome_za") return (b.razao_social || "").localeCompare(a.razao_social || "");
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return lista;
+  })();
+
+  const totalResultados = empresasFiltradas.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalResultados / porPagina));
+  const paginaSegura = Math.min(paginaAtual, totalPaginas);
+  const inicio = (paginaSegura - 1) * porPagina;
+  const resultadosBuscaPagina = empresasFiltradas.slice(inicio, inicio + porPagina);
+
+  useEffect(() => { setPaginaAtual(1); }, [termoBusca, filtrosAtivos, selecionada]);
+
+  // Carrega empresas indicadas ao abrir modal
+  useEffect(() => {
+    async function carregarIndicadas() {
+      if (!selecionada || !selecionada.empresas_indicadas || selecionada.empresas_indicadas.length === 0) {
+        setEmpresasIndicadasList([]);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from("empresas")
+          .select("id, razao_social, cnpj, email")
+          .in("id", selecionada.empresas_indicadas);
+        setEmpresasIndicadasList(data || []);
+      } catch (err) {
+        console.error("Erro ao carregar empresas indicadas", err);
+      }
+    }
+    carregarIndicadas();
+    setTermoBusca("");
+  }, [selecionada]);
 
   // Carrega solicitações com dados das empresas via join manual
   async function carregarSolicitacoes() {
@@ -135,6 +282,55 @@ export default function SolicitacoesAdm() {
       toast.error("Erro ao atualizar status: " + (err.message || "Tente novamente."));
     } finally {
       setAtualizandoStatus(false);
+    }
+  }
+
+  // Adicionar e Remover empresas indicadas
+  async function adicionarIndicacao(empresa: any) {
+    if (!selecionada || atualizandoIndicacoes) return;
+    setAtualizandoIndicacoes(true);
+    try {
+      const novaLista = [...(selecionada.empresas_indicadas || []), empresa.id];
+      
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update({ empresas_indicadas: novaLista })
+        .eq("id", selecionada.id);
+        
+      if (error) throw error;
+
+      setSelecionada({ ...selecionada, empresas_indicadas: novaLista });
+      setSolicitacoes((prev) => prev.map(s => s.id === selecionada.id ? { ...s, empresas_indicadas: novaLista } : s));
+      setEmpresasIndicadasList((prev) => [...prev, empresa]);
+      toast.success("Empresa adicionada à solicitação.");
+    } catch (err: any) {
+      toast.error("Erro ao adicionar empresa: " + err.message);
+    } finally {
+      setAtualizandoIndicacoes(false);
+    }
+  }
+
+  async function removerIndicacao(empresaId: string) {
+    if (!selecionada || atualizandoIndicacoes) return;
+    setAtualizandoIndicacoes(true);
+    try {
+      const novaLista = (selecionada.empresas_indicadas || []).filter(id => id !== empresaId);
+      
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update({ empresas_indicadas: novaLista })
+        .eq("id", selecionada.id);
+        
+      if (error) throw error;
+
+      setSelecionada({ ...selecionada, empresas_indicadas: novaLista });
+      setSolicitacoes((prev) => prev.map(s => s.id === selecionada.id ? { ...s, empresas_indicadas: novaLista } : s));
+      setEmpresasIndicadasList((prev) => prev.filter(e => e.id !== empresaId));
+      toast.success("Empresa removida da solicitação.");
+    } catch (err: any) {
+      toast.error("Erro ao remover empresa: " + err.message);
+    } finally {
+      setAtualizandoIndicacoes(false);
     }
   }
 
@@ -237,16 +433,9 @@ export default function SolicitacoesAdm() {
                         <p className="text-xs text-gray-400">{sol.telefone_principal}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex flex-col gap-1">
-                          {sol.cnaes.map((cnae, i) => (
-                            <span
-                              key={i}
-                              className="inline-block px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-xs font-medium"
-                            >
-                              {cnae}
-                            </span>
-                          ))}
-                        </div>
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-xs font-semibold whitespace-nowrap">
+                          {sol.cnaes.length} {sol.cnaes.length === 1 ? 'CNAE' : 'CNAEs'}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
                       <td className="px-5 py-4 text-gray-600 whitespace-nowrap text-xs">
@@ -430,8 +619,269 @@ export default function SolicitacoesAdm() {
                   ))}
                 </div>
               </div>
+
+              <Separator />
+
+              {/* Indicar Empresas */}
+              <div>
+                <p className="text-xs font-semibold text-[#7030A0] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" /> Indicar Empresas
+                </p>
+                
+                {/* Lista de indicadas */}
+                {empresasIndicadasList.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <p className="text-xs text-gray-500 font-medium">Empresas já indicadas ({empresasIndicadasList.length}):</p>
+                    {empresasIndicadasList.map((emp) => (
+                      <div key={emp.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-green-50 border border-green-100 rounded-lg">
+                        <div>
+                          <p className="text-sm font-semibold text-green-900">{emp.razao_social}</p>
+                          <p className="text-xs text-green-700">{emp.cnpj} • {emp.email}</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full"
+                          onClick={() => removerIndicacao(emp.id)}
+                          disabled={atualizandoIndicacoes}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Busca para indicar novas */}
+                <div className="space-y-3 mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-gray-500 font-medium">Buscar empresas para indicar:</p>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          placeholder="Buscar empresa, CNPJ ou e-mail..."
+                          value={termoBusca}
+                          onChange={(e) => setTermoBusca(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          setFiltrosTemp(filtrosAtivos);
+                          setModalFiltroAberto(true);
+                        }}
+                        className={`flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          JSON.stringify(filtrosAtivos) !== JSON.stringify(FILTROS_PADRAO)
+                            ? "bg-[#7030A0] text-white border-[#7030A0]"
+                            : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
+                        Filtros
+                      </button>
+                    </div>
+
+                    {JSON.stringify(filtrosAtivos) !== JSON.stringify(FILTROS_PADRAO) && (
+                      <button
+                        onClick={() => { setFiltrosAtivos(FILTROS_PADRAO); setPaginaAtual(1); }}
+                        className="text-xs text-[#7030A0] hover:text-purple-800 text-left font-medium underline"
+                      >
+                        Limpar filtros ativos
+                      </button>
+                    )}
+                  </div>
+
+                  {carregandoTodasEmpresas ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#7030A0]" />
+                    </div>
+                  ) : resultadosBuscaPagina.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-4 text-center">Nenhuma empresa encontrada com os filtros atuais.</p>
+                  ) : (
+                    <div className="space-y-2 mt-2">
+                      {resultadosBuscaPagina.map((emp) => (
+                        <div key={emp.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-gray-50 border border-gray-100 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{emp.razao_social}</p>
+                            <p className="text-xs text-gray-500">{emp.cnpj}</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 border-[#7030A0] text-[#7030A0] hover:bg-[#7030A0] hover:text-white sm:w-auto w-full transition-colors"
+                            onClick={() => adicionarIndicacao(emp)}
+                            disabled={atualizandoIndicacoes}
+                          >
+                            + Indicar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Paginação */}
+                  {!carregandoTodasEmpresas && totalPaginas > 1 && (
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-3">
+                      <span className="text-xs text-gray-500">
+                        {inicio + 1} - {Math.min(inicio + porPagina, totalResultados)} de {totalResultados}
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+                          disabled={paginaAtual === 1}
+                          className="p-1 rounded border border-gray-200 text-gray-600 disabled:opacity-40"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+                          disabled={paginaAtual === totalPaginas}
+                          className="p-1 rounded border border-gray-200 text-gray-600 disabled:opacity-40"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal de Filtros ───────────────────────────────────────────────────── */}
+      <Dialog open={modalFiltroAberto} onOpenChange={setModalFiltroAberto}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <SlidersHorizontal className="w-5 h-5 text-[#7030A0]" />
+              Filtros de Empresas
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-2">
+            {/* Porte */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Porte da Empresa</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PORTES_DISPONIVEIS.map((porte) => (
+                  <div key={porte} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`porte-${porte}`}
+                      checked={filtrosTemp.portes.includes(porte)}
+                      onCheckedChange={(checked) => {
+                        setFiltrosTemp((p) => ({
+                          ...p,
+                          portes: checked ? [...p.portes, porte] : p.portes.filter((x) => x !== porte),
+                        }));
+                      }}
+                    />
+                    <Label htmlFor={`porte-${porte}`} className="text-sm cursor-pointer">{porte}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Completude */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Preenchimento do Cadastro</p>
+              <div className="flex gap-2 flex-wrap">
+                {(["todos", "completo", "incompleto"] as const).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setFiltrosTemp((p) => ({ ...p, completude: c }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      filtrosTemp.completude === c ? "bg-[#7030A0] text-white border-[#7030A0]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {c === "todos" ? "Todos" : c === "completo" ? "Completo" : "Incompleto"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Ordenação */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Ordenação</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { value: "recentes", label: "Mais recentes" },
+                    { value: "antigos", label: "Mais antigos" },
+                    { value: "nome_az", label: "Nome A→Z" },
+                    { value: "nome_za", label: "Nome Z→A" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setFiltrosTemp((p) => ({ ...p, ordenacao: value }))}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors text-left ${
+                      filtrosTemp.ordenacao === value ? "bg-[#7030A0] text-white border-[#7030A0]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Perfil dos Sócios</h4>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="etariedade_60"
+                  checked={filtrosTemp.etariedade_60}
+                  onCheckedChange={(checked) => setFiltrosTemp((p) => ({ ...p, etariedade_60: !!checked }))}
+                />
+                <Label htmlFor="etariedade_60" className="text-sm cursor-pointer">Possui sócios 60+</Label>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Raça/Cor</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {RACAS_DISPONIVEIS.map((raca) => (
+                    <div key={raca} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`raca-${raca}`}
+                        checked={filtrosTemp.racas.includes(raca)}
+                        onCheckedChange={(checked) => setFiltrosTemp((p) => ({ ...p, racas: checked ? [...p.racas, raca] : p.racas.filter((x) => x !== raca) }))}
+                      />
+                      <Label htmlFor={`raca-${raca}`} className="text-sm cursor-pointer">{raca}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Identidade de Gênero</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {SEXOS_DISPONIVEIS.map((sexo) => (
+                    <div key={sexo} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`sexo-${sexo}`}
+                        checked={filtrosTemp.sexos.includes(sexo)}
+                        onCheckedChange={(checked) => setFiltrosTemp((p) => ({ ...p, sexos: checked ? [...p.sexos, sexo] : p.sexos.filter((x) => x !== sexo) }))}
+                      />
+                      <Label htmlFor={`sexo-${sexo}`} className="text-sm cursor-pointer">{sexo}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-row justify-between gap-2 pt-2">
+            <Button variant="outline" onClick={() => setFiltrosTemp(FILTROS_PADRAO)} className="flex-1">Limpar</Button>
+            <Button onClick={() => { setFiltrosAtivos(filtrosTemp); setModalFiltroAberto(false); setPaginaAtual(1); }} className="flex-1 bg-[#7030A0] text-white hover:bg-purple-800">Aplicar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </LayoutAdm>
