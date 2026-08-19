@@ -28,6 +28,7 @@ interface SolicitacaoBusca {
   documento_url: string | null;
   status: "pendente" | "em_andamento" | "concluido" | "cancelado";
   criado_em: string;
+  atualizado_em?: string;
   // dados da empresa vinculada
   razao_social?: string;
   cnpj?: string;
@@ -52,6 +53,37 @@ const ROTULOS_MODALIDADE: Record<string, string> = {
 };
 
 const STATUS_DISPONIVEIS = ["pendente", "em_andamento", "concluido", "cancelado"] as const;
+
+export function getSlaInfo(dataCriacao: string, status: string) {
+  if (status === 'concluido' || status === 'cancelado') return null;
+
+  const inicio = new Date(dataCriacao);
+  const hoje = new Date();
+  
+  // Zera as horas para comparar apenas os dias
+  const d1 = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+  const d2 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  
+  const diffTime = d2.getTime() - d1.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+
+  if (diffDays <= 2) {
+    return { 
+      cor: "bg-green-100 text-green-800 border-green-200", 
+      texto: diffDays === 0 ? "No prazo (Hoje)" : `No prazo (${diffDays} ${diffDays === 1 ? 'dia' : 'dias'})` 
+    };
+  } else if (diffDays <= 5) {
+    return { 
+      cor: "bg-orange-100 text-orange-800 border-orange-200", 
+      texto: `Atenção (${diffDays} dias)` 
+    };
+  } else {
+    return { 
+      cor: "bg-red-100 text-red-800 border-red-200", 
+      texto: `Atrasado (${diffDays} dias)` 
+    };
+  }
+}
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function SolicitacoesAdm() {
@@ -404,10 +436,10 @@ export default function SolicitacoesAdm() {
                 <tr>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Data</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Empresa</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Responsável / Telefone</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">CNAEs</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Cidade</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Modalidade</th>
+                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Prazo</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Status</th>
                   <th className="px-5 py-4 font-semibold text-gray-700 text-right whitespace-nowrap">Ações</th>
                 </tr>
@@ -429,10 +461,6 @@ export default function SolicitacoesAdm() {
                         <p className="text-xs text-gray-400">{sol.cnpj}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-gray-700">{sol.nome_responsavel}</p>
-                        <p className="text-xs text-gray-400">{sol.telefone_principal}</p>
-                      </td>
-                      <td className="px-5 py-4">
                         <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-xs font-semibold whitespace-nowrap">
                           {sol.cnaes.length} {sol.cnaes.length === 1 ? 'CNAE' : 'CNAEs'}
                         </span>
@@ -440,6 +468,17 @@ export default function SolicitacoesAdm() {
                       <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
                       <td className="px-5 py-4 text-gray-600 whitespace-nowrap text-xs">
                         {ROTULOS_MODALIDADE[sol.modalidade]}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        {(() => {
+                          const sla = getSlaInfo(sol.criado_em, sol.status);
+                          if (!sla) return <span className="text-xs text-gray-400">—</span>;
+                          return (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${sla.cor}`}>
+                              {sla.texto}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.cor}`}>
@@ -579,7 +618,7 @@ export default function SolicitacoesAdm() {
 
                   {/* Data */}
                   <div>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 mb-2">
                       Solicitação enviada em{" "}
                       <span className="font-medium text-gray-600">
                         {new Date(selecionada.criado_em).toLocaleDateString("pt-BR", {
@@ -588,6 +627,15 @@ export default function SolicitacoesAdm() {
                         })}
                       </span>
                     </p>
+                    {(() => {
+                      const sla = getSlaInfo(selecionada.criado_em, selecionada.status);
+                      if (!sla) return null;
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${sla.cor}`}>
+                          SLA: {sla.texto}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
