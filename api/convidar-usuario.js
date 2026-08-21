@@ -135,12 +135,38 @@ export default async function handler(req, res) {
       </div>
     `;
 
+    // Versão em texto puro — melhora pontuação nos filtros antispam corporativos
+    const quemConvidou = convidadoPorEmail
+      ? `${convidadoPorEmail} convidou você`
+      : "Você foi convidado(a)";
+    const nivelAcesso = papel === "admin" ? "Administrador" : "Usuário Comum";
+    const textConvite = [
+      "Diversidade.io — Convite de Acesso",
+      "",
+      `Olá, ${nome}!`,
+      "",
+      `${quemConvidou} para acessar a plataforma Diversidade.io como ${nivelAcesso}.`,
+      "",
+      "Para definir sua senha e acessar o sistema, copie e cole o link abaixo no seu navegador:",
+      "",
+      linkAcesso,
+      "",
+      "Se você não esperava esse convite, pode ignorar este e-mail.",
+      "",
+      "Atenciosamente,",
+      "Equipe Diversidade.io",
+      "https://www.diversidade.io",
+    ].join("\n");
+
     const resend = new Resend(RESEND_API_KEY);
     const { error: emailError } = await resend.emails.send({
       from: "Diversidade.io <nao-responder@diversidade.io>",
       to: email,
       subject: "Convite para acessar a Diversidade.io",
       html: htmlConvite,
+      // Versão texto puro: evita palavras coladas e reduz score de spam
+      text: textConvite,
+      // replyTo omitido intencionalmente — campo vazio dispara alertas em filtros corporativos
     });
 
     if (emailError) {

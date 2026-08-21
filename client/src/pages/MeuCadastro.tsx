@@ -128,8 +128,10 @@ export default function MeuCadastro() {
   const [logoEmpresaUrl, setLogoEmpresaUrl] = useState<string | null>(null);
   const [cartaoCnpjFile, setCartaoCnpjFile] = useState<File | null>(null);
   const [cartaoCnpjUrl, setCartaoCnpjUrl] = useState<string | null>(null);
+  const [cartaoCnpjPreviewUrl, setCartaoCnpjPreviewUrl] = useState<string | null>(null);
   const [fichaJuntaFile, setFichaJuntaFile] = useState<File | null>(null);
   const [fichaJuntaUrl, setFichaJuntaUrl] = useState<string | null>(null);
+  const [fichaJuntaPreviewUrl, setFichaJuntaPreviewUrl] = useState<string | null>(null);
   const [analisandoJucesp, setAnalisandoJucesp] = useState(false);
   const [jucespPreencheu, setJucespPreencheu] = useState(false);
   const [areaEmpresa, setAreaEmpresa] = useState("");
@@ -213,6 +215,28 @@ export default function MeuCadastro() {
       navigate("/login");
     }
   }, [authCarregando, isLogado, navigate]);
+
+  // Gera URL de pré-visualização quando um novo Cartão CNPJ é selecionado
+  useEffect(() => {
+    if (!cartaoCnpjFile) {
+      setCartaoCnpjPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(cartaoCnpjFile);
+    setCartaoCnpjPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [cartaoCnpjFile]);
+
+  // Gera URL de pré-visualização quando uma nova Ficha da Junta é selecionada
+  useEffect(() => {
+    if (!fichaJuntaFile) {
+      setFichaJuntaPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(fichaJuntaFile);
+    setFichaJuntaPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [fichaJuntaFile]);
 
   // Carrega os dados da empresa ao montar a página
   useEffect(() => {
@@ -1248,11 +1272,22 @@ export default function MeuCadastro() {
                       </div>
                       <p className="text-gray-700 font-medium text-sm">
                         {cartaoCnpjFile ? <span className="text-[#7030A0]">{cartaoCnpjFile.name}</span> : 
-                         cartaoCnpjUrl ? <a href={cartaoCnpjUrl} target="_blank" rel="noreferrer" className="text-[#7030A0] hover:underline" onClick={(e) => e.stopPropagation()}>Ver arquivo salvo (clique para abrir) ou escolha outro</a> : 
+                         cartaoCnpjUrl ? <span className="text-[#7030A0]">Arquivo salvo — clique para substituir</span> : 
                          "Clique para enviar Cartão CNPJ"}
                       </p>
                     </label>
                   </div>
+                  {(cartaoCnpjPreviewUrl || cartaoCnpjUrl) && (
+                    <a
+                      href={cartaoCnpjPreviewUrl ?? cartaoCnpjUrl!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-[#7030A0] hover:underline font-medium"
+                    >
+                      <FileText className="w-4 h-4" />
+                      {cartaoCnpjPreviewUrl ? "Ver arquivo selecionado" : "Ver arquivo salvo"}
+                    </a>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1277,12 +1312,23 @@ export default function MeuCadastro() {
                       ) : (
                         <p className="text-gray-700 font-medium text-sm">
                           {fichaJuntaFile ? <span className="text-[#7030A0]">{fichaJuntaFile.name}</span> : 
-                           fichaJuntaUrl ? <a href={fichaJuntaUrl} target="_blank" rel="noreferrer" className="text-[#7030A0] hover:underline" onClick={(e) => e.stopPropagation()}>Ver arquivo salvo (clique para abrir) ou escolha outro</a> : 
+                           fichaJuntaUrl ? <span className="text-[#7030A0]">Arquivo salvo — clique para substituir</span> : 
                            "Clique para enviar Ficha Simples"}
                         </p>
                       )}
                     </label>
                   </div>
+                  {(fichaJuntaPreviewUrl || fichaJuntaUrl) && (
+                    <a
+                      href={fichaJuntaPreviewUrl ?? fichaJuntaUrl!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-[#7030A0] hover:underline font-medium"
+                    >
+                      <FileText className="w-4 h-4" />
+                      {fichaJuntaPreviewUrl ? "Ver arquivo selecionado" : "Ver arquivo salvo"}
+                    </a>
+                  )}
                 </div>
               </div>
 
