@@ -434,10 +434,19 @@ export default function SolicitacoesAdm() {
   }
 
 
-  // Filtragem local por status
-  const solicitacoesFiltradas = filtroStatus === "todos"
-    ? solicitacoes
-    : solicitacoes.filter((s) => s.status === filtroStatus);
+  // Filtragem local por status e por responsável
+  const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
+
+  const solicitacoesFiltradas = solicitacoes.filter((s) => {
+    const matchStatus = filtroStatus === "todos" || s.status === filtroStatus;
+    const matchResponsavel =
+      filtroResponsavel === "todos"
+        ? true
+        : filtroResponsavel === "sem_responsavel"
+        ? !s.responsavel_adm_ids || s.responsavel_adm_ids.length === 0
+        : (s.responsavel_adm_ids || []).includes(filtroResponsavel);
+    return matchStatus && matchResponsavel;
+  });
 
   return (
     <LayoutAdm>
@@ -460,26 +469,53 @@ export default function SolicitacoesAdm() {
           </button>
         </div>
 
-        {/* Filtros por status */}
-        <div className="flex flex-wrap gap-2">
-          {["todos", ...STATUS_DISPONIVEIS].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFiltroStatus(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                filtroStatus === s
-                  ? "bg-[#7030A0] text-white border-[#7030A0]"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              {s === "todos" ? "Todas" : ROTULOS_STATUS[s]?.label}
-              {s !== "todos" && (
-                <span className="ml-1.5 opacity-70">
-                  ({solicitacoes.filter((x) => x.status === s).length})
-                </span>
-              )}
-            </button>
-          ))}
+        {/* Filtros por status + responsável */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Filtro de status */}
+          <div className="flex flex-wrap gap-2">
+            {["todos", ...STATUS_DISPONIVEIS].map((s) => (
+              <button
+                key={s}
+                onClick={() => setFiltroStatus(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  filtroStatus === s
+                    ? "bg-[#7030A0] text-white border-[#7030A0]"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                {s === "todos" ? "Todas" : ROTULOS_STATUS[s]?.label}
+                {s !== "todos" && (
+                  <span className="ml-1.5 opacity-70">
+                    ({solicitacoes.filter((x) => x.status === s).length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Filtro por responsável */}
+          {admins.length > 0 && (
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <select
+                value={filtroResponsavel}
+                onChange={(e) => setFiltroResponsavel(e.target.value)}
+                className={`pl-3 pr-8 py-1.5 rounded-lg text-xs font-medium border transition-colors appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 ${
+                  filtroResponsavel !== "todos"
+                    ? "bg-[#7030A0] text-white border-[#7030A0]"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <option value="todos">Todos os responsáveis</option>
+                <option value="sem_responsavel">Sem responsável</option>
+                {admins.map((adm) => (
+                  <option key={adm.id} value={adm.id}>
+                    {adm.nome_responsavel || adm.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Conteúdo */}
@@ -492,8 +528,8 @@ export default function SolicitacoesAdm() {
             <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">Nenhuma solicitação encontrada.</p>
             <p className="text-gray-400 text-sm mt-1">
-              {filtroStatus !== "todos"
-                ? `Não há solicitações com status "${ROTULOS_STATUS[filtroStatus]?.label}".`
+              {filtroStatus !== "todos" || filtroResponsavel !== "todos"
+                ? "Nenhuma solicitação corresponde aos filtros selecionados."
                 : "Ainda não foram enviadas solicitações de busca."}
             </p>
           </div>
