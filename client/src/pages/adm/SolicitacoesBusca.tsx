@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Loader2, AlertCircle, CheckCircle2, Clock, Eye, FileText,
   MapPin, Monitor, Users, ExternalLink, RefreshCw,
-  ChevronLeft, ChevronRight, SlidersHorizontal, X, Search
+  ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -36,6 +36,7 @@ interface SolicitacaoBusca {
   nome_responsavel?: string;
   telefone_principal?: string;
   empresas_indicadas?: string[];
+  responsavel_adm_ids?: string[];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -93,6 +94,10 @@ export default function SolicitacoesAdm() {
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [atualizandoStatus, setAtualizandoStatus] = useState(false);
 
+  // Estados para os administradores responsáveis
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [atualizandoResponsaveis, setAtualizandoResponsaveis] = useState(false);
+
   // Estados para as empresas indicadas
   const [empresasIndicadasList, setEmpresasIndicadasList] = useState<any[]>([]);
   const [termoBusca, setTermoBusca] = useState("");
@@ -116,6 +121,7 @@ export default function SolicitacoesAdm() {
   useEffect(() => {
     carregarSolicitacoes();
     carregarTodasEmpresas();
+    carregarAdmins();
   }, []);
 
   async function carregarTodasEmpresas() {
@@ -155,6 +161,20 @@ export default function SolicitacoesAdm() {
       carregarTodasEmpresas();
     }
   }, [selecionada?.id]);
+
+  // Carrega lista de administradores da plataforma
+  async function carregarAdmins() {
+    try {
+      const { data } = await supabase
+        .from("empresas")
+        .select("id, nome_responsavel, email")
+        .eq("tipo_usuario", "adm")
+        .order("nome_responsavel", { ascending: true });
+      setAdmins(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar administradores:", err);
+    }
+  }
 
   // Util para completude
   function calcularCompletude(empresa: any, socios: any[]) {
@@ -365,6 +385,54 @@ export default function SolicitacoesAdm() {
       setAtualizandoIndicacoes(false);
     }
   }
+
+  // Adicionar e Remover administradores responsáveis
+  async function adicionarResponsavel(admId: string) {
+    if (!selecionada || atualizandoResponsaveis) return;
+    setAtualizandoResponsaveis(true);
+    try {
+      const novaLista = [...(selecionada.responsavel_adm_ids || []), admId];
+
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update({ responsavel_adm_ids: novaLista })
+        .eq("id", selecionada.id);
+
+      if (error) throw error;
+
+      setSelecionada({ ...selecionada, responsavel_adm_ids: novaLista });
+      setSolicitacoes((prev) => prev.map(s => s.id === selecionada.id ? { ...s, responsavel_adm_ids: novaLista } : s));
+      toast.success("Administrador atribuído com sucesso.");
+    } catch (err: any) {
+      toast.error("Erro ao atribuir administrador: " + err.message);
+    } finally {
+      setAtualizandoResponsaveis(false);
+    }
+  }
+
+  async function removerResponsavel(admId: string) {
+    if (!selecionada || atualizandoResponsaveis) return;
+    setAtualizandoResponsaveis(true);
+    try {
+      const novaLista = (selecionada.responsavel_adm_ids || []).filter(id => id !== admId);
+
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update({ responsavel_adm_ids: novaLista })
+        .eq("id", selecionada.id);
+
+      if (error) throw error;
+
+      setSelecionada({ ...selecionada, responsavel_adm_ids: novaLista });
+      setSolicitacoes((prev) => prev.map(s => s.id === selecionada.id ? { ...s, responsavel_adm_ids: novaLista } : s));
+      toast.success("Administrador removido com sucesso.");
+    } catch (err: any) {
+      toast.error("Erro ao remover administrador: " + err.message);
+    } finally {
+      setAtualizandoResponsaveis(false);
+    }
+  }
+
 
   // Filtragem local por status
   const solicitacoesFiltradas = filtroStatus === "todos"
@@ -638,6 +706,70 @@ export default function SolicitacoesAdm() {
                     })()}
                   </div>
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Responsáveis pela solicitação */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5" /> Responsáveis pela Solicitação
+                </p>
+
+                {/* Admins já atribuídos */}
+                {(selecionada.responsavel_adm_ids || []).length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {(selecionada.responsavel_adm_ids || []).map((admId) => {
+                      const adm = admins.find(a => a.id === admId);
+                      if (!adm) return null;
+                      return (
+                        <div key={admId} className="flex items-center justify-between gap-2 p-2.5 bg-purple-50 border border-purple-100 rounded-lg">
+                          <div>
+                            <p className="text-sm font-semibold text-purple-900">{adm.nome_responsavel || "—"}</p>
+                            <p className="text-xs text-purple-600">{adm.email}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-red-500 hover:text-red-700 hover:bg-red-50 text-xs"
+                            onClick={() => removerResponsavel(admId)}
+                            disabled={atualizandoResponsaveis}
+                          >
+                            {atualizandoResponsaveis ? <Loader2 className="w-3 h-3 animate-spin" /> : "Remover"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mb-3">Nenhum responsável atribuído.</p>
+                )}
+
+                {/* Admins disponíveis para atribuir */}
+                {admins.filter(a => !(selecionada.responsavel_adm_ids || []).includes(a.id)).length > 0 && (
+                  <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                    <p className="text-xs text-gray-500 font-medium mb-2">Atribuir administrador:</p>
+                    {admins
+                      .filter(a => !(selecionada.responsavel_adm_ids || []).includes(a.id))
+                      .map((adm) => (
+                        <div key={adm.id} className="flex items-center justify-between gap-2 p-2.5 bg-gray-50 border border-gray-100 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{adm.nome_responsavel || "—"}</p>
+                            <p className="text-xs text-gray-500">{adm.email}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 border-[#7030A0] text-[#7030A0] hover:bg-[#7030A0] hover:text-white text-xs transition-colors"
+                            onClick={() => adicionarResponsavel(adm.id)}
+                            disabled={atualizandoResponsaveis}
+                          >
+                            {atualizandoResponsaveis ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Atribuir"}
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               <Separator />
