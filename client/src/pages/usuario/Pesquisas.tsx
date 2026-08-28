@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase, supabaseAnon } from "@/lib/supabase";
 import { Link } from "wouter";
-import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2 } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2, Sparkles, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { FiltroState, FiltrosState } from "@/components/Filtros";
 import { ModalSolicitarBusca } from "@/components/usuario/ModalSolicitarBusca";
@@ -132,6 +132,15 @@ export default function Pesquisas() {
   const [porPagina, setPorPagina] = useState(20);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Estados do modo Busca com IA ─────────────────────────────────────────
+  const [modoIA, setModoIA] = useState(false);
+  const [buscaIA, setBuscaIA] = useState("");
+  const [resultadosIA, setResultadosIA] = useState<any[]>([]);
+  const [carregandoIA, setCarregandoIA] = useState(false);
+  const [erroIA, setErroIA] = useState("");
+  // ── Fim do modo IA ────────────────────────────────────────────────────────
+
+
   // Filtros
   const [modalAberto, setModalAberto] = useState(false);
   const [filtrosTemp, setFiltrosTemp] = useState<FiltrosState>(FILTROS_PADRAO);
@@ -153,6 +162,55 @@ export default function Pesquisas() {
       }, 1000);
     }
   };
+
+  // ── Função de Busca com IA ────────────────────────────────────────────────
+  async function executarBuscaIA() {
+    if (!buscaIA.trim() || buscaIA.trim().length < 5) {
+      setErroIA("Descreva com mais detalhes o que você precisa (mínimo 5 caracteres).");
+      return;
+    }
+    setErroIA("");
+    setCarregandoIA(true);
+    setResultadosIA([]);
+    try {
+      const resposta = await fetch("/api/busca-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descricao: buscaIA.trim(),
+          empresaId: (usuario as any)?.empresaId,
+        }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        setErroIA(dados.erro || "Erro ao realizar a busca. Tente novamente.");
+        return;
+      }
+      setResultadosIA(dados.resultados || []);
+      if ((dados.resultados || []).length === 0) {
+        setErroIA(dados.mensagem || "Nenhuma empresa encontrada para essa descrição. Tente usar outras palavras.");
+      }
+    } catch {
+      setErroIA("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setCarregandoIA(false);
+    }
+  }
+
+  function abrirModoIA() {
+    setModoIA(true);
+    setBuscaIA("");
+    setResultadosIA([]);
+    setErroIA("");
+  }
+
+  function fecharModoIA() {
+    setModoIA(false);
+    setBuscaIA("");
+    setResultadosIA([]);
+    setErroIA("");
+  }
+  // ── Fim Busca com IA ──────────────────────────────────────────────────────
 
   useEffect(() => {
     async function carregarCadastros() {
@@ -347,45 +405,59 @@ export default function Pesquisas() {
               Encontre outras empresas parceiras cadastradas na plataforma.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <Input
-                placeholder="Buscar empresa, CNPJ ou e-mail..."
-                className="pl-10 h-11 w-full bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                value={busca}
-                onChange={(e) => handleBusca(e.target.value)}
-              />
-            </div>
-            <button
-              onClick={abrirModal}
-              className={`relative inline-flex flex-shrink-0 items-center justify-center gap-2 h-11 px-6 rounded-lg text-sm font-medium border transition-colors ${
-                qtdFiltrosAtivos > 0
-                  ? "bg-[#7030A0] text-white border-[#7030A0]"
-                  : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filtros
-              {qtdFiltrosAtivos > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-[#7030A0] text-xs font-bold">
-                  {qtdFiltrosAtivos}
-                </span>
-              )}
-            </button>
-            {isIncentivadora && (
-              <button
-                onClick={abrirModalSolicitacao}
-                className="relative inline-flex flex-shrink-0 items-center justify-center gap-2 h-11 px-5 rounded-lg text-sm font-medium border transition-colors bg-[#7030A0] text-white border-[#7030A0] hover:bg-purple-800"
-                title="Solicitar busca de empreendedores por CNAE"
-              >
-                <Send className="w-4 h-4" />
-                Solicitar Busca
-              </button>
-            )}
-          </div>
 
-        {tagsFiltros.length > 0 && (
+          {/* ── Barra de ações — oculta no modo IA ── */}
+          {!modoIA && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Buscar empresa, CNPJ ou e-mail..."
+                  className="pl-10 h-11 w-full bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                  value={busca}
+                  onChange={(e) => handleBusca(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={abrirModal}
+                className={`relative inline-flex flex-shrink-0 items-center justify-center gap-2 h-11 px-6 rounded-lg text-sm font-medium border transition-colors ${
+                  qtdFiltrosAtivos > 0
+                    ? "bg-[#7030A0] text-white border-[#7030A0]"
+                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Filtros
+                {qtdFiltrosAtivos > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-[#7030A0] text-xs font-bold">
+                    {qtdFiltrosAtivos}
+                  </span>
+                )}
+              </button>
+              {isIncentivadora && (
+                <button
+                  onClick={abrirModoIA}
+                  className="relative inline-flex flex-shrink-0 items-center justify-center gap-2 h-11 px-5 rounded-lg text-sm font-medium border transition-colors bg-white dark:bg-gray-800 text-[#7030A0] dark:text-purple-400 border-[#7030A0] dark:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  title="Encontrar empresas por tipo de serviço com Inteligência Artificial"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Busca com IA
+                </button>
+              )}
+              {isIncentivadora && (
+                <button
+                  onClick={abrirModalSolicitacao}
+                  className="relative inline-flex flex-shrink-0 items-center justify-center gap-2 h-11 px-5 rounded-lg text-sm font-medium border transition-colors bg-[#7030A0] text-white border-[#7030A0] hover:bg-purple-800"
+                  title="Solicitar busca de empreendedores por CNAE"
+                >
+                  <Send className="w-4 h-4" />
+                  Solicitar Busca
+                </button>
+              )}
+            </div>
+          )}
+
+        {tagsFiltros.length > 0 && !modoIA && (
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Filtros ativos:</span>
             {tagsFiltros.map((tag) => (
@@ -412,6 +484,151 @@ export default function Pesquisas() {
         )}
         </div>
 
+        {/* ── Painel de Busca com IA ──────────────────────────────────────────── */}
+        {modoIA && (
+          <div className="space-y-5">
+            {/* Cabeçalho do painel IA */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={fecharModoIA}
+                className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Voltar para a lista
+              </button>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
+                <Sparkles className="w-3.5 h-3.5" />
+                Modo Busca com IA
+              </span>
+            </div>
+
+            {/* Campo de descrição */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Descreva o serviço ou produto que você precisa
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Quanto mais detalhes você fornecer, melhores serão os resultados. A IA irá analisar as atividades de todas as empresas cadastradas e encontrar as mais relevantes para você.
+                </p>
+                <Textarea
+                  placeholder="Ex: Preciso de um designer gráfico especializado em identidade visual para marcas do setor alimentício..."
+                  value={buscaIA}
+                  onChange={(e) => { setBuscaIA(e.target.value); setErroIA(""); }}
+                  rows={4}
+                  className="resize-none dark:bg-gray-900 dark:border-gray-700 dark:text-white text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) executarBuscaIA();
+                  }}
+                />
+                <p className="text-xs text-gray-400 mt-1.5">Dica: pressione Ctrl+Enter para buscar rapidamente.</p>
+              </div>
+
+              {/* Mensagem de erro */}
+              {erroIA && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <X className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-400">{erroIA}</p>
+                </div>
+              )}
+
+              {/* Botão de busca */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={executarBuscaIA}
+                  disabled={carregandoIA || !buscaIA.trim()}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium bg-[#7030A0] hover:bg-purple-800 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {carregandoIA ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Analisando empresas...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Buscar com IA
+                    </>
+                  )}
+                </button>
+                {resultadosIA.length > 0 && !carregandoIA && (
+                  <button
+                    onClick={() => { setBuscaIA(""); setResultadosIA([]); setErroIA(""); }}
+                    className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors underline"
+                  >
+                    Nova busca
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Resultados da IA */}
+            {resultadosIA.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="text-gray-900 dark:text-white font-semibold">{resultadosIA.length}</span> empresa{resultadosIA.length !== 1 ? "s" : ""} encontrada{resultadosIA.length !== 1 ? "s" : ""} pela IA
+                </p>
+                <div className="space-y-3">
+                  {resultadosIA.map((emp, idx) => {
+                    // Cor do badge de posição: primeiros são mais roxos, últimos mais acinzentados
+                    const corBadge =
+                      idx === 0
+                        ? "bg-[#7030A0] text-white"
+                        : idx <= 2
+                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+
+                    return (
+                      <div
+                        key={emp.id}
+                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:border-purple-200 dark:hover:border-purple-700 transition-colors"
+                      >
+                        {/* Badge de posição */}
+                        <div className="flex-shrink-0">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${corBadge}`}>
+                            {idx + 1}º
+                          </span>
+                        </div>
+
+                        {/* Dados da empresa */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-white truncate">
+                            {emp.razao_social || "N/A"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                            {emp.email}
+                          </p>
+                          {emp.atividade_empresarial && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                              {emp.atividade_empresarial}
+                            </p>
+                          )}
+                          {emp.justificativa && (
+                            <p className="text-xs text-[#7030A0] dark:text-purple-400 italic mt-1.5">
+                              ✦ {emp.justificativa}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Ação */}
+                        <div className="flex-shrink-0">
+                          <Link href={`/empresas/${emp.id}`}>
+                            <a className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#7030A0] hover:bg-purple-800 dark:bg-purple-600 dark:hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap">
+                              Ver Detalhes
+                            </a>
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Tabela normal — oculta no modo IA ────────────────────────────────── */}
+        {!modoIA && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -540,6 +757,7 @@ export default function Pesquisas() {
             </div>
           )}
         </div>
+        )}
       </div>
       {/* ── Modal de Filtros ───────────────────────────────────────────────────── */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
