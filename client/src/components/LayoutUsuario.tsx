@@ -136,7 +136,7 @@ export function LayoutUsuario({ children, activePath }: LayoutUsuarioProps) {
   const fotoExibicao = usuario?.fotoUrl || null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex flex-col">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex flex-col">
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-6 sticky top-0 z-10 transition-colors duration-200">
         <Link href="/meu-cadastro">
           <a className="flex items-center gap-2">

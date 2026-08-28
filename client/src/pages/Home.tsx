@@ -108,11 +108,8 @@ export default function Home() {
 
             {/* Hero Visual */}
             <div className="relative h-96 md:h-full flex items-center justify-center">
-              <img
-                src="https://d2xsxph8kpxj0f.cloudfront.net/310419663028736640/fj5hvLQNAskbvkdGiCiGce/hero-bg-abstract-i8GKuPACJQsHQUFouWXqeG.webp"
-                alt="Hero Background"
-                className="absolute inset-0 w-full h-full object-cover rounded-2xl shadow-2xl"
-                style={{ filter: 'hue-rotate(50deg) saturate(1.3) brightness(0.85)' }}
+              <div
+                className="absolute inset-0 w-full h-full bg-white rounded-2xl shadow-2xl"
               />
               <img
                 src={rhinoImage}

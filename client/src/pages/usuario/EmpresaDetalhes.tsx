@@ -49,13 +49,15 @@ export default function EmpresaDetalhes() {
           }
         }
 
-        // Registra log de visualização de empresa pelo usuário
+        // Registra log de visualização de empresa pelo usuário.
+        // empresa_id = ID da empresa visualizada (alvo da ação),
+        // não da empresa do usuário logado.
         registrarLog({
           tipo_evento: 'usuario_ver_empresa',
           email: usuario?.email,
-          empresa_id: (usuario as any)?.empresaId,
+          empresa_id: id, // ID da empresa que está sendo visualizada
           nome_empresa: emp.razao_social || emp.nome_fantasia || emp.email,
-          detalhes: `Empresa visualizada: ${emp.razao_social || emp.email} (ID: ${id})`,
+          detalhes: `Empresa visualizada: ${emp.razao_social || emp.email} (ID: ${id}) | Usuário da empresa: ${(usuario as any)?.empresaId ?? 'desconhecido'}`,
         });
       } catch (err: any) {
         setErro(err.message);

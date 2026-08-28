@@ -65,10 +65,7 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
   async function enviarSolicitacao() {
     setSolErro('');
     const cnaesFiltrados = solCnaes.map((c) => c.trim()).filter(Boolean);
-    if (cnaesFiltrados.length === 0) {
-      setSolErro('Informe ao menos um CNAE.');
-      return;
-    }
+    
     if (solModalidade !== 'online' && !solCidade.trim()) {
       setSolErro('Informe a cidade onde o serviço será prestado.');
       return;
@@ -111,8 +108,24 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
         tipo_evento: 'solicitacao_busca_empreendedores',
         email: usuario?.email,
         empresa_id: (usuario as any)?.empresaId,
-        detalhes: `CNAEs: ${cnaesFiltrados.join(', ')} | Cidade: ${cidadeFinal} | Modalidade: ${solModalidade}`,
+        detalhes: `CNAEs: ${cnaesFiltrados.length > 0 ? cnaesFiltrados.join(', ') : 'Nenhum'} | Cidade: ${cidadeFinal} | Modalidade: ${solModalidade}`,
       });
+
+      // Dispara o e-mail de notificação para os administradores em background
+      fetch('/api/enviar-email-nova-solicitacao-busca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          empresaId: (usuario as any).empresaId,
+          cnaes: cnaesFiltrados.length > 0 ? cnaesFiltrados : ["Não informado"],
+          cidade: cidadeFinal,
+          modalidade: solModalidade,
+          descricao: solDescricao.trim() || null
+        })
+      }).catch((err) => {
+        console.error("Erro ao enviar e-mail de notificação para administradores:", err);
+      });
+
     } catch (err: any) {
       setSolErro(err.message || 'Erro inesperado. Tente novamente.');
     } finally {
@@ -160,7 +173,7 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
             {/* CNAEs */}
             <div>
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                CNAEs desejados <span className="font-normal text-gray-400">(até 3)</span>
+                CNAEs desejados <span className="font-normal text-gray-400">(opcional, até 3)</span>
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 Informe o código CNAE ou a descrição da atividade que você busca.

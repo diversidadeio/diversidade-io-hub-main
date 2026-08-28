@@ -436,6 +436,101 @@ apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
 });
 
 /**
+ * Notificação para administradores sobre nova solicitação de busca
+ */
+apiRouter.post("/enviar-email-nova-solicitacao-busca", async (req, res) => {
+  try {
+    const { empresaId, cnaes, cidade, modalidade, descricao } = req.body;
+    if (!empresaId) {
+      return res.status(400).json({ erro: "empresaId não fornecido." });
+    }
+
+    // Busca nome da empresa para enriquecer o e-mail
+    const { data: empresa } = await supabaseAdmin
+      .from('empresas')
+      .select('razao_social')
+      .eq('id', empresaId)
+      .single();
+
+    const nomeEmpresa = empresa?.razao_social || "Empresa Não Identificada";
+
+    const SMTP_HOST = process.env.SMTP_HOST || "smtp.office365.com";
+    const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
+    const SMTP_USER = process.env.SMTP_USER;
+    const SMTP_PASS = process.env.SMTP_PASS;
+
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn("[Nova Solicitação Simulado]", { nomeEmpresa, cnaes, cidade });
+      return res.json({ sucesso: true, mensagem: "E-mail simulado (SMTP não configurado)." });
+    }
+
+    // LISTA DE NOTIFICADOS - Inicialmente apenas tecnologia@diversidade.io
+    const destinatarios = [
+      "tecnologia@diversidade.io"
+    ];
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="color: #7030A0; font-size: 28px; margin: 0;">Diversidade.io</h1>
+        </div>
+
+        <div style="background: #f9f5ff; border-radius: 12px; padding: 32px; border: 1px solid #e9d5ff;">
+          <h2 style="color: #1f2937; margin-top: 0;">📢 Nova Solicitação de Busca</h2>
+          <p style="color: #374151; line-height: 1.6;">
+            A empresa <strong>${nomeEmpresa}</strong> acabou de enviar uma nova solicitação de busca de empreendedores.
+          </p>
+          
+          <div style="background: #ffffff; border-radius: 8px; padding: 16px; margin: 24px 0; border: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 12px 0;"><strong>CNAEs desejados:</strong><br/>${(cnaes || []).join(', ')}</p>
+            <p style="margin: 0 0 12px 0;"><strong>Cidade:</strong><br/>${cidade}</p>
+            <p style="margin: 0 0 12px 0;"><strong>Modalidade:</strong><br/>${modalidade}</p>
+            ${descricao ? `<p style="margin: 0;"><strong>Detalhes/Observações:</strong><br/>${descricao}</p>` : ''}
+          </div>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a
+              href="https://www.diversidade.io/adm/solicitacoes/busca"
+              style="background: #7030A0; color: white; padding: 14px 32px; border-radius: 8px;
+                     text-decoration: none; font-weight: bold; font-size: 16px;"
+            >
+              Acessar Painel ADM
+            </a>
+          </div>
+        </div>
+
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+          Este é um e-mail automático enviado pela plataforma Diversidade.io.
+        </p>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: false,
+      requireTLS: true,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false }
+    });
+
+    await transporter.sendMail({
+      from: `"Diversidade.io" <${SMTP_USER}>`,
+      to: destinatarios.join(", "),
+      subject: `📢 Nova Solicitação de Busca - ${nomeEmpresa}`,
+      html: htmlBody,
+    });
+
+    return res.json({ sucesso: true, mensagem: "E-mail de notificação enviado com sucesso!" });
+
+  } catch (err: any) {
+    console.error("Erro no endpoint /enviar-email-nova-solicitacao-busca:", err);
+    res.status(500).json({ erro: "Erro interno: " + err.message });
+  }
+});
+
+
+/**
  * Endpoint de registro de auditoria:
  * Recebe um evento do front-end, captura IP e user-agent reais do request
  * e insere o registro na tabela logs_acesso via RPC SECURITY DEFINER.

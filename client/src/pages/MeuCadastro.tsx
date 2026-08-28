@@ -140,7 +140,7 @@ export default function MeuCadastro() {
   const [sobreEmpresa, setSobreEmpresa] = useState("");
 
   // 3. Financeiro
-  const mostrarCompleto = acessoTipo.length === 0 || acessoTipo.includes("EMPREENDIMENTO DIVERSO");
+  const mostrarCompleto = acessoTipo.length === 0 || acessoTipo.includes("EMPREENDIMENTO DIVERSO") || acessoTipo.includes("FORNECEDOR INCLUSIVO");
   const [emiteNotaFiscal, setEmiteNotaFiscal] = useState("");
   const [temContaPJ, setTemContaPJ] = useState("");
   const [formasPagamento, setFormasPagamento] = useState<string[]>([]);
@@ -1186,31 +1186,79 @@ export default function MeuCadastro() {
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">O seu acesso é como: (Pode selecionar mais de um)</Label>
-                  <div className="flex flex-col gap-3 mt-2">
-                    {[
-                      "EMPRESA OU INICIATIVA INCENTIVADORA",
-                      "FORNECEDOR INCLUSIVO",
-                      "EMPREENDIMENTO DIVERSO"
-                    ].map((opcao) => (
-                      <div key={opcao} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`acesso-${opcao}`} 
-                          checked={acessoTipo.includes(opcao)}
-                          onCheckedChange={(checked) => {
-                            setAcessoTipo(prev => 
-                              checked 
-                                ? [...prev, opcao] 
-                                : prev.filter(item => item !== opcao)
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-gray-700 font-medium">O seu acesso é como:</Label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Você pode combinar <strong>Empreendimento Diverso</strong> e <strong>Fornecedor Inclusivo</strong>. A opção <strong>Empresa ou Iniciativa Incentivadora</strong> deve ser selecionada sozinha.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 mt-2">
+                    {([
+                      {
+                        valor: "EMPRESA OU INICIATIVA INCENTIVADORA",
+                        titulo: "Empresa ou Iniciativa Incentivadora",
+                        descricao: "Grandes empresas que contrataram a plataforma para buscar e contratar serviços e produtos de negócios diversos."
+                      },
+                      {
+                        valor: "FORNECEDOR INCLUSIVO",
+                        titulo: "Fornecedor Inclusivo",
+                        descricao: "Empreendedor diverso que, além de ofertar soluções, também contrata serviços ou compra produtos de outros negócios liderados por pessoas de grupos diversos."
+                      },
+                      {
+                        valor: "EMPREENDIMENTO DIVERSO",
+                        titulo: "Empreendimento Diverso",
+                        descricao: "Negócio liderado por pessoas de grupos diversos focado em ofertar e vender suas soluções para a rede."
+                      }
+                    ] as { valor: string; titulo: string; descricao: string }[]).map(({ valor, titulo, descricao }) => {
+                      const selecionado = acessoTipo.includes(valor);
+                      const ehEmpresaIncentivadora = valor === "EMPRESA OU INICIATIVA INCENTIVADORA";
+                      const temEmpresaIncentivadoraSelecionada = acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA");
+                      // Desabilitar se: é empresa incentivadora e já há outra seleção, OU é outro tipo e empresa incentivadora está selecionada
+                      const desabilitado = !selecionado && (
+                        (ehEmpresaIncentivadora && acessoTipo.length > 0) ||
+                        (!ehEmpresaIncentivadora && temEmpresaIncentivadoraSelecionada) ||
+                        (!ehEmpresaIncentivadora && !temEmpresaIncentivadoraSelecionada && acessoTipo.length >= 2)
+                      );
+                      return (
+                        <div
+                          key={valor}
+                          onClick={() => {
+                            if (desabilitado) return;
+                            setAcessoTipo(prev =>
+                              selecionado
+                                ? prev.filter(item => item !== valor)
+                                : [...prev, valor]
                             );
                           }}
-                        />
-                        <Label htmlFor={`acesso-${opcao}`} className="font-normal cursor-pointer">
-                          {opcao}
-                        </Label>
-                      </div>
-                    ))}
+                          className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                            desabilitado
+                              ? "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                              : selecionado
+                              ? "border-[#7030A0] bg-[#7030A0]/5 shadow-sm"
+                              : "border-gray-200 hover:border-[#7030A0]/50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                              selecionado ? "border-[#7030A0] bg-[#7030A0]" : "border-gray-300"
+                            }`}>
+                              {selecionado && (
+                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className={`font-semibold text-sm mb-1 ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                                {titulo}
+                              </h3>
+                              <p className="text-xs text-gray-500 leading-relaxed">{descricao}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

@@ -366,6 +366,73 @@ function useLogs(filtros: FiltrosLogs) {
 }
 
 // ---------------------------------------------------------------------------
+// Hook para buscar logs de uma empresa específica via /api/ler-logs-empresa
+// ---------------------------------------------------------------------------
+interface FiltrosLogsEmpresa {
+  nomeEmpresa?: string;
+  empresaId?: string;
+  modo: "sobre_empresa" | "usuarios_empresa";
+}
+
+function useLogsEmpresa(filtros: FiltrosLogsEmpresa) {
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(1);
+  const [itensPorPagina, setItensPorPagina] = useState(20);
+  const [carregando, setCarregando] = useState(false);
+  const [emailsVinculados, setEmailsVinculados] = useState<string[]>([]);
+
+  const totalPaginas = Math.max(1, Math.ceil(total / itensPorPagina));
+
+  const buscar = useCallback(async (paginaAtual: number) => {
+    // Não busca se não tiver empresa informada
+    if (!filtros.nomeEmpresa && !filtros.empresaId) {
+      setLogs([]);
+      setTotal(0);
+      setCarregando(false);
+      return;
+    }
+    setCarregando(true);
+    try {
+      const response = await fetch("/api/ler-logs-empresa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nomeEmpresa: filtros.nomeEmpresa,
+          empresaId: filtros.empresaId,
+          modo: filtros.modo,
+          page: paginaAtual,
+          pageSize: itensPorPagina,
+        }),
+      });
+      if (!response.ok) throw new Error("Erro ao carregar logs da empresa");
+      const result = await response.json();
+      setLogs(result.logs || []);
+      setTotal(result.total || 0);
+      setEmailsVinculados(result.emailsVinculados || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCarregando(false);
+    }
+  }, [filtros.nomeEmpresa, filtros.empresaId, filtros.modo, itensPorPagina]);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [filtros.nomeEmpresa, filtros.empresaId, filtros.modo, itensPorPagina]);
+
+  useEffect(() => {
+    buscar(pagina);
+  }, [buscar, pagina]);
+
+  return {
+    logs, total, pagina, totalPaginas, carregando, itensPorPagina, emailsVinculados,
+    setPagina, setItensPorPagina,
+    recarregar: () => buscar(pagina),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 export default function LogsAdm() {
@@ -385,6 +452,8 @@ export default function LogsAdm() {
   const [empresaSelecionada, setEmpresaSelecionada] = useState("");
   const [buscaEmpresa, setBuscaEmpresa] = useState("");
   const [buscaEmpresaAtiva, setBuscaEmpresaAtiva] = useState("");
+  // Subtab da aba Empresa: "sobre_empresa" = ações ADM | "usuarios_empresa" = ações dos usuários
+  const [subAbaEmpresa, setSubAbaEmpresa] = useState<"sobre_empresa" | "usuarios_empresa">("usuarios_empresa");
 
   // Aba Usuário
   const [emailUsuario, setEmailUsuario] = useState("");
@@ -441,16 +510,25 @@ export default function LogsAdm() {
     periodo: filtroAdminPeriodo,
   });
 
-  const logsEmpresa = useLogs({
-    empresaId: empresaSelecionada || undefined,
+  // Ações de ADM sobre a empresa (o que os admins fizeram com ela)
+  const logsEmpresaSobre = useLogsEmpresa({
     nomeEmpresa: buscaEmpresaAtiva || undefined,
-    periodo: "todos",
+    empresaId: empresaSelecionada || undefined,
+    modo: "sobre_empresa",
+  });
+
+  // Ações dos usuários vinculados à empresa (logins, pesquisas, etc.)
+  const logsEmpresaUsuarios = useLogsEmpresa({
+    nomeEmpresa: buscaEmpresaAtiva || undefined,
+    empresaId: empresaSelecionada || undefined,
+    modo: "usuarios_empresa",
   });
 
   const logsUsuario = useLogs({
     emailBusca: emailUsuarioBusca || undefined,
     periodo: "todos",
   });
+
 
   const abas = [
     { id: "geral",   label: "Geral do Sistema",   icone: Activity },
@@ -621,6 +699,7 @@ export default function LogsAdm() {
               {/* ── ABA POR EMPRESA ── */}
               {abaAtiva === "empresa" && (
                 <div>
+                  {/* Barra de busca da empresa */}
                   <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-center bg-gray-50">
                     <Building2 className="w-4 h-4 text-gray-400" />
                     <form
@@ -633,7 +712,7 @@ export default function LogsAdm() {
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input
-                          placeholder="Buscar por nome da empresa nos logs..."
+                          placeholder="Buscar por nome da empresa..."
                           className="pl-9 h-9 bg-white"
                           value={buscaEmpresa}
                           onChange={(e) => setBuscaEmpresa(e.target.value)}
@@ -653,34 +732,101 @@ export default function LogsAdm() {
                         </Button>
                       )}
                     </form>
-                    {buscaEmpresaAtiva && (
-                      <span className="text-sm text-gray-500 ml-auto">
-                        {logsEmpresa.total} eventos para "{buscaEmpresaAtiva}"
-                      </span>
-                    )}
-                    <Button variant="outline" size="sm" onClick={logsEmpresa.recarregar}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        subAbaEmpresa === "usuarios_empresa"
+                          ? logsEmpresaUsuarios.recarregar()
+                          : logsEmpresaSobre.recarregar();
+                      }}
+                    >
                       <RefreshCw className="w-4 h-4" />
                     </Button>
                   </div>
+
+                  {/* Subtabs */}
+                  {buscaEmpresaAtiva && (
+                    <div className="flex border-b border-gray-200 bg-white px-4 pt-2 gap-1">
+                      <button
+                        onClick={() => setSubAbaEmpresa("usuarios_empresa")}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${
+                          subAbaEmpresa === "usuarios_empresa"
+                            ? "border-[#7030A0] text-[#7030A0] bg-purple-50"
+                            : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        }`}
+                      >
+                        <Users className="w-4 h-4" />
+                        Ações dos Usuários
+                        {logsEmpresaUsuarios.total > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                            {logsEmpresaUsuarios.total}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setSubAbaEmpresa("sobre_empresa")}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${
+                          subAbaEmpresa === "sobre_empresa"
+                            ? "border-[#7030A0] text-[#7030A0] bg-purple-50"
+                            : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" />
+                        Ações de ADM sobre a Empresa
+                        {logsEmpresaSobre.total > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                            {logsEmpresaSobre.total}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Conteúdo da subtab */}
                   {!buscaEmpresaAtiva ? (
                     <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
                       <Building2 className="w-10 h-10 text-gray-200" />
-                      <p>Digite o nome de uma empresa e clique em Buscar para ver os eventos relacionados.</p>
+                      <p>Digite o nome de uma empresa e clique em Buscar.</p>
+                    </div>
+                  ) : subAbaEmpresa === "usuarios_empresa" ? (
+                    <div>
+                      {/* Info sobre e-mails vinculados encontrados */}
+                      {logsEmpresaUsuarios.emailsVinculados.length > 0 && (
+                        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex items-center gap-2">
+                          <Users className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>
+                            <strong>{logsEmpresaUsuarios.emailsVinculados.length}</strong> usuário(s) vinculado(s) encontrado(s):{" "}
+                            {logsEmpresaUsuarios.emailsVinculados.join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      <TabelaLogs
+                        logs={logsEmpresaUsuarios.logs}
+                        carregando={logsEmpresaUsuarios.carregando}
+                        pagina={logsEmpresaUsuarios.pagina}
+                        totalPaginas={logsEmpresaUsuarios.totalPaginas}
+                        onPaginaAnterior={() => logsEmpresaUsuarios.setPagina((p) => p - 1)}
+                        onProximaPagina={() => logsEmpresaUsuarios.setPagina((p) => p + 1)}
+                        itensPorPagina={logsEmpresaUsuarios.itensPorPagina}
+                        setItensPorPagina={logsEmpresaUsuarios.setItensPorPagina}
+                      />
                     </div>
                   ) : (
                     <TabelaLogs
-                      logs={logsEmpresa.logs}
-                      carregando={logsEmpresa.carregando}
-                      pagina={logsEmpresa.pagina}
-                      totalPaginas={logsEmpresa.totalPaginas}
-                      onPaginaAnterior={() => logsEmpresa.setPagina((p) => p - 1)}
-                      onProximaPagina={() => logsEmpresa.setPagina((p) => p + 1)}
-                      itensPorPagina={logsEmpresa.itensPorPagina}
-                      setItensPorPagina={logsEmpresa.setItensPorPagina}
+                      logs={logsEmpresaSobre.logs}
+                      carregando={logsEmpresaSobre.carregando}
+                      pagina={logsEmpresaSobre.pagina}
+                      totalPaginas={logsEmpresaSobre.totalPaginas}
+                      onPaginaAnterior={() => logsEmpresaSobre.setPagina((p) => p - 1)}
+                      onProximaPagina={() => logsEmpresaSobre.setPagina((p) => p + 1)}
+                      itensPorPagina={logsEmpresaSobre.itensPorPagina}
+                      setItensPorPagina={logsEmpresaSobre.setItensPorPagina}
                     />
                   )}
                 </div>
               )}
+
 
           {/* ── ABA POR USUÁRIO ────────────────────────────────────────── */}
           {abaAtiva === "usuario" && (
