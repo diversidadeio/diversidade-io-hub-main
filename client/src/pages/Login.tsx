@@ -86,8 +86,17 @@ export default function Login() {
     const resultado = await login(email, senha);
 
     if (resultado.sucesso) {
+      // Links compartilhados (ex: /oportunidades/:id) chegam com ?redirect=...
+      // e devem devolver o usuário para a página de origem depois do login.
+      const paramRedirect = new URLSearchParams(window.location.search).get("redirect");
+      const destinoRedirect = paramRedirect && paramRedirect.startsWith("/") && !paramRedirect.startsWith("//")
+        ? paramRedirect
+        : null;
+
       if (resultado.senhaTemporaria) {
         navigate("/trocar-senha");
+      } else if (destinoRedirect) {
+        navigate(destinoRedirect);
       } else if (resultado.tipoUsuario === 'adm') {
         navigate("/adm");
       } else if (resultado.isPendente) {

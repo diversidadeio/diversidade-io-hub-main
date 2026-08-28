@@ -4,14 +4,21 @@ import { useEffect, useState } from "react";
 import {
   Loader2, AlertCircle, CheckCircle2, Clock, Eye, FileText,
   MapPin, Monitor, Users, ExternalLink, RefreshCw,
-  ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, UserCheck
+  ChevronLeft, ChevronRight, SlidersHorizontal, X, Search, UserCheck,
+  Link2, Copy, Check, CalendarClock, MessageSquare, ThumbsUp, ThumbsDown,
+  Save, EyeOff, Send as SendIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import {
+  montarLinkOportunidade, copiarParaAreaDeTransferencia,
+  mensagemCompartilhamento, infoPrazo, tituloOportunidade,
+} from "@/lib/oportunidade";
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
 const RACAS_DISPONIVEIS = ["Pardo", "Preto", "Branco", "Amarelo", "Indígena", "Outro"];
@@ -37,6 +44,31 @@ interface SolicitacaoBusca {
   telefone_principal?: string;
   empresas_indicadas?: string[];
   responsavel_adm_ids?: string[];
+  // campos da página compartilhável (/oportunidades/:id)
+  titulo?: string | null;
+  prazo_final?: string | null;
+  compartilhavel?: boolean;
+}
+
+/** Quem abriu o link compartilhado. */
+interface VisualizacaoOportunidade {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  empresa_id: string | null;
+  criado_em: string;
+}
+
+/** Quem respondeu se quer ou não participar. */
+interface ParticipacaoOportunidade {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;
+  empresa_id: string | null;
+  quer_participar: boolean;
+  mensagem: string | null;
+  criado_em: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -117,6 +149,18 @@ export default function SolicitacoesAdm() {
   // Paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
   const porPagina = 10;
+
+  // Link compartilhável, alcance e edição de título/prazo
+  const [metricas, setMetricas] = useState<{
+    visualizacoes: VisualizacaoOportunidade[];
+    participacoes: ParticipacaoOportunidade[];
+  }>({ visualizacoes: [], participacoes: [] });
+  const [carregandoMetricas, setCarregandoMetricas] = useState(false);
+  const [resumoPorSolicitacao, setResumoPorSolicitacao] = useState<Record<string, { cliques: number; interessados: number }>>({});
+  const [idCopiado, setIdCopiado] = useState<string | null>(null);
+  const [tituloEdit, setTituloEdit] = useState("");
+  const [prazoEdit, setPrazoEdit] = useState("");
+  const [salvandoDetalhes, setSalvandoDetalhes] = useState(false);
 
   useEffect(() => {
     carregarSolicitacoes();
@@ -265,6 +309,122 @@ export default function SolicitacoesAdm() {
     setTermoBusca("");
   }, [selecionada]);
 
+  // ── Link compartilhável ───────────────────────────────────────────────────
+
+  /** Copia o link da oportunidade e dá um feedback visual de 2s no botão. */
+  async function copiarLink(sol: SolicitacaoBusca, comTexto = false) {
+    const link = montarLinkOportunidade(sol.id);
+    const conteudo = comTexto ? mensagemCompartilhamento(sol, link) : link;
+    const ok = await copiarParaAreaDeTransferencia(conteudo);
+    if (!ok) {
+      toast.error("Não foi possível copiar. Copie manualmente: " + link);
+      return;
+    }
+    setIdCopiado(sol.id);
+    setTimeout(() => setIdCopiado((atual) => (atual === sol.id ? null : atual)), 2000);
+    toast.success(comTexto ? "Mensagem com o link copiada!" : "Link copiado!");
+  }
+
+  /** Ativa/desativa o link público sem apagar a solicitação. */
+  async function alternarCompartilhamento(sol: SolicitacaoBusca) {
+    const novoValor = !(sol.compartilhavel ?? true);
+    try {
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update({ compartilhavel: novoValor })
+        .eq("id", sol.id);
+      if (error) throw error;
+
+      setSolicitacoes((prev) => prev.map((x) => (x.id === sol.id ? { ...x, compartilhavel: novoValor } : x)));
+      setSelecionada((prev) => (prev && prev.id === sol.id ? { ...prev, compartilhavel: novoValor } : prev));
+      toast.success(novoValor ? "Link reativado." : "Link desativado — quem abrir verá um aviso.");
+    } catch (err: any) {
+      toast.error("Erro ao alterar o compartilhamento: " + err.message);
+    }
+  }
+
+  /** Salva o título exibido na página compartilhada e o prazo final. */
+  async function salvarTituloPrazo() {
+    if (!selecionada || salvandoDetalhes) return;
+    setSalvandoDetalhes(true);
+    try {
+      const dados = {
+        titulo: tituloEdit.trim() || null,
+        prazo_final: prazoEdit || null,
+      };
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .update(dados)
+        .eq("id", selecionada.id);
+      if (error) throw error;
+
+      setSelecionada({ ...selecionada, ...dados });
+      setSolicitacoes((prev) => prev.map((x) => (x.id === selecionada.id ? { ...x, ...dados } : x)));
+      toast.success("Título e prazo atualizados.");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setSalvandoDetalhes(false);
+    }
+  }
+
+  /** Carrega cliques e manifestações de interesse da solicitação aberta. */
+  async function carregarMetricas(solicitacaoId: string) {
+    setCarregandoMetricas(true);
+    try {
+      const [{ data: views }, { data: parts }] = await Promise.all([
+        supabase
+          .from("solicitacao_visualizacoes")
+          .select("id, nome, email, empresa_id, criado_em")
+          .eq("solicitacao_id", solicitacaoId)
+          .order("criado_em", { ascending: false }),
+        supabase
+          .from("solicitacao_participacoes")
+          .select("id, nome, email, telefone, empresa_id, quer_participar, mensagem, criado_em")
+          .eq("solicitacao_id", solicitacaoId)
+          .order("criado_em", { ascending: false }),
+      ]);
+      setMetricas({ visualizacoes: views || [], participacoes: parts || [] });
+    } catch (err) {
+      console.error("Erro ao carregar métricas da oportunidade:", err);
+      setMetricas({ visualizacoes: [], participacoes: [] });
+    } finally {
+      setCarregandoMetricas(false);
+    }
+  }
+
+  /** Totais por solicitação, exibidos direto na listagem. */
+  async function carregarResumoMetricas(ids: string[]) {
+    if (ids.length === 0) { setResumoPorSolicitacao({}); return; }
+    try {
+      const [{ data: views }, { data: parts }] = await Promise.all([
+        supabase.from("solicitacao_visualizacoes").select("solicitacao_id").in("solicitacao_id", ids),
+        supabase.from("solicitacao_participacoes").select("solicitacao_id, quer_participar").in("solicitacao_id", ids),
+      ]);
+
+      const resumo: Record<string, { cliques: number; interessados: number }> = {};
+      ids.forEach((id) => { resumo[id] = { cliques: 0, interessados: 0 }; });
+      (views || []).forEach((v: any) => { if (resumo[v.solicitacao_id]) resumo[v.solicitacao_id].cliques++; });
+      (parts || []).forEach((p: any) => {
+        if (resumo[p.solicitacao_id] && p.quer_participar) resumo[p.solicitacao_id].interessados++;
+      });
+      setResumoPorSolicitacao(resumo);
+    } catch (err) {
+      console.error("Erro ao carregar resumo de métricas:", err);
+    }
+  }
+
+  // Ao abrir o modal, sincroniza os campos editáveis e busca o alcance do link
+  useEffect(() => {
+    if (!selecionada) {
+      setMetricas({ visualizacoes: [], participacoes: [] });
+      return;
+    }
+    setTituloEdit(selecionada.titulo || "");
+    setPrazoEdit(selecionada.prazo_final ? selecionada.prazo_final.slice(0, 10) : "");
+    carregarMetricas(selecionada.id);
+  }, [selecionada?.id]);
+
   // Carrega solicitações com dados das empresas via join manual
   async function carregarSolicitacoes() {
     setCarregando(true);
@@ -304,6 +464,7 @@ export default function SolicitacoesAdm() {
       });
 
       setSolicitacoes(lista);
+      carregarResumoMetricas(lista.map((s) => s.id));
     } catch (err: any) {
       console.error("Erro ao carregar solicitações de busca:", err);
       toast.error("Erro ao carregar solicitações.");
@@ -454,7 +615,7 @@ export default function SolicitacoesAdm() {
         {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Solicitações de Busca</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Solicitações de Busca</h1>
             <p className="text-gray-600 mt-1">
               Solicitações de busca de empreendedores por CNAE enviadas por empresas incentivadoras.
             </p>
@@ -534,79 +695,198 @@ export default function SolicitacoesAdm() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Data</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Empresa</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">CNAEs</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Cidade</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Modalidade</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Prazo</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Status</th>
-                  <th className="px-5 py-4 font-semibold text-gray-700 text-right whitespace-nowrap">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {solicitacoesFiltradas.map((sol) => {
-                  const statusInfo = ROTULOS_STATUS[sol.status];
-                  return (
-                    <tr key={sol.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-5 py-4 text-gray-500 whitespace-nowrap">
-                        {new Date(sol.criado_em).toLocaleDateString("pt-BR")}
-                        <div className="text-xs text-gray-400">
-                          {new Date(sol.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-gray-900 truncate max-w-[200px]">{sol.razao_social}</p>
-                        <p className="text-xs text-gray-400 truncate max-w-[200px]">{sol.email_empresa}</p>
-                        <p className="text-xs text-gray-400">{sol.cnpj}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-xs font-semibold whitespace-nowrap">
-                          {sol.cnaes.length} {sol.cnaes.length === 1 ? 'CNAE' : 'CNAEs'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
-                      <td className="px-5 py-4 text-gray-600 whitespace-nowrap text-xs">
-                        {ROTULOS_MODALIDADE[sol.modalidade]}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        {(() => {
-                          const sla = getSlaInfo(sol.criado_em, sol.status);
-                          if (!sla) return <span className="text-xs text-gray-400">—</span>;
-                          return (
+          <>
+            {/* Listagem em tabela — a partir de lg */}
+            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Data</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Empresa</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Cidade</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Prazo</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Alcance</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-4 font-semibold text-gray-700 text-right whitespace-nowrap">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {solicitacoesFiltradas.map((sol) => {
+                    const statusInfo = ROTULOS_STATUS[sol.status];
+                    const prazo = infoPrazo(sol.prazo_final);
+                    const sla = getSlaInfo(sol.criado_em, sol.status);
+                    const resumo = resumoPorSolicitacao[sol.id];
+                    return (
+                      <tr key={sol.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-4 text-gray-500 whitespace-nowrap">
+                          {new Date(sol.criado_em).toLocaleDateString("pt-BR")}
+                          <div className="text-xs text-gray-400">
+                            {new Date(sol.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-gray-900 truncate max-w-[220px]">{sol.razao_social}</p>
+                          <p className="text-xs text-gray-400 truncate max-w-[220px]">{sol.email_empresa}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-semibold whitespace-nowrap">
+                              {sol.cnaes.length} {sol.cnaes.length === 1 ? "CNAE" : "CNAEs"}
+                            </span>
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                              {ROTULOS_MODALIDADE[sol.modalidade]}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {prazo ? (
+                            <>
+                              <p className="text-xs font-medium text-gray-700">{prazo.data}</p>
+                              <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
+                                {prazo.texto}
+                              </span>
+                            </>
+                          ) : sla ? (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${sla.cor}`}>
                               {sla.texto}
                             </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.cor}`}>
-                          {statusInfo.icone}
-                          {statusInfo.label}
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1 text-xs text-gray-600">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Eye className="w-3.5 h-3.5 text-gray-400" />
+                              {resumo ? resumo.cliques : 0} {resumo && resumo.cliques === 1 ? "clique" : "cliques"}
+                            </span>
+                            <span className={`inline-flex items-center gap-1.5 font-semibold ${resumo && resumo.interessados > 0 ? "text-green-700" : "text-gray-400"}`}>
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                              {resumo ? resumo.interessados : 0} interessados
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.cor}`}>
+                            {statusInfo.icone}
+                            {statusInfo.label}
+                          </span>
+                          {sol.compartilhavel === false ? (
+                            <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                              <EyeOff className="w-3 h-3" /> link desativado
+                            </span>
+                          ) : prazo?.encerrado ? (
+                            <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                              <EyeOff className="w-3 h-3" /> link encerrado pelo prazo
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copiarLink(sol)}
+                              className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+                              title="Copiar link compartilhável"
+                            >
+                              {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
+                              {idCopiado === sol.id ? "Copiado" : "Link"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelecionada(sol)}
+                              className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Detalhes
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Listagem em cartões — mobile e tablet */}
+            <div className="lg:hidden space-y-3">
+              {solicitacoesFiltradas.map((sol) => {
+                const statusInfo = ROTULOS_STATUS[sol.status];
+                const prazo = infoPrazo(sol.prazo_final);
+                const sla = getSlaInfo(sol.criado_em, sol.status);
+                const resumo = resumoPorSolicitacao[sol.id];
+                return (
+                  <div key={sol.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm break-words">{sol.razao_social}</p>
+                        <p className="text-xs text-gray-400 break-all">{sol.email_empresa}</p>
+                      </div>
+                      <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${statusInfo.cor}`}>
+                        {statusInfo.icone}
+                        {statusInfo.label}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-600">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" /> {sol.cidade}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Monitor className="w-3.5 h-3.5 text-gray-400" /> {ROTULOS_MODALIDADE[sol.modalidade]}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-semibold">
+                        {sol.cnaes.length} {sol.cnaes.length === 1 ? "CNAE" : "CNAEs"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {prazo ? (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
+                          <CalendarClock className="w-3 h-3" /> {prazo.data} · {prazo.texto}
                         </span>
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelecionada(sol)}
-                          className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          Detalhes
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      ) : sla ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${sla.cor}`}>
+                          {sla.texto}
+                        </span>
+                      ) : null}
+                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                        <Eye className="w-3.5 h-3.5" /> {resumo ? resumo.cliques : 0}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${resumo && resumo.interessados > 0 ? "text-green-700" : "text-gray-400"}`}>
+                        <ThumbsUp className="w-3.5 h-3.5" /> {resumo ? resumo.interessados : 0}
+                      </span>
+                      <span className="text-[11px] text-gray-400 ml-auto">
+                        {new Date(sol.criado_em).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copiarLink(sol)}
+                        className="flex-1 border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+                      >
+                        {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
+                        {idCopiado === sol.id ? "Copiado" : "Copiar link"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setSelecionada(sol)}
+                        className="flex-1 bg-[#7030A0] hover:bg-purple-800 text-white flex items-center justify-center gap-1.5"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Detalhes
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
@@ -653,6 +933,168 @@ export default function SolicitacoesAdm() {
                       <p className="text-gray-400 text-xs mb-0.5">E-mail</p>
                       <p className="text-gray-800 font-medium">{selecionada.email_empresa}</p>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Link compartilhável */}
+              <div>
+                <p className="text-xs font-semibold text-[#7030A0] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5" /> Link Compartilhável
+                </p>
+
+                <div className="rounded-xl border border-purple-100 bg-purple-50/60 p-3 sm:p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      readOnly
+                      value={montarLinkOportunidade(selecionada.id)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-purple-200 bg-white text-xs text-gray-700 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => copiarLink(selecionada)}
+                      className="bg-[#7030A0] hover:bg-purple-800 text-white flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      {idCopiado === selecionada.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {idCopiado === selecionada.id ? "Copiado" : "Copiar"}
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copiarLink(selecionada, true)}
+                      className="flex-1 border-purple-200 text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Copiar com texto pronto
+                    </Button>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhamento(selecionada, montarLinkOportunidade(selecionada.id)))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-green-200 bg-white text-green-700 text-sm font-medium hover:bg-green-50 transition-colors"
+                    >
+                      <SendIcon className="w-3.5 h-3.5" />
+                      Abrir no WhatsApp
+                    </a>
+                    <a
+                      href={montarLinkOportunidade(selecionada.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Abrir página
+                    </a>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3 border-t border-purple-100 pt-3">
+                    <div>
+                      {(() => {
+                        const prazo = infoPrazo(selecionada.prazo_final);
+                        const desativadoManualmente = (selecionada.compartilhavel ?? true) === false;
+                        // O prazo final encerra o link automaticamente, mesmo com o link ativo
+                        if (prazo?.encerrado && !desativadoManualmente) {
+                          return (
+                            <>
+                              <p className="text-xs font-semibold text-gray-700">
+                                Link encerrado pelo prazo ({prazo.data})
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                A página não abre mais. Para reabrir, altere o prazo final acima para uma data futura.
+                              </p>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <p className="text-xs font-semibold text-gray-700">
+                              {desativadoManualmente ? "Link desativado" : "Link ativo"}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                              {desativadoManualmente
+                                ? "Quem abrir o link verá um aviso de que o compartilhamento foi encerrado."
+                                : prazo
+                                ? `Qualquer usuário logado consegue abrir até ${prazo.data}.`
+                                : "Qualquer usuário logado na plataforma consegue abrir esta página."}
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => alternarCompartilhamento(selecionada)}
+                      className="flex-shrink-0 h-8 text-xs border-gray-200 text-gray-600 hover:bg-white"
+                    >
+                      {(selecionada.compartilhavel ?? true) ? (
+                        <><EyeOff className="w-3.5 h-3.5 mr-1.5" /> Desativar</>
+                      ) : (
+                        <><Eye className="w-3.5 h-3.5 mr-1.5" /> Reativar</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Título e prazo exibidos na página compartilhada */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <CalendarClock className="w-3.5 h-3.5" /> Título e Prazo da Página
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">Título exibido no link</Label>
+                    <Input
+                      value={tituloEdit}
+                      onChange={(e) => setTituloEdit(e.target.value)}
+                      placeholder={tituloOportunidade(selecionada)}
+                      className="h-10"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Se ficar vazio, o título é gerado a partir dos CNAEs e da cidade.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">Prazo final para manifestar interesse</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        type="date"
+                        value={prazoEdit}
+                        onChange={(e) => setPrazoEdit(e.target.value)}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        onClick={salvarTituloPrazo}
+                        disabled={salvandoDetalhes}
+                        className="bg-[#7030A0] hover:bg-purple-800 text-white flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        {salvandoDetalhes ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Salvar
+                      </Button>
+                    </div>
+                    {(() => {
+                      const prazo = infoPrazo(selecionada.prazo_final);
+                      if (!prazo) return <p className="text-[11px] text-gray-400 mt-1">Sem prazo definido — o link fica aberto por tempo indeterminado.</p>;
+                      return (
+                        <>
+                          <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
+                            {prazo.data} · {prazo.texto}
+                          </span>
+                          <p className="text-[11px] text-gray-400 mt-1.5">
+                            Depois desta data o link deixa de abrir automaticamente.
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -834,6 +1276,108 @@ export default function SolicitacoesAdm() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Alcance do link compartilhado */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" /> Alcance do Link
+                </p>
+
+                {carregandoMetricas ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#7030A0]" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Números */}
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-center">
+                        <p className="text-xl font-bold text-gray-900">{metricas.visualizacoes.length}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">cliques</p>
+                      </div>
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-center">
+                        <p className="text-xl font-bold text-gray-900">
+                          {new Set(metricas.visualizacoes.map((v) => v.email || v.id)).size}
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">pessoas</p>
+                      </div>
+                      <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-3 text-center">
+                        <p className="text-xl font-bold text-green-700">
+                          {metricas.participacoes.filter((x) => x.quer_participar).length}
+                        </p>
+                        <p className="text-[11px] text-green-700 mt-0.5">querem participar</p>
+                      </div>
+                    </div>
+
+                    {/* Quem pediu para participar */}
+                    <p className="text-xs text-gray-500 font-medium mb-2">Respostas recebidas</p>
+                    {metricas.participacoes.length === 0 ? (
+                      <p className="text-xs text-gray-400 mb-4">Ninguém respondeu ainda.</p>
+                    ) : (
+                      <div className="space-y-2 mb-4">
+                        {metricas.participacoes.map((part) => (
+                          <div
+                            key={part.id}
+                            className={`rounded-lg border p-3 ${part.quer_participar ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 break-words">{part.nome || "—"}</p>
+                                <p className="text-xs text-gray-500 break-all">{part.email || "—"}</p>
+                                {part.telefone && <p className="text-xs text-gray-500">{part.telefone}</p>}
+                              </div>
+                              <span
+                                className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  part.quer_participar ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
+                                }`}
+                              >
+                                {part.quer_participar ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
+                                {part.quer_participar ? "Quer participar" : "Sem interesse"}
+                              </span>
+                            </div>
+                            {part.mensagem && (
+                              <p className="mt-2 text-xs text-gray-700 bg-white border border-gray-100 rounded-md p-2 whitespace-pre-wrap break-words">
+                                {part.mensagem}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-gray-400 mt-2">
+                              {new Date(part.criado_em).toLocaleString("pt-BR", {
+                                day: "2-digit", month: "2-digit", year: "numeric",
+                                hour: "2-digit", minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Quem abriu o link */}
+                    <p className="text-xs text-gray-500 font-medium mb-2">Quem abriu o link</p>
+                    {metricas.visualizacoes.length === 0 ? (
+                      <p className="text-xs text-gray-400">Nenhum clique registrado até agora.</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
+                        {metricas.visualizacoes.map((visu) => (
+                          <div key={visu.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-gray-800 truncate">{visu.nome || "Usuário sem nome"}</p>
+                              <p className="text-[11px] text-gray-500 truncate">{visu.email || "—"}</p>
+                            </div>
+                            <span className="text-[10px] text-gray-400 flex-shrink-0 whitespace-nowrap">
+                              {new Date(visu.criado_em).toLocaleString("pt-BR", {
+                                day: "2-digit", month: "2-digit",
+                                hour: "2-digit", minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <Separator />

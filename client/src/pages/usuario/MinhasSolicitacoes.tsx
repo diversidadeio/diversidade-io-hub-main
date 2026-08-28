@@ -16,7 +16,19 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  Link2,
+  Copy,
+  Check,
+  CalendarClock,
+  ThumbsUp,
+  ThumbsDown,
+  Send as SendIcon,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  montarLinkOportunidade, copiarParaAreaDeTransferencia,
+  mensagemCompartilhamento, infoPrazo,
+} from "@/lib/oportunidade";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface SolicitacaoBusca {
@@ -27,6 +39,23 @@ interface SolicitacaoBusca {
   descricao: string | null;
   documento_url: string | null;
   status: "pendente" | "em_andamento" | "concluido" | "cancelado";
+  criado_em: string;
+  titulo?: string | null;
+  prazo_final?: string | null;
+  compartilhavel?: boolean;
+  usuario_id?: string | null;
+  empresas_indicadas?: string[] | null;
+}
+
+/** Quem respondeu ao link compartilhado. */
+interface ParticipacaoSolicitacao {
+  id: string;
+  solicitacao_id: string;
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;
+  quer_participar: boolean;
+  mensagem: string | null;
   criado_em: string;
 }
 
@@ -80,6 +109,55 @@ export default function MinhasSolicitacoes() {
   const [usuariosEmpresa, setUsuariosEmpresa] = useState<any[]>([]);
   const isAdmin = (usuario as any)?.papel === "admin";
   const [filtroUsuarioId, setFiltroUsuarioId] = useState<string>("todos");
+  const [cliquesPorSolicitacao, setCliquesPorSolicitacao] = useState<Record<string, number>>({});
+  const [participacoes, setParticipacoes] = useState<Record<string, ParticipacaoSolicitacao[]>>({});
+  const [idCopiado, setIdCopiado] = useState<string | null>(null);
+
+  /** Copia o link (ou a mensagem pronta) da oportunidade para compartilhar. */
+  async function copiarLink(sol: SolicitacaoBusca, comTexto = false) {
+    const link = montarLinkOportunidade(sol.id);
+    const ok = await copiarParaAreaDeTransferencia(comTexto ? mensagemCompartilhamento(sol, link) : link);
+    if (!ok) {
+      toast.error("Não foi possível copiar. Link: " + link);
+      return;
+    }
+    setIdCopiado(sol.id);
+    setTimeout(() => setIdCopiado((atual) => (atual === sol.id ? null : atual)), 2000);
+    toast.success(comTexto ? "Mensagem copiada!" : "Link copiado!");
+  }
+
+  /** Busca cliques e respostas das solicitações da empresa. */
+  async function carregarAlcance(ids: string[]) {
+    if (ids.length === 0) {
+      setCliquesPorSolicitacao({});
+      setParticipacoes({});
+      return;
+    }
+    try {
+      const [{ data: views }, { data: parts }] = await Promise.all([
+        supabase.from("solicitacao_visualizacoes").select("solicitacao_id").in("solicitacao_id", ids),
+        supabase
+          .from("solicitacao_participacoes")
+          .select("id, solicitacao_id, nome, email, telefone, quer_participar, mensagem, criado_em")
+          .in("solicitacao_id", ids)
+          .order("criado_em", { ascending: false }),
+      ]);
+
+      const cliques: Record<string, number> = {};
+      ids.forEach((id) => { cliques[id] = 0; });
+      (views || []).forEach((v: any) => { if (cliques[v.solicitacao_id] !== undefined) cliques[v.solicitacao_id]++; });
+      setCliquesPorSolicitacao(cliques);
+
+      const porSolicitacao: Record<string, ParticipacaoSolicitacao[]> = {};
+      (parts || []).forEach((p: any) => {
+        if (!porSolicitacao[p.solicitacao_id]) porSolicitacao[p.solicitacao_id] = [];
+        porSolicitacao[p.solicitacao_id].push(p);
+      });
+      setParticipacoes(porSolicitacao);
+    } catch (err) {
+      console.error("Erro ao carregar alcance das solicitações:", err);
+    }
+  }
 
   const carregarUsuarios = async () => {
     if (!isAdmin || !usuario) return;
@@ -125,6 +203,7 @@ export default function MinhasSolicitacoes() {
 
       if (error) throw error;
       setSolicitacoes(data || []);
+      carregarAlcance((data || []).map((s: any) => s.id));
 
       // Busca dados das empresas indicadas
       const indicadasIds = new Set<string>();
@@ -273,6 +352,25 @@ export default function MinhasSolicitacoes() {
                               year: "numeric",
                             })}
                           </span>
+                          {(() => {
+                            const prazo = infoPrazo(sol.prazo_final);
+                            if (!prazo) return null;
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
+                                <CalendarClock className="w-3 h-3" /> {prazo.data} · {prazo.texto}
+                              </span>
+                            );
+                          })()}
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                            <Link2 className="w-3.5 h-3.5" />
+                            {cliquesPorSolicitacao[sol.id] ?? 0}
+                          </span>
+                          {(participacoes[sol.id] || []).some((p) => p.quer_participar) && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                              {(participacoes[sol.id] || []).filter((p) => p.quer_participar).length}
+                            </span>
+                          )}
                           {isAdmin && sol.usuario_id && (
                             <span className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300">
                               <Users className="w-3 h-3" />
@@ -304,6 +402,140 @@ export default function MinhasSolicitacoes() {
                   {/* Detalhes expandidos */}
                   {aberto && (
                     <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-5 space-y-5 bg-gray-50/50 dark:bg-gray-700/20">
+                      {/* Link compartilhável */}
+                      <div>
+                        <p className="text-xs text-[#7030A0] dark:text-purple-400 mb-2 font-bold uppercase tracking-wider flex items-center gap-1">
+                          <Link2 className="w-3.5 h-3.5" /> Divulgar esta oportunidade
+                        </p>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-purple-100 dark:border-purple-900 p-4 space-y-3">
+                          {sol.compartilhavel === false ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              O compartilhamento desta solicitação foi desativado pela equipe Diversidade.io.
+                            </p>
+                          ) : infoPrazo(sol.prazo_final)?.encerrado ? (
+                            <div className="flex items-start gap-2">
+                              <CalendarClock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                O prazo terminou em {infoPrazo(sol.prazo_final)?.data} e o link foi encerrado
+                                automaticamente. Quem abrir agora vê um aviso de prazo encerrado.
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                  readOnly
+                                  value={montarLinkOportunidade(sol.id)}
+                                  onFocus={(e) => e.currentTarget.select()}
+                                  className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-xs font-mono text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                                />
+                                <button
+                                  onClick={() => copiarLink(sol)}
+                                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#7030A0] text-white text-sm font-medium hover:bg-purple-800 transition-colors flex-shrink-0"
+                                >
+                                  {idCopiado === sol.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                  {idCopiado === sol.id ? "Copiado" : "Copiar link"}
+                                </button>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <button
+                                  onClick={() => copiarLink(sol, true)}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  Copiar com texto pronto
+                                </button>
+                                <a
+                                  href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhamento(sol, montarLinkOportunidade(sol.id)))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm font-medium hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                >
+                                  <SendIcon className="w-4 h-4" />
+                                  WhatsApp
+                                </a>
+                                <a
+                                  href={montarLinkOportunidade(sol.id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  Ver página
+                                </a>
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Só quem tem conta na Diversidade.io consegue abrir o link — o visitante é convidado a entrar ou se cadastrar.
+                                {infoPrazo(sol.prazo_final)
+                                  ? ` O link fica no ar até ${infoPrazo(sol.prazo_final)?.data}.`
+                                  : ""}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quem respondeu ao link */}
+                      <div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wider flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" /> Alcance do link
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-3 py-3 text-center">
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">{cliquesPorSolicitacao[sol.id] ?? 0}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">cliques</p>
+                          </div>
+                          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-3 py-3 text-center">
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                              {(participacoes[sol.id] || []).filter((p) => p.quer_participar).length}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">querem participar</p>
+                          </div>
+                          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-3 py-3 text-center col-span-2 sm:col-span-1">
+                            <p className="text-lg font-bold text-gray-400">
+                              {(participacoes[sol.id] || []).filter((p) => !p.quer_participar).length}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">sem interesse</p>
+                          </div>
+                        </div>
+
+                        {(participacoes[sol.id] || []).length === 0 ? (
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Ninguém respondeu ao link ainda.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {(participacoes[sol.id] || []).map((part) => (
+                              <div
+                                key={part.id}
+                                className={`rounded-lg border p-3 ${
+                                  part.quer_participar
+                                    ? "bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800"
+                                    : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">{part.nome || "—"}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 break-all">{part.email || "—"}</p>
+                                    {part.telefone && <p className="text-xs text-gray-500 dark:text-gray-400">{part.telefone}</p>}
+                                  </div>
+                                  <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    part.quer_participar ? "bg-green-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                                  }`}>
+                                    {part.quer_participar ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
+                                    {part.quer_participar ? "Quer participar" : "Sem interesse"}
+                                  </span>
+                                </div>
+                                {part.mensagem && (
+                                  <p className="mt-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-md p-2 whitespace-pre-wrap break-words">
+                                    {part.mensagem}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Solicitante (visível apenas para admin) */}
                       {isAdmin && sol.usuario_id && (() => {
                         let solicitante = usuariosEmpresa.find(u => u.auth_user_id === sol.usuario_id || u.id === sol.usuario_id);

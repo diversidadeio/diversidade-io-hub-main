@@ -23,6 +23,7 @@ import Pesquisas from "./pages/usuario/Pesquisas";
 import MinhasSolicitacoes from "./pages/usuario/MinhasSolicitacoes";
 import Usuarios from "./pages/usuario/Usuarios";
 import EmpresaDetalhes from "./pages/usuario/EmpresaDetalhes";
+import Oportunidade from "./pages/Oportunidade";
 import { useAuth } from "./contexts/AuthContext";
 
 function RotaProtegidaAdm({ component: Component, ...rest }: any) {
@@ -109,6 +110,10 @@ function Router() {
       <Route path={"/trocar-senha"} component={TrocarSenha} />
       <Route path={"/politica-de-privacidade"} component={PoliticaPrivacidade} />
       <Route path={"/termos-de-uso"} component={TermosUso} />
+
+      {/* Página compartilhável de oportunidade — o bloqueio por login é feito dentro da página,
+          para que o visitante veja um convite de acesso em vez de um redirecionamento seco. */}
+      <Route path={"/oportunidades/:id"} component={Oportunidade} />
       
       {/* Rotas da Área do Usuário Logado */}
       <RotaProtegidaNormal path={"/meu-cadastro"} component={MeuCadastro} />

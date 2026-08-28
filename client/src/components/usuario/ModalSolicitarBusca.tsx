@@ -19,6 +19,8 @@ interface ModalSolicitarBuscaProps {
 export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSolicitarBuscaProps) {
   const { usuario } = useAuth();
   
+  const [solTitulo, setSolTitulo] = useState('');
+  const [solPrazo, setSolPrazo] = useState('');
   const [solCnaes, setSolCnaes] = useState<string[]>(['']);
   const [solCidade, setSolCidade] = useState('');
   const [solModalidade, setSolModalidade] = useState<'online' | 'presencial' | 'ambos'>('ambos');
@@ -35,6 +37,8 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
   } else if (!aberto && solSucesso) {
      // Reseta quando fecha
      setTimeout(() => {
+        setSolTitulo('');
+        setSolPrazo('');
         setSolCnaes(['']);
         setSolCidade('');
         setSolModalidade('ambos');
@@ -93,6 +97,8 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
       const { error: insertErr } = await supabase.from('solicitacoes_busca').insert({
         empresa_id: (usuario as any).empresaId,
         usuario_id: usuario?.id,
+        titulo: solTitulo.trim() || null,
+        prazo_final: solPrazo || null,
         cnaes: cnaesFiltrados,
         cidade: cidadeFinal,
         modalidade: solModalidade,
@@ -170,6 +176,42 @@ export function ModalSolicitarBusca({ aberto, onOpenChange, onSucesso }: ModalSo
           </div>
         ) : (
           <div className="space-y-5 py-2">
+            {/* Título da oportunidade */}
+            <div>
+              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                Título da oportunidade <span className="font-normal text-gray-400">(opcional)</span>
+              </Label>
+              <Input
+                placeholder="Ex: Buffet para evento corporativo em São Paulo"
+                value={solTitulo}
+                onChange={(e) => setSolTitulo(e.target.value)}
+                className="h-10 dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                É o título que aparece quando você compartilha o link da oportunidade.
+              </p>
+            </div>
+
+            <Separator className="dark:border-gray-700" />
+
+            {/* Prazo final */}
+            <div>
+              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                Prazo final para manifestar interesse <span className="font-normal text-gray-400">(opcional)</span>
+              </Label>
+              <Input
+                type="date"
+                value={solPrazo}
+                onChange={(e) => setSolPrazo(e.target.value)}
+                className="h-10 dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                Depois desta data a página deixa de aceitar novas manifestações de interesse.
+              </p>
+            </div>
+
+            <Separator className="dark:border-gray-700" />
+
             {/* CNAEs */}
             <div>
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
