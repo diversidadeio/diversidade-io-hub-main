@@ -624,7 +624,7 @@ export default function CadastroGratuito() {
         faltando.push({ id: "temContaPJ", label: "Tem Conta Bancária PJ?", secao: "3. Financeiro" });
 
       // ── Seção 4: Sócios e Impacto ────────────────────────────────────
-      if (acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA") {
+      if (!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
         if (!eSocio)
           faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
         if (!temNegrosSocios)
@@ -634,7 +634,7 @@ export default function CadastroGratuito() {
       }
 
       // Campos dinâmicos de cada sócio
-      if (acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA") {
+      if (!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
         sociosData.forEach((socio, idx) => {
           const secaoSocio = `4. Sócio ${idx + 1}`;
           const idBase = `socio-card-${idx}`;
@@ -1371,7 +1371,7 @@ export default function CadastroGratuito() {
               </div>
 
               {/* Aviso LGPD para terceiros */}
-              {acessoTipo !== "EMPRESA OU INICIATIVA INCENTIVADORA" && (
+              {!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA") && (
                 <>
                   <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-900 mb-6">
                     <div className="flex items-start gap-3">

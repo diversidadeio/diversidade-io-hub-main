@@ -50,6 +50,7 @@ interface FiltrosState {
   optin: OptinFiltro;
   completude: CompletudeFiltro;
   portes: string[];
+  tiposAcesso: string[];
   semLogo: boolean;
   semDocumentos: boolean;
   semSocios: boolean;
@@ -64,6 +65,7 @@ const FILTROS_PADRAO: FiltrosState = {
   optin: "todos",
   completude: "todos",
   portes: [],
+  tiposAcesso: [],
   semLogo: false,
   semDocumentos: false,
   semSocios: false,
@@ -74,6 +76,7 @@ const FILTROS_PADRAO: FiltrosState = {
 };
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
+const TIPOS_ACESSO_DISPONIVEIS = ["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO"];
 
 const CAMPOS_OBRIGATORIOS = [
   "razao_social",
@@ -252,6 +255,13 @@ export default function CadastrosAdm() {
         (emp.porte_empresa &&
           filtrosAtivos.portes.includes(emp.porte_empresa));
 
+      const matchTipoAcesso =
+        filtrosAtivos.tiposAcesso.length === 0 ||
+        (emp.acesso_tipo &&
+          filtrosAtivos.tiposAcesso.some((tipo) =>
+            emp.acesso_tipo.includes(tipo)
+          ));
+
       const matchSemLogo = !filtrosAtivos.semLogo || !emp.logo_empresa_url;
 
       const matchSemDoc =
@@ -279,6 +289,7 @@ export default function CadastrosAdm() {
         matchOptin &&
         matchCompletude &&
         matchPorte &&
+        matchTipoAcesso &&
         matchSemLogo &&
         matchSemDoc &&
         matchSemSocios &&
@@ -340,6 +351,7 @@ export default function CadastrosAdm() {
     if (filtrosAtivos.optin !== "todos") count++;
     if (filtrosAtivos.completude !== "todos") count++;
     if (filtrosAtivos.portes.length > 0) count++;
+    if (filtrosAtivos.tiposAcesso.length > 0) count++;
     if (filtrosAtivos.semLogo) count++;
     if (filtrosAtivos.semDocumentos) count++;
     if (filtrosAtivos.semSocios) count++;
@@ -355,7 +367,7 @@ export default function CadastrosAdm() {
     setFiltrosAtivos((prev) => ({
       ...prev,
       [chave]:
-        chave === "portes"
+        chave === "portes" || chave === "tiposAcesso"
           ? []
           : chave === "status"
           ? "todos"
@@ -389,6 +401,8 @@ export default function CadastrosAdm() {
     });
   if (filtrosAtivos.portes.length > 0)
     tagsFiltros.push({ label: `Porte: ${filtrosAtivos.portes.join(", ")}`, chave: "portes" });
+  if (filtrosAtivos.tiposAcesso.length > 0)
+    tagsFiltros.push({ label: `Tipo: ${filtrosAtivos.tiposAcesso.join(", ")}`, chave: "tiposAcesso" });
   if (filtrosAtivos.semLogo) tagsFiltros.push({ label: "Sem logo", chave: "semLogo" });
   if (filtrosAtivos.semDocumentos) tagsFiltros.push({ label: "Sem documentos", chave: "semDocumentos" });
   if (filtrosAtivos.semSocios) tagsFiltros.push({ label: "Sem sócios", chave: "semSocios" });
@@ -797,6 +811,34 @@ export default function CadastrosAdm() {
                   >
                     {c === "todos" ? "Todos" : c === "completo" ? "100% Completo" : "Incompleto"}
                   </button>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Tipo de Acesso */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Tipo de Acesso</p>
+              <div className="grid gap-2">
+                {TIPOS_ACESSO_DISPONIVEIS.map((tipo) => (
+                  <div key={tipo} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`tipo-${tipo}`}
+                      checked={filtrosTemp.tiposAcesso.includes(tipo)}
+                      onCheckedChange={(checked) => {
+                        setFiltrosTemp((p) => ({
+                          ...p,
+                          tiposAcesso: checked
+                            ? [...p.tiposAcesso, tipo]
+                            : p.tiposAcesso.filter((x) => x !== tipo),
+                        }));
+                      }}
+                    />
+                    <Label htmlFor={`tipo-${tipo}`} className="text-sm cursor-pointer">
+                      {tipo}
+                    </Label>
+                  </div>
                 ))}
               </div>
             </div>
