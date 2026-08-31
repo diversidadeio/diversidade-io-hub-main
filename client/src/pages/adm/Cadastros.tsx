@@ -110,17 +110,22 @@ function socioCompleto(socio: any): boolean {
 /**
  * Calcula a completude da empresa (0–100%).
  * A parte de sócios só conta como 100% se:
+ *   - a empresa NÃO é do tipo "EMPRESA OU INICIATIVA INCENTIVADORA", E
  *   - existe ao menos 1 sócio cadastrado, E
- *   - todos os sócios têm os 10 campos obrigatórios preenchidos.
+ *   - todos os sócios têm os campos obrigatórios preenchidos.
+ * Empresas incentivadoras não precisam de quadro societário para atingir 100%.
  */
 function calcularCompletude(emp: any, listaSocios: any[]): number {
-  const total = CAMPOS_OBRIGATORIOS.length + 1; // +1 para sócios
+  const ehIncentivadora = emp.acesso_tipo === "EMPRESA OU INICIATIVA INCENTIVADORA";
+  const total = CAMPOS_OBRIGATORIOS.length + (ehIncentivadora ? 0 : 1); // sócios não contam para incentivadoras
   let preenchidos = 0;
   for (const campo of CAMPOS_OBRIGATORIOS) {
     if (emp[campo] && String(emp[campo]).trim() !== "") preenchidos++;
   }
-  // Sócios: conta apenas se tiver ao menos 1 E todos completos
-  if (listaSocios.length > 0 && listaSocios.every(socioCompleto)) preenchidos++;
+  // Sócios: só verifica se não for incentivadora
+  if (!ehIncentivadora) {
+    if (listaSocios.length > 0 && listaSocios.every(socioCompleto)) preenchidos++;
+  }
   return Math.round((preenchidos / total) * 100);
 }
 
@@ -174,7 +179,7 @@ export default function CadastrosAdm() {
             `id, razao_social, cnpj, email, created_at, nome_responsavel,
              status_aprovacao, autoriza_compartilhamento, porte_empresa,
              area_empresa, sobre_empresa, logo_empresa_url, cartao_cnpj_url,
-             ficha_junta_url, telefone_principal`
+             ficha_junta_url, telefone_principal, acesso_tipo`
           )
           .neq("tipo_usuario", "adm")
           .order("created_at", { ascending: false });
