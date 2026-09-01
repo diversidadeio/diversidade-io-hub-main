@@ -232,7 +232,7 @@ export default function Pesquisas() {
         // e que não sejam do tipo "EMPRESA OU INICIATIVA INCENTIVADORA"
         let query = supabase
           .from('empresas')
-          .select('id, razao_social, cnpj, email, created_at, nome_responsavel, porte_empresa, telefone_principal, area_empresa, sobre_empresa, logo_empresa_url')
+          .select('id, razao_social, cnpj, email, created_at, nome_responsavel, porte_empresa, telefone_principal, area_empresa, sobre_empresa, logo_empresa_url, atividade_empresarial')
           .neq('tipo_usuario', 'adm')
           .neq('id', empresaId)
           .eq('status_aprovacao', 'aprovado')
@@ -280,7 +280,9 @@ export default function Pesquisas() {
         !termo ||
         (emp.razao_social && emp.razao_social.toLowerCase().includes(termo)) ||
         (emp.email && emp.email.toLowerCase().includes(termo)) ||
-        (termoSemPontuacao && cnpjLimpo.includes(termoSemPontuacao));
+        (termoSemPontuacao && cnpjLimpo.includes(termoSemPontuacao)) ||
+        (emp.sobre_empresa && emp.sobre_empresa.toLowerCase().includes(termo)) ||
+        (emp.atividade_empresarial && emp.atividade_empresarial.toLowerCase().includes(termo));
 
       const matchPorte =
         filtrosAtivos.portes.length === 0 ||

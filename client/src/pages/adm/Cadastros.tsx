@@ -182,7 +182,7 @@ export default function CadastrosAdm() {
             `id, razao_social, cnpj, email, created_at, nome_responsavel,
              status_aprovacao, autoriza_compartilhamento, porte_empresa,
              area_empresa, sobre_empresa, logo_empresa_url, cartao_cnpj_url,
-             ficha_junta_url, telefone_principal, acesso_tipo`
+             ficha_junta_url, telefone_principal, acesso_tipo, atividade_empresarial`
           )
           .neq("tipo_usuario", "adm")
           .order("created_at", { ascending: false });
@@ -230,7 +230,9 @@ export default function CadastrosAdm() {
         !termo ||
         (emp.razao_social && emp.razao_social.toLowerCase().includes(termo)) ||
         (emp.cnpj && emp.cnpj.includes(termo)) ||
-        (emp.email && emp.email.toLowerCase().includes(termo));
+        (emp.email && emp.email.toLowerCase().includes(termo)) ||
+        (emp.sobre_empresa && emp.sobre_empresa.toLowerCase().includes(termo)) ||
+        (emp.atividade_empresarial && emp.atividade_empresarial.toLowerCase().includes(termo));
 
       const matchStatus =
         filtrosAtivos.status === "todos" ||
