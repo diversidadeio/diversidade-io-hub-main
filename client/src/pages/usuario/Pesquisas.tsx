@@ -2,12 +2,13 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase, supabaseAnon } from "@/lib/supabase";
 import { Link } from "wouter";
-import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2, Sparkles, ArrowLeft } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2, Sparkles, ArrowLeft, Clock, History, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { FiltroState, FiltrosState } from "@/components/Filtros";
 import { ModalSolicitarBusca } from "@/components/usuario/ModalSolicitarBusca";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -138,6 +139,10 @@ export default function Pesquisas() {
   const [resultadosIA, setResultadosIA] = useState<any[]>([]);
   const [carregandoIA, setCarregandoIA] = useState(false);
   const [erroIA, setErroIA] = useState("");
+  // Estados do histórico
+  const [historicoAberto, setHistoricoAberto] = useState(false);
+  const [historicoIA, setHistoricoIA] = useState<any[]>([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   // ── Fim do modo IA ────────────────────────────────────────────────────────
 
 
@@ -163,7 +168,39 @@ export default function Pesquisas() {
     }
   };
 
-  // ── Função de Busca com IA ────────────────────────────────────────────────
+  // ── Funções de Busca com IA ───────────────────────────────────────────────
+  const SESSAO_KEY = "pesquisas_ia_estado";
+
+  // Restaura estado do sessionStorage ao montar (ex: ao voltar da página de detalhes)
+  useEffect(() => {
+    try {
+      const salvo = sessionStorage.getItem(SESSAO_KEY);
+      if (salvo) {
+        const { buscaIA: q, resultadosIA: r } = JSON.parse(salvo);
+        setModoIA(true);
+        setBuscaIA(q || "");
+        setResultadosIA(r || []);
+      }
+    } catch {
+      sessionStorage.removeItem(SESSAO_KEY);
+    }
+  }, []); // executa apenas na montagem
+
+  async function carregarHistorico() {
+    const empresaId = (usuario as any)?.empresaId;
+    if (!empresaId) return;
+    setCarregandoHistorico(true);
+    try {
+      const resp = await fetch(`/api/historico-buscas-ia?empresaId=${empresaId}`);
+      const dados = await resp.json();
+      setHistoricoIA(dados.historico || []);
+    } catch {
+      setHistoricoIA([]);
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  }
+
   async function executarBuscaIA() {
     if (!buscaIA.trim() || buscaIA.trim().length < 5) {
       setErroIA("Descreva com mais detalhes o que você precisa (mínimo 5 caracteres).");
@@ -186,8 +223,11 @@ export default function Pesquisas() {
         setErroIA(dados.erro || "Erro ao realizar a busca. Tente novamente.");
         return;
       }
-      setResultadosIA(dados.resultados || []);
-      if ((dados.resultados || []).length === 0) {
+      const resultados = dados.resultados || [];
+      setResultadosIA(resultados);
+      // Persiste no sessionStorage para restaurar ao voltar
+      sessionStorage.setItem(SESSAO_KEY, JSON.stringify({ buscaIA: buscaIA.trim(), resultadosIA: resultados }));
+      if (resultados.length === 0) {
         setErroIA(dados.mensagem || "Nenhuma empresa encontrada para essa descrição. Tente usar outras palavras.");
       }
     } catch {
@@ -197,14 +237,28 @@ export default function Pesquisas() {
     }
   }
 
-  function abrirModoIA() {
-    setModoIA(true);
-    setBuscaIA("");
-    setResultadosIA([]);
+  function restaurarDoBancoDoDados(item: any) {
+    setBuscaIA(item.descricao || "");
+    setResultadosIA(item.resultados || []);
     setErroIA("");
+    setHistoricoAberto(false);
+    // Persiste no sessionStorage para sobreviver à navegação
+    sessionStorage.setItem(SESSAO_KEY, JSON.stringify({ buscaIA: item.descricao, resultadosIA: item.resultados }));
+  }
+
+  function abrirModoIA() {
+    // Só limpa se não houver estado salvo no sessionStorage
+    const salvo = sessionStorage.getItem(SESSAO_KEY);
+    if (!salvo) {
+      setBuscaIA("");
+      setResultadosIA([]);
+      setErroIA("");
+    }
+    setModoIA(true);
   }
 
   function fecharModoIA() {
+    sessionStorage.removeItem(SESSAO_KEY);
     setModoIA(false);
     setBuscaIA("");
     setResultadosIA([]);
@@ -498,11 +552,108 @@ export default function Pesquisas() {
                 <ArrowLeft className="w-4 h-4" />
                 Voltar para a lista
               </button>
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
-                <Sparkles className="w-3.5 h-3.5" />
-                Modo Busca com IA
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Botão Histórico */}
+                <button
+                  onClick={() => { setHistoricoAberto(true); carregarHistorico(); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#7030A0] dark:hover:text-purple-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 hover:border-[#7030A0] dark:hover:border-purple-500 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  Histórico
+                </button>
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Modo Busca com IA
+                </span>
+              </div>
             </div>
+
+            {/* ── Sheet de Histórico ─────────────────────────────────────────── */}
+            <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
+              <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto dark:bg-gray-900 dark:border-gray-700">
+                <SheetHeader className="mb-6 space-y-2">
+                  <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <History className="w-5 h-5 text-[#7030A0] dark:text-purple-400" />
+                    Histórico de Buscas com IA
+                  </SheetTitle>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Acesse suas buscas recentes e restaure os resultados a qualquer momento sem precisar refazer a pesquisa.
+                  </p>
+                </SheetHeader>
+
+                {carregandoHistorico ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                  </div>
+                ) : historicoIA.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                    <Clock className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Você ainda não fez nenhuma busca com IA.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {historicoIA.map((item: any) => {
+                      const data = new Date(item.criado_em);
+                      const dataFormatada = data.toLocaleDateString("pt-BR", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                      });
+                      const horaFormatada = data.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit", minute: "2-digit",
+                      });
+                      return (
+                        <div
+                          key={item.id}
+                          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hover:border-purple-200 dark:hover:border-purple-700 transition-colors"
+                        >
+                          {/* Data e hora */}
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            {dataFormatada} às {horaFormatada}
+                          </div>
+
+                          {/* Query */}
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
+                            "{item.descricao}"
+                          </p>
+
+                          {/* Contagem de resultados */}
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.total_resultados} empresa{item.total_resultados !== 1 ? "s" : ""} encontrada{item.total_resultados !== 1 ? "s" : ""}
+                          </p>
+
+                          {/* Prévia das empresas (primeiras 3) */}
+                          {Array.isArray(item.resultados) && item.resultados.length > 0 && (
+                            <div className="space-y-1">
+                              {item.resultados.slice(0, 3).map((emp: any, i: number) => (
+                                <p key={emp.id || i} className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  <span className="font-medium text-gray-700 dark:text-gray-300">{i + 1}.</span> {emp.razao_social}
+                                </p>
+                              ))}
+                              {item.resultados.length > 3 && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                                  +{item.resultados.length - 3} empresa{item.resultados.length - 3 !== 1 ? "s" : ""}...
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Botão restaurar */}
+                          <button
+                            onClick={() => restaurarDoBancoDoDados(item)}
+                            className="w-full inline-flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-lg border border-purple-200 dark:border-purple-700 transition-colors"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Restaurar esta busca
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
 
             {/* Campo de descrição */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">

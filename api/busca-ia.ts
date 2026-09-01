@@ -192,16 +192,26 @@ ${contextoEmpresas}`;
         };
       });
 
-    // Registra log da busca com IA
+    // Registra log de auditoria e salva no histórico de buscas IA
     try {
-      await supabaseAdmin.from("logs_acesso").insert({
-        empresa_id: empresaId,
-        email: solicitante.email,
-        tipo_evento: "ia_busca_empresas",
-        detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
-      });
+      await Promise.all([
+        // Log de auditoria (logs_acesso)
+        supabaseAdmin.from("logs_acesso").insert({
+          empresa_id: empresaId,
+          email: solicitante.email,
+          tipo_evento: "ia_busca_empresas",
+          detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
+        }),
+        // Histórico de buscas com resultados completos
+        supabaseAdmin.from("historico_buscas_ia").insert({
+          empresa_id: empresaId,
+          descricao: descricao.trim(),
+          resultados: resultadosEnriquecidos,
+          total_resultados: resultadosEnriquecidos.length,
+        }),
+      ]);
     } catch (erroLog) {
-      console.warn("[busca-ia] Falha ao registrar log:", erroLog);
+      console.warn("[busca-ia] Falha ao registrar log/histórico:", erroLog);
     }
 
     return res.json({ resultados: resultadosEnriquecidos });

@@ -1007,23 +1007,75 @@ ${contextoEmpresas}`;
         };
       });
 
-    // Registra log da busca com IA
+    // Registra log de auditoria e salva no histórico de buscas IA
     try {
-      await supabaseAdmin.from("logs_acesso").insert({
-        empresa_id: empresaId,
-        email: solicitante.email,
-        tipo_evento: "ia_busca_empresas",
-        detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
-      });
+      await Promise.all([
+        // Log de auditoria (logs_acesso)
+        supabaseAdmin.from("logs_acesso").insert({
+          empresa_id: empresaId,
+          email: solicitante.email,
+          tipo_evento: "ia_busca_empresas",
+          detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
+        }),
+        // Histórico de buscas com resultados completos
+        supabaseAdmin.from("historico_buscas_ia").insert({
+          empresa_id: empresaId,
+          descricao: descricao.trim(),
+          resultados: resultadosEnriquecidos,
+          total_resultados: resultadosEnriquecidos.length,
+        }),
+      ]);
     } catch (erroLog) {
-      // Não bloqueia o fluxo caso o log falhe
-      console.warn("[busca-ia] Falha ao registrar log:", erroLog);
+      console.warn("[busca-ia] Falha ao registrar log/histórico:", erroLog);
     }
 
     return res.json({ resultados: resultadosEnriquecidos });
 
   } catch (err: any) {
     console.error("Erro no endpoint /busca-ia:", err);
+    return res.status(500).json({ erro: "Erro interno. Tente novamente em instantes." });
+  }
+});
+
+apiRouter.get("/historico-buscas-ia", async (req, res) => {
+  try {
+    const empresaId = req.query?.empresaId as string;
+
+    if (!empresaId) {
+      return res.status(400).json({ erro: "empresaId é obrigatório." });
+    }
+
+    // Verifica se a empresa solicitante é incentivadora
+    const { data: empresa, error: erroEmpresa } = await supabaseAdmin
+      .from("empresas")
+      .select("acesso_tipo")
+      .eq("id", empresaId)
+      .single();
+
+    if (erroEmpresa || !empresa) {
+      return res.status(404).json({ erro: "Empresa não encontrada." });
+    }
+
+    if (!empresa.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+      return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+    }
+
+    // Busca as últimas 20 buscas da empresa, da mais recente para a mais antiga
+    const { data: historico, error: erroHistorico } = await supabaseAdmin
+      .from("historico_buscas_ia")
+      .select("id, descricao, resultados, total_resultados, criado_em")
+      .eq("empresa_id", empresaId)
+      .order("criado_em", { ascending: false })
+      .limit(20);
+
+    if (erroHistorico) {
+      console.error("[historico-buscas-ia] Erro ao buscar histórico:", erroHistorico);
+      return res.status(500).json({ erro: "Erro ao consultar o banco de dados." });
+    }
+
+    return res.json({ historico: historico || [] });
+  } catch (err: any) {
+    console.error("[historico-buscas-ia] Erro interno:", err);
     return res.status(500).json({ erro: "Erro interno. Tente novamente em instantes." });
   }
 });
