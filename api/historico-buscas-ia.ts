@@ -18,34 +18,45 @@ export default async function handler(req: any, res: any) {
   }
 
   const empresaId = req.query?.empresaId as string;
+  const adminEmail = req.query?.adminEmail as string;
+  const isAdmin = req.query?.isAdmin === 'true';
 
-  if (!empresaId) {
-    return res.status(400).json({ erro: "empresaId é obrigatório." });
+  if (!isAdmin && !empresaId) {
+    return res.status(400).json({ erro: "empresaId ou adminEmail é obrigatório." });
   }
 
   try {
-    // Verifica se a empresa solicitante é incentivadora
-    const { data: empresa, error: erroEmpresa } = await supabaseAdmin
-      .from("empresas")
-      .select("acesso_tipo")
-      .eq("id", empresaId)
-      .single();
+    // Verifica se a empresa solicitante é incentivadora (se não for admin)
+    if (!isAdmin) {
+      const { data: empresa, error: erroEmpresa } = await supabaseAdmin
+        .from("empresas")
+        .select("acesso_tipo")
+        .eq("id", empresaId)
+        .single();
 
-    if (erroEmpresa || !empresa) {
-      return res.status(404).json({ erro: "Empresa não encontrada." });
+      if (erroEmpresa || !empresa) {
+        return res.status(404).json({ erro: "Empresa não encontrada." });
+      }
+
+      if (!empresa.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+        return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+      }
     }
 
-    if (!empresa.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
-      return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
-    }
-
-    // Busca as últimas 20 buscas da empresa, da mais recente para a mais antiga
-    const { data: historico, error: erroHistorico } = await supabaseAdmin
+    // Busca as últimas 20 buscas da empresa (ou admin), da mais recente para a mais antiga
+    let query = supabaseAdmin
       .from("historico_buscas_ia")
       .select("id, descricao, resultados, total_resultados, criado_em")
-      .eq("empresa_id", empresaId)
       .order("criado_em", { ascending: false })
       .limit(20);
+      
+    if (isAdmin) {
+      query = query.eq("admin_email", adminEmail);
+    } else {
+      query = query.eq("empresa_id", empresaId);
+    }
+
+    const { data: historico, error: erroHistorico } = await query;
 
     if (erroHistorico) {
       console.error("[historico-buscas-ia] Erro ao buscar histórico:", erroHistorico);

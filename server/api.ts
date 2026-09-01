@@ -829,25 +829,31 @@ apiRouter.post("/remover-usuario", async (req, res) => {
  */
 apiRouter.post("/busca-ia", async (req, res) => {
   try {
-    const { descricao, empresaId } = req.body;
+    const { descricao, empresaId, isAdmin, adminEmail } = req.body;
 
     // Validações básicas
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5) {
       return res.status(400).json({ erro: "Descreva com mais detalhes o que você precisa (mínimo 5 caracteres)." });
     }
-    if (!empresaId) {
+    
+    if (!isAdmin && !empresaId) {
       return res.status(400).json({ erro: "Empresa não identificada." });
     }
 
-    // Verifica se a empresa solicitante é incentivadora
-    const { data: solicitante } = await supabaseAdmin
-      .from("empresas")
-      .select("acesso_tipo, razao_social, email")
-      .eq("id", empresaId)
-      .single();
+    let solicitanteEmail = adminEmail || "";
 
-    if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
-      return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+    // Verifica se a empresa solicitante é incentivadora (se não for admin)
+    if (!isAdmin) {
+      const { data: solicitante } = await supabaseAdmin
+        .from("empresas")
+        .select("acesso_tipo, razao_social, email")
+        .eq("id", empresaId)
+        .single();
+
+      if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+        return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+      }
+      solicitanteEmail = solicitante.email;
     }
 
     // ── Pré-filtragem por palavras-chave ──────────────────────────────────────
@@ -871,14 +877,17 @@ apiRouter.post("/busca-ia", async (req, res) => {
     const filtrosAtividade = palavrasChave.map((p) => `atividade_empresarial.ilike.%${p}%`).join(",");
     const filtrosSobre = palavrasChave.map((p) => `sobre_empresa.ilike.%${p}%`).join(",");
 
-    const baseQuery = supabaseAdmin
+    let baseQuery = supabaseAdmin
       .from("empresas")
       .select("id, razao_social, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa")
       .eq("status_aprovacao", "aprovado")
       .neq("tipo_usuario", "adm")
       .eq("autoriza_compartilhamento", "Sim")
-      .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%")
-      .neq("id", empresaId);
+      .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%");
+
+    if (empresaId) {
+      baseQuery = baseQuery.neq("id", empresaId);
+    }
 
     // Etapa 1: busca por palavras-chave na atividade empresarial
     let { data: empresasFiltradas, error: erroEmpresasData } = palavrasChave.length > 0
@@ -892,15 +901,19 @@ apiRouter.post("/busca-ia", async (req, res) => {
 
     // Etapa 2: se encontrou menos de 5 resultados, amplia para buscar em sobre_empresa também
     if (palavrasChave.length > 0 && (empresasFiltradas?.length ?? 0) < 5) {
-      const { data: empresasAmpladas } = await supabaseAdmin
+      let queryAmpliada = supabaseAdmin
         .from("empresas")
         .select("id, razao_social, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa")
         .eq("status_aprovacao", "aprovado")
         .neq("tipo_usuario", "adm")
         .eq("autoriza_compartilhamento", "Sim")
-        .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%")
-        .neq("id", empresaId)
-        .or(`${filtrosAtividade},${filtrosSobre}`);
+        .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%");
+
+      if (empresaId) {
+        queryAmpliada = queryAmpliada.neq("id", empresaId);
+      }
+      
+      const { data: empresasAmpladas } = await queryAmpliada.or(`${filtrosAtividade},${filtrosSobre}`);
 
       // Mescla e deduplica por ID
       const idsJaVistos = new Set((empresasFiltradas || []).map((e: any) => e.id));
@@ -1012,14 +1025,15 @@ ${contextoEmpresas}`;
       await Promise.all([
         // Log de auditoria (logs_acesso)
         supabaseAdmin.from("logs_acesso").insert({
-          empresa_id: empresaId,
-          email: solicitante.email,
+          empresa_id: isAdmin ? null : empresaId,
+          email: solicitanteEmail,
           tipo_evento: "ia_busca_empresas",
           detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
         }),
         // Histórico de buscas com resultados completos
         supabaseAdmin.from("historico_buscas_ia").insert({
-          empresa_id: empresaId,
+          empresa_id: isAdmin ? null : empresaId,
+          admin_email: isAdmin ? solicitanteEmail : null,
           descricao: descricao.trim(),
           resultados: resultadosEnriquecidos,
           total_resultados: resultadosEnriquecidos.length,
@@ -1040,33 +1054,44 @@ ${contextoEmpresas}`;
 apiRouter.get("/historico-buscas-ia", async (req, res) => {
   try {
     const empresaId = req.query?.empresaId as string;
+    const adminEmail = req.query?.adminEmail as string;
+    const isAdmin = req.query?.isAdmin === 'true';
 
-    if (!empresaId) {
-      return res.status(400).json({ erro: "empresaId é obrigatório." });
+    if (!isAdmin && !empresaId) {
+      return res.status(400).json({ erro: "empresaId ou adminEmail é obrigatório." });
     }
 
-    // Verifica se a empresa solicitante é incentivadora
-    const { data: empresa, error: erroEmpresa } = await supabaseAdmin
-      .from("empresas")
-      .select("acesso_tipo")
-      .eq("id", empresaId)
-      .single();
+    // Verifica se a empresa solicitante é incentivadora (se não for admin)
+    if (!isAdmin) {
+      const { data: empresa, error: erroEmpresa } = await supabaseAdmin
+        .from("empresas")
+        .select("acesso_tipo")
+        .eq("id", empresaId)
+        .single();
 
-    if (erroEmpresa || !empresa) {
-      return res.status(404).json({ erro: "Empresa não encontrada." });
+      if (erroEmpresa || !empresa) {
+        return res.status(404).json({ erro: "Empresa não encontrada." });
+      }
+
+      if (!empresa.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+        return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+      }
     }
 
-    if (!empresa.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
-      return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
-    }
-
-    // Busca as últimas 20 buscas da empresa, da mais recente para a mais antiga
-    const { data: historico, error: erroHistorico } = await supabaseAdmin
+    // Busca as últimas 20 buscas da empresa (ou admin), da mais recente para a mais antiga
+    let query = supabaseAdmin
       .from("historico_buscas_ia")
       .select("id, descricao, resultados, total_resultados, criado_em")
-      .eq("empresa_id", empresaId)
       .order("criado_em", { ascending: false })
       .limit(20);
+      
+    if (isAdmin) {
+      query = query.eq("admin_email", adminEmail);
+    } else {
+      query = query.eq("empresa_id", empresaId);
+    }
+
+    const { data: historico, error: erroHistorico } = await query;
 
     if (erroHistorico) {
       console.error("[historico-buscas-ia] Erro ao buscar histórico:", erroHistorico);

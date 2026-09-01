@@ -570,9 +570,9 @@ export default function Pesquisas() {
 
             {/* ── Sheet de Histórico ─────────────────────────────────────────── */}
             <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
-              <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto dark:bg-gray-900 dark:border-gray-700">
-                <SheetHeader className="mb-6 space-y-2">
-                  <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full dark:bg-gray-900 dark:border-gray-700">
+                <SheetHeader className="mb-6 space-y-2 shrink-0">
+                  <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white mt-4 sm:mt-0">
                     <History className="w-5 h-5 text-[#7030A0] dark:text-purple-400" />
                     Histórico de Buscas com IA
                   </SheetTitle>
@@ -581,77 +581,79 @@ export default function Pesquisas() {
                   </p>
                 </SheetHeader>
 
-                {carregandoHistorico ? (
-                  <div className="flex justify-center items-center py-12">
-                    <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                  </div>
-                ) : historicoIA.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-                    <Clock className="w-10 h-10 text-gray-300 dark:text-gray-600" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Você ainda não fez nenhuma busca com IA.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {historicoIA.map((item: any) => {
-                      const data = new Date(item.criado_em);
-                      const dataFormatada = data.toLocaleDateString("pt-BR", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                      });
-                      const horaFormatada = data.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit", minute: "2-digit",
-                      });
-                      return (
-                        <div
-                          key={item.id}
-                          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hover:border-purple-200 dark:hover:border-purple-700 transition-colors"
-                        >
-                          {/* Data e hora */}
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-                            <Clock className="w-3 h-3" />
-                            {dataFormatada} às {horaFormatada}
-                          </div>
-
-                          {/* Query */}
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
-                            "{item.descricao}"
-                          </p>
-
-                          {/* Contagem de resultados */}
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {item.total_resultados} empresa{item.total_resultados !== 1 ? "s" : ""} encontrada{item.total_resultados !== 1 ? "s" : ""}
-                          </p>
-
-                          {/* Prévia das empresas (primeiras 3) */}
-                          {Array.isArray(item.resultados) && item.resultados.length > 0 && (
-                            <div className="space-y-1">
-                              {item.resultados.slice(0, 3).map((emp: any, i: number) => (
-                                <p key={emp.id || i} className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                  <span className="font-medium text-gray-700 dark:text-gray-300">{i + 1}.</span> {emp.razao_social}
-                                </p>
-                              ))}
-                              {item.resultados.length > 3 && (
-                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">
-                                  +{item.resultados.length - 3} empresa{item.resultados.length - 3 !== 1 ? "s" : ""}...
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Botão restaurar */}
-                          <button
-                            onClick={() => restaurarDoBancoDoDados(item)}
-                            className="w-full inline-flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-lg border border-purple-200 dark:border-purple-700 transition-colors"
+                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                  {carregandoHistorico ? (
+                    <div className="flex justify-center items-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    </div>
+                  ) : historicoIA.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                      <Clock className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Você ainda não fez nenhuma busca com IA.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {historicoIA.map((item: any) => {
+                        const data = new Date(item.criado_em);
+                        const dataFormatada = data.toLocaleDateString("pt-BR", {
+                          day: "2-digit", month: "2-digit", year: "numeric",
+                        });
+                        const horaFormatada = data.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit", minute: "2-digit",
+                        });
+                        return (
+                          <div
+                            key={item.id}
+                            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hover:border-purple-200 dark:hover:border-purple-700 transition-colors"
                           >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Restaurar esta busca
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                            {/* Data e hora */}
+                            <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                              <Clock className="w-3 h-3" />
+                              {dataFormatada} às {horaFormatada}
+                            </div>
+
+                            {/* Query */}
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
+                              "{item.descricao}"
+                            </p>
+
+                            {/* Contagem de resultados */}
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {item.total_resultados} empresa{item.total_resultados !== 1 ? "s" : ""} encontrada{item.total_resultados !== 1 ? "s" : ""}
+                            </p>
+
+                            {/* Prévia das empresas (primeiras 3) */}
+                            {Array.isArray(item.resultados) && item.resultados.length > 0 && (
+                              <div className="space-y-1">
+                                {item.resultados.slice(0, 3).map((emp: any, i: number) => (
+                                  <p key={emp.id || i} className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">{i + 1}.</span> {emp.razao_social}
+                                  </p>
+                                ))}
+                                {item.resultados.length > 3 && (
+                                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    +{item.resultados.length - 3} empresa{item.resultados.length - 3 !== 1 ? "s" : ""}...
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Botão restaurar */}
+                            <button
+                              onClick={() => restaurarDoBancoDoDados(item)}
+                              className="w-full inline-flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-lg border border-purple-200 dark:border-purple-700 transition-colors"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Restaurar esta busca
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </SheetContent>
             </Sheet>
 

@@ -20,25 +20,31 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { descricao, empresaId } = req.body;
+    const { descricao, empresaId, isAdmin, adminEmail } = req.body;
 
     // Validações básicas
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5) {
       return res.status(400).json({ erro: "Descreva com mais detalhes o que você precisa (mínimo 5 caracteres)." });
     }
-    if (!empresaId) {
+    
+    if (!isAdmin && !empresaId) {
       return res.status(400).json({ erro: "Empresa não identificada." });
     }
 
-    // Verifica se a empresa solicitante é incentivadora
-    const { data: solicitante } = await supabaseAdmin
-      .from("empresas")
-      .select("acesso_tipo, razao_social, email")
-      .eq("id", empresaId)
-      .single();
+    let solicitanteEmail = adminEmail || "";
 
-    if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
-      return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+    // Verifica se a empresa solicitante é incentivadora (se não for admin)
+    if (!isAdmin) {
+      const { data: solicitante } = await supabaseAdmin
+        .from("empresas")
+        .select("acesso_tipo, razao_social, email")
+        .eq("id", empresaId)
+        .single();
+
+      if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+        return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
+      }
+      solicitanteEmail = solicitante.email;
     }
 
     // ── Pré-filtragem por palavras-chave ──────────────────────────────────────
@@ -61,13 +67,18 @@ export default async function handler(req: any, res: any) {
     const filtrosSobre = palavrasChave.map((p: string) => `sobre_empresa.ilike.%${p}%`).join(",");
 
     const baseSelect = "id, razao_social, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa";
-    const aplicarFiltrosBase = (q: any) =>
-      q
+    const aplicarFiltrosBase = (q: any) => {
+      let query = q
         .eq("status_aprovacao", "aprovado")
         .neq("tipo_usuario", "adm")
         .eq("autoriza_compartilhamento", "Sim")
-        .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%")
-        .neq("id", empresaId);
+        .not("acesso_tipo", "ilike", "%EMPRESA OU INICIATIVA INCENTIVADORA%");
+      
+      if (empresaId) {
+        query = query.neq("id", empresaId);
+      }
+      return query;
+    };
 
     // Etapa 1: busca por palavras-chave na atividade empresarial
     let { data: empresasFiltradas, error: erroBusca } =
@@ -197,14 +208,15 @@ ${contextoEmpresas}`;
       await Promise.all([
         // Log de auditoria (logs_acesso)
         supabaseAdmin.from("logs_acesso").insert({
-          empresa_id: empresaId,
-          email: solicitante.email,
+          empresa_id: isAdmin ? null : empresaId,
+          email: solicitanteEmail,
           tipo_evento: "ia_busca_empresas",
           detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
         }),
         // Histórico de buscas com resultados completos
         supabaseAdmin.from("historico_buscas_ia").insert({
-          empresa_id: empresaId,
+          empresa_id: isAdmin ? null : empresaId,
+          admin_email: isAdmin ? solicitanteEmail : null,
           descricao: descricao.trim(),
           resultados: resultadosEnriquecidos,
           total_resultados: resultadosEnriquecidos.length,

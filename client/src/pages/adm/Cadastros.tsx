@@ -13,8 +13,13 @@ import {
   AlertCircle,
   Clock,
   ArrowRight,
+  Sparkles,
+  History,
+  RotateCcw,
+  ArrowLeft,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -162,6 +168,17 @@ export default function CadastrosAdm() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
 
+  // ── Estados do modo Busca com IA ─────────────────────────────────────────
+  const [modoIA, setModoIA] = useState(false);
+  const [buscaIA, setBuscaIA] = useState("");
+  const [resultadosIA, setResultadosIA] = useState<any[]>([]);
+  const [carregandoIA, setCarregandoIA] = useState(false);
+  const [erroIA, setErroIA] = useState("");
+  const [historicoAberto, setHistoricoAberto] = useState(false);
+  const [historicoIA, setHistoricoIA] = useState<any[]>([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  // ── Fim do modo IA ────────────────────────────────────────────────────────
+
   // Filtros
   const [modalAberto, setModalAberto] = useState(false);
   const [filtrosTemp, setFiltrosTemp] = useState<FiltrosState>(FILTROS_PADRAO);
@@ -220,6 +237,111 @@ export default function CadastrosAdm() {
     }
     carregarCadastros();
   }, []);
+
+  // ── Funções de Busca com IA ───────────────────────────────────────────────
+  const SESSAO_KEY = "admin_pesquisas_ia_estado";
+  
+  // Pegamos o email do admin para registrar no histórico
+  const getAdminEmail = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.email || "admin@diversidade.io";
+  };
+
+  // Restaura estado do sessionStorage ao montar (ex: ao voltar da página de detalhes)
+  useEffect(() => {
+    try {
+      const salvo = sessionStorage.getItem(SESSAO_KEY);
+      if (salvo) {
+        const { buscaIA: q, resultadosIA: r } = JSON.parse(salvo);
+        setModoIA(true);
+        setBuscaIA(q || "");
+        setResultadosIA(r || []);
+      }
+    } catch {
+      sessionStorage.removeItem(SESSAO_KEY);
+    }
+  }, []); // executa apenas na montagem
+
+  async function carregarHistorico() {
+    setCarregandoHistorico(true);
+    try {
+      const email = await getAdminEmail();
+      const resp = await fetch(`/api/historico-buscas-ia?isAdmin=true&adminEmail=${encodeURIComponent(email)}`);
+      const dados = await resp.json();
+      setHistoricoIA(dados.historico || []);
+    } catch {
+      setHistoricoIA([]);
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  }
+
+  async function executarBuscaIA() {
+    if (!buscaIA.trim() || buscaIA.trim().length < 5) {
+      setErroIA("Descreva com mais detalhes o que você precisa (mínimo 5 caracteres).");
+      return;
+    }
+    setErroIA("");
+    setCarregandoIA(true);
+    setResultadosIA([]);
+    try {
+      const email = await getAdminEmail();
+      const resposta = await fetch("/api/busca-ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descricao: buscaIA.trim(),
+          isAdmin: true,
+          adminEmail: email,
+        }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        setErroIA(dados.erro || "Erro ao realizar a busca. Tente novamente.");
+        return;
+      }
+      const resultados = dados.resultados || [];
+      setResultadosIA(resultados);
+      // Persiste no sessionStorage para restaurar ao voltar
+      sessionStorage.setItem(SESSAO_KEY, JSON.stringify({ buscaIA: buscaIA.trim(), resultadosIA: resultados }));
+      if (resultados.length === 0) {
+        setErroIA(dados.mensagem || "Nenhuma empresa encontrada para essa descrição. Tente usar outras palavras.");
+      }
+    } catch {
+      setErroIA("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setCarregandoIA(false);
+    }
+  }
+
+  function restaurarDoBancoDoDados(item: any) {
+    setBuscaIA(item.descricao || "");
+    setResultadosIA(item.resultados || []);
+    setErroIA("");
+    setHistoricoAberto(false);
+    // Persiste no sessionStorage para sobreviver à navegação
+    sessionStorage.setItem(SESSAO_KEY, JSON.stringify({ buscaIA: item.descricao, resultadosIA: item.resultados }));
+  }
+
+  function abrirModoIA() {
+    // Só limpa se não houver estado salvo no sessionStorage
+    const salvo = sessionStorage.getItem(SESSAO_KEY);
+    if (!salvo) {
+      setBuscaIA("");
+      setResultadosIA([]);
+      setErroIA("");
+    }
+    setModoIA(true);
+  }
+
+  function fecharModoIA() {
+    sessionStorage.removeItem(SESSAO_KEY);
+    setModoIA(false);
+    setBuscaIA("");
+    setResultadosIA([]);
+    setErroIA("");
+  }
+  // ── Fim Busca com IA ──────────────────────────────────────────────────────
 
   // ── Filtros e paginação ─────────────────────────────────────────────────────
 
@@ -457,38 +579,233 @@ export default function CadastrosAdm() {
             <p className="text-gray-600 mt-1">Gerencie todas as empresas cadastradas na plataforma.</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Busca */}
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar empresa, CNPJ ou e-mail..."
-                className="pl-9 h-10 bg-white text-sm"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
-            </div>
+          {!modoIA && (
+            <div className="flex items-center gap-2">
+              {/* Busca */}
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar empresa, CNPJ ou e-mail..."
+                  className="pl-9 h-10 bg-white text-sm"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+              </div>
 
-            {/* Botão Filtrar */}
-            <button
-              onClick={abrirModal}
-              className={`relative inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${
-                qtdFiltrosAtivos > 0
-                  ? "bg-[#7030A0] text-white border-[#7030A0]"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filtrar
-              {qtdFiltrosAtivos > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-[#7030A0] text-xs font-bold">
-                  {qtdFiltrosAtivos}
-                </span>
-              )}
-            </button>
-          </div>
+              {/* Botão Filtrar */}
+              <button
+                onClick={abrirModal}
+                className={`relative inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${
+                  qtdFiltrosAtivos > 0
+                    ? "bg-[#7030A0] text-white border-[#7030A0]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Filtrar
+                {qtdFiltrosAtivos > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-[#7030A0] text-xs font-bold">
+                    {qtdFiltrosAtivos}
+                  </span>
+                )}
+              </button>
+              
+              {/* Botão Busca com IA */}
+              <button
+                onClick={abrirModoIA}
+                className={`inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${
+                  modoIA
+                    ? "bg-[#7030A0] text-white border-[#7030A0]"
+                    : "bg-purple-50 text-[#7030A0] border-purple-200 hover:bg-purple-100"
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">Modo Busca com IA</span>
+                <span className="sm:hidden">IA</span>
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Renderização condicional: IA vs Tabela normal */}
+        {modoIA ? (
+          <div className="space-y-6">
+            {/* Cabeçalho do painel IA */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={fecharModoIA}
+                className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Voltar para a lista
+              </button>
+              <div className="flex items-center gap-2">
+                {/* Botão Histórico */}
+                <button
+                  onClick={() => { setHistoricoAberto(true); carregarHistorico(); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#7030A0] dark:hover:text-purple-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 hover:border-[#7030A0] dark:hover:border-purple-500 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  Histórico
+                </button>
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Modo Busca com IA
+                </span>
+              </div>
+            </div>
+
+            {/* Campo de descrição */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Descreva o serviço ou produto que você precisa
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Quanto mais detalhes você fornecer, melhores serão os resultados. A IA irá analisar as atividades de todas as empresas cadastradas e encontrar as mais relevantes para você.
+                </p>
+                <Textarea
+                  placeholder="Ex: Preciso de fornecedores de TI com experiência em infraestrutura..."
+                  value={buscaIA}
+                  onChange={(e) => { setBuscaIA(e.target.value); setErroIA(""); }}
+                  rows={4}
+                  className="resize-none dark:bg-gray-900 dark:border-gray-700 dark:text-white text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) executarBuscaIA();
+                  }}
+                />
+                <p className="text-xs text-gray-400 mt-1.5">Dica: pressione Ctrl+Enter para buscar rapidamente.</p>
+              </div>
+              <button
+                onClick={executarBuscaIA}
+                disabled={carregandoIA}
+                className="inline-flex items-center justify-center gap-2 px-6 h-11 bg-[#7030A0] hover:bg-purple-800 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {carregandoIA ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                Buscar com IA
+              </button>
+            </div>
+
+            {erroIA && (
+              <div className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-lg border border-red-100">
+                <X className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{erroIA}</p>
+              </div>
+            )}
+
+            {resultadosIA.length > 0 && !carregandoIA && (
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100 pl-1">
+                  {resultadosIA.length} empresa{resultadosIA.length !== 1 ? "s" : ""} encontrada{resultadosIA.length !== 1 ? "s" : ""} pela IA
+                </h3>
+                <div className="grid gap-4">
+                  {resultadosIA.map((emp, index) => (
+                    <div
+                      key={emp.id}
+                      className="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-purple-200 dark:hover:border-purple-700 transition-all flex flex-col sm:flex-row gap-5"
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/40 text-[#7030A0] dark:text-purple-300 font-bold flex items-center justify-center text-sm border border-purple-200 dark:border-purple-700/50">
+                        {index + 1}º
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            {emp.razao_social}
+                            {emp.nome_fantasia && (
+                              <span className="text-sm font-normal text-gray-500">
+                                ({emp.nome_fantasia})
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {emp.email} • CNPJ: {emp.cnpj}
+                          </p>
+                        </div>
+                        <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-lg p-3 border border-purple-100 dark:border-purple-800/30">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                            <span className="font-semibold text-[#7030A0] dark:text-purple-400 not-italic mr-1">
+                              Por que a IA recomendou:
+                            </span>
+                            {emp.justificativa}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 flex sm:flex-col justify-end sm:justify-start">
+                        <Link href={`/adm/cadastros/${emp.id}`}>
+                          <a className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-50 hover:bg-[#7030A0] text-gray-700 hover:text-white text-sm font-medium rounded-lg border border-gray-200 hover:border-[#7030A0] transition-colors group-hover:bg-[#7030A0] group-hover:text-white">
+                            Ver detalhes
+                            <ArrowRight className="w-4 h-4" />
+                          </a>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Sheet de Histórico ─────────────────────────────────────────── */}
+            <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
+              <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full dark:bg-gray-900 dark:border-gray-700">
+                <SheetHeader className="mb-6 space-y-2 shrink-0">
+                  <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white mt-4 sm:mt-0">
+                    <History className="w-5 h-5 text-[#7030A0] dark:text-purple-400" />
+                    Histórico de Buscas com IA
+                  </SheetTitle>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Acesse suas buscas recentes e restaure os resultados a qualquer momento sem precisar refazer a pesquisa.
+                  </p>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                  {carregandoHistorico ? (
+                    <div className="flex justify-center items-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    </div>
+                  ) : historicoIA.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                      <Clock className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Nenhuma busca com IA encontrada no histórico.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {historicoIA.map((item: any) => {
+                        const data = new Date(item.criado_em);
+                        const dataFormatada = data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+                        const horaFormatada = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                        return (
+                          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hover:border-purple-200 dark:hover:border-purple-700 transition-colors">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                              <Clock className="w-3 h-3" />
+                              {dataFormatada} às {horaFormatada}
+                            </div>
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
+                              "{item.descricao}"
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {item.total_resultados} empresa{item.total_resultados !== 1 ? "s" : ""} encontrada{item.total_resultados !== 1 ? "s" : ""}
+                            </p>
+                            <button
+                              onClick={() => restaurarDoBancoDoDados(item)}
+                              className="w-full inline-flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-lg border border-purple-200 dark:border-purple-700 transition-colors"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Restaurar esta busca
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+
+          </div>
+        ) : (
+          <>
         {/* Mini-cards de atalho */}
         {!carregando && (
           <div className="grid grid-cols-3 gap-3">
@@ -739,6 +1056,8 @@ export default function CadastrosAdm() {
             </div>
           )}
         </div>
+        </>
+      )}
       </div>
 
       {/* ── Modal de Filtros ───────────────────────────────────────────────────── */}
