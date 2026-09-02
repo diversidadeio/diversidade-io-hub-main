@@ -19,7 +19,7 @@ import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
 import AdministradoresAdm from "./pages/adm/Administradores";
 import SolicitacoesBuscaAdm from "./pages/adm/SolicitacoesBusca";
-import EmailMarketingAdm from "./pages/adm/EmailMarketing";
+
 import Pesquisas from "./pages/usuario/Pesquisas";
 import MinhasSolicitacoes from "./pages/usuario/MinhasSolicitacoes";
 import Usuarios from "./pages/usuario/Usuarios";
@@ -130,7 +130,7 @@ function Router() {
       <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={DetalhesCadastroAdm} />
       <RotaProtegidaAdm path={"/adm/exclusoes"} component={ExclusoesAdm} />
       <RotaProtegidaAdm path={"/adm/solicitacoes-busca"} component={SolicitacoesBuscaAdm} />
-      <RotaProtegidaAdm path={"/adm/email-marketing"} component={EmailMarketingAdm} />
+
       <RotaProtegidaAdm path={"/adm/logs"} component={LogsAdm} />
 
       <Route path={"/404"} component={NotFound} />
