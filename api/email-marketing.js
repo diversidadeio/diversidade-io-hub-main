@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -203,7 +204,6 @@ export default async function handler(req, res) {
           }
         }
       } else if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-        const nodemailer = (await import("nodemailer")).default;
         const transporter = nodemailer.createTransport({
           host: SMTP_HOST,
           port: Number(SMTP_PORT) || 587,
