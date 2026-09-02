@@ -530,6 +530,77 @@ apiRouter.post("/enviar-email-nova-solicitacao-busca", async (req, res) => {
   }
 });
 
+apiRouter.post("/enviar-email-exclusao-solicitacao-busca", async (req, res) => {
+  try {
+    const { emailDestino, nomeEmpresa, cnaes, modalidade } = req.body;
+    if (!emailDestino) {
+      return res.status(400).json({ erro: "E-mail de destino não fornecido." });
+    }
+
+    const SMTP_HOST = process.env.SMTP_HOST;
+    const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+    const SMTP_USER = process.env.SMTP_USER;
+    const SMTP_PASS = process.env.SMTP_PASS;
+
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+      console.warn("Faltam variáveis de ambiente SMTP.");
+      return res.status(500).json({ erro: "Configuração SMTP ausente" });
+    }
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="color: #7030A0; font-size: 28px; margin: 0;">Diversidade.io</h1>
+        </div>
+
+        <div style="background: #fff1f2; border-radius: 12px; padding: 32px; border: 1px solid #fecdd3;">
+          <h2 style="color: #be123c; margin-top: 0;">Solicitação Excluída</h2>
+          <p style="color: #374151; line-height: 1.6;">
+            Olá, <strong>${nomeEmpresa || "Empresa Parceira"}</strong>,
+          </p>
+          <p style="color: #374151; line-height: 1.6;">
+            Informamos que a sua solicitação de busca de empreendedores foi <strong>excluída</strong> pela administração da plataforma.
+          </p>
+          
+          <div style="background: #ffffff; border-radius: 8px; padding: 16px; margin: 24px 0; border: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 12px 0;"><strong>CNAEs solicitados:</strong><br/>${(cnaes || []).join(', ')}</p>
+            <p style="margin: 0;"><strong>Modalidade:</strong><br/>${modalidade}</p>
+          </div>
+
+          <p style="color: #374151; line-height: 1.6;">
+            Se você acha que isso foi um engano ou deseja abrir uma nova solicitação, acesse o seu painel na Diversidade.io.
+          </p>
+        </div>
+
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+          Este é um e-mail automático enviado pela plataforma Diversidade.io.
+        </p>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: false,
+      requireTLS: true,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false }
+    });
+
+    await transporter.sendMail({
+      from: `"Diversidade.io" <${SMTP_USER}>`,
+      to: emailDestino,
+      subject: `Aviso: Solicitação de Busca Excluída`,
+      html: htmlBody,
+    });
+
+    return res.json({ sucesso: true, mensagem: "E-mail de notificação de exclusão enviado com sucesso!" });
+
+  } catch (err: any) {
+    console.error("Erro no endpoint /enviar-email-exclusao-solicitacao-busca:", err);
+    res.status(500).json({ erro: "Erro interno: " + err.message });
+  }
+});
 
 /**
  * Endpoint de registro de auditoria:
@@ -1102,5 +1173,242 @@ apiRouter.get("/historico-buscas-ia", async (req, res) => {
   } catch (err: any) {
     console.error("[historico-buscas-ia] Erro interno:", err);
     return res.status(500).json({ erro: "Erro interno. Tente novamente em instantes." });
+  }
+});
+
+import { Resend } from "resend";
+
+apiRouter.get("/email-marketing", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ erro: "Não autorizado" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return res.status(401).json({ erro: "Token inválido" });
+    }
+
+    // Verifica se é admin
+    const { data: adminData } = await supabaseAdmin
+      .from('empresa_usuarios')
+      .select('empresas(tipo_usuario)')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!adminData || (adminData.empresas as any)?.tipo_usuario !== 'adm') {
+      return res.status(403).json({ erro: "Acesso negado." });
+    }
+
+    const { data: campanhas, error: dbError } = await supabaseAdmin
+      .from("campanhas_email")
+      .select("*")
+      .order("criado_em", { ascending: false });
+
+    if (dbError) throw dbError;
+
+    return res.json({ campanhas });
+  } catch (err) {
+    console.error("Erro ao buscar campanhas:", err);
+    return res.status(500).json({ erro: "Erro ao buscar histórico." });
+  }
+});
+
+apiRouter.post("/email-marketing", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ erro: "Não autorizado" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return res.status(401).json({ erro: "Token inválido" });
+    }
+
+    // Verifica se é admin
+    const { data: adminData } = await supabaseAdmin
+      .from('empresa_usuarios')
+      .select('empresas(tipo_usuario)')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!adminData || (adminData.empresas as any)?.tipo_usuario !== 'adm') {
+      return res.status(403).json({ erro: "Acesso negado." });
+    }
+
+    const { assunto, corpoHtml, filtro, agendadoPara } = req.body;
+
+    if (!assunto || !corpoHtml || !filtro) {
+      return res.status(400).json({ erro: "Dados incompletos." });
+    }
+
+    const status = agendadoPara ? 'agendado' : 'rascunho';
+
+    const { data: campanha, error: insertError } = await supabaseAdmin
+      .from("campanhas_email")
+      .insert({
+        assunto,
+        corpo_html: corpoHtml,
+        filtro,
+        agendado_para: agendadoPara || null,
+        status: status,
+        criado_por: user.id
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    if (agendadoPara) {
+      return res.json({ sucesso: true, mensagem: "Campanha agendada com sucesso!", id: campanha.id });
+    }
+
+    let emailsDestino: string[] = [];
+    let query = supabaseAdmin
+      .from('empresas')
+      .select('email, razao_social, empresa_usuarios(email, nome)')
+      .neq('tipo_usuario', 'adm');
+
+    if (filtro.tipo === 'tipo_acesso' && filtro.valores.length > 0) {
+      query = query.in('tipo_acesso', filtro.valores);
+    } else if (filtro.tipo === 'empresa' && filtro.valores.length > 0) {
+      query = query.in('id', filtro.valores);
+    }
+
+    const { data: empresasData, error: qError } = await query;
+    if (qError) throw qError;
+
+    const emailSet = new Set<string>();
+    
+    empresasData.forEach(emp => {
+      if (emp.email) emailSet.add(emp.email);
+      if (emp.empresa_usuarios && emp.empresa_usuarios.length > 0) {
+        emp.empresa_usuarios.forEach((eu: any) => {
+          if (eu.email) emailSet.add(eu.email);
+        });
+      }
+    });
+
+    if (filtro.tipo === 'usuario' && filtro.valores.length > 0) {
+      emailSet.clear();
+      const { data: usuariosData, error: uError } = await supabaseAdmin
+        .from('empresa_usuarios')
+        .select('email')
+        .in('auth_user_id', filtro.valores);
+        
+      if (!uError && usuariosData) {
+        usuariosData.forEach(u => {
+          if (u.email) emailSet.add(u.email);
+        });
+      }
+    }
+
+    emailsDestino = Array.from(emailSet);
+
+    if (emailsDestino.length === 0) {
+      await supabaseAdmin.from("campanhas_email").update({ status: 'erro' }).eq('id', campanha.id);
+      return res.status(400).json({ erro: "Nenhum destinatário encontrado para o filtro." });
+    }
+
+    await supabaseAdmin.from("campanhas_email").update({ status: 'enviando' }).eq('id', campanha.id);
+
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    const SMTP_HOST = process.env.SMTP_HOST;
+    const SMTP_PORT = process.env.SMTP_PORT;
+    const SMTP_USER = process.env.SMTP_USER;
+    const SMTP_PASS = process.env.SMTP_PASS;
+
+    const htmlTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        ${corpoHtml}
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+          <p>Você está recebendo este e-mail pois está cadastrado na plataforma Diversidade.io</p>
+        </div>
+      </div>
+    `;
+
+    let sentCount = 0;
+    let hasError = false;
+
+    if (RESEND_API_KEY) {
+      const resend = new Resend(RESEND_API_KEY);
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < emailsDestino.length; i += BATCH_SIZE) {
+        const batch = emailsDestino.slice(i, i + BATCH_SIZE);
+        const emailRequests = batch.map(email => ({
+          from: "Diversidade.io <nao-responder@diversidade.io>",
+          to: [email],
+          subject: assunto,
+          html: htmlTemplate,
+        }));
+
+        const { data, error } = await resend.batch.send(emailRequests);
+        if (error) {
+          console.error(`Erro no lote ${i}:`, error);
+          hasError = true;
+        } else {
+          sentCount += batch.length;
+        }
+      }
+    } else if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT) || 587,
+        secure: Number(SMTP_PORT) === 465,
+        auth: {
+          user: SMTP_USER,
+          pass: SMTP_PASS,
+        },
+      });
+
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < emailsDestino.length; i += BATCH_SIZE) {
+        const batch = emailsDestino.slice(i, i + BATCH_SIZE);
+        try {
+          await transporter.sendMail({
+            from: `"Diversidade.io" <${SMTP_USER}>`,
+            bcc: batch,
+            subject: assunto,
+            html: htmlTemplate,
+          });
+          sentCount += batch.length;
+        } catch (error) {
+           console.error(`Erro no nodemailer lote ${i}:`, error);
+           hasError = true;
+        }
+      }
+    } else {
+      console.warn("[Simulação de Envio E-mail Marketing]", { emailsDestino, assunto });
+      await supabaseAdmin.from("campanhas_email").update({ 
+        status: 'enviado', 
+        total_envios: emailsDestino.length,
+        enviado_em: new Date().toISOString()
+      }).eq('id', campanha.id);
+      return res.json({ sucesso: true, mensagem: `Simulação: ${emailsDestino.length} e-mails enviados.` });
+    }
+
+    await supabaseAdmin.from("campanhas_email").update({ 
+      status: hasError && sentCount === 0 ? 'erro' : 'enviado',
+      total_envios: sentCount,
+      enviado_em: new Date().toISOString()
+    }).eq('id', campanha.id);
+
+    return res.json({ 
+      sucesso: true, 
+      mensagem: `${sentCount} e-mails enviados.`,
+      totalEnviados: sentCount
+    });
+
+  } catch (err) {
+    console.error("Erro no endpoint POST /api/email-marketing:", err);
+    return res.status(500).json({ erro: "Erro interno do servidor." });
   }
 });

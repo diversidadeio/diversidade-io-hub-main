@@ -8,6 +8,7 @@ import {
   Link2, Copy, Check, CalendarClock, MessageSquare, ThumbsUp, ThumbsDown,
   Save, EyeOff, Send as SendIcon
 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -118,6 +119,8 @@ export function getSlaInfo(dataCriacao: string, status: string) {
   }
 }
 
+import { ModalNovaSolicitacaoAdm } from "@/components/adm/ModalNovaSolicitacaoAdm";
+
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function SolicitacoesAdm() {
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoBusca[]>([]);
@@ -125,6 +128,9 @@ export default function SolicitacoesAdm() {
   const [selecionada, setSelecionada] = useState<SolicitacaoBusca | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [atualizandoStatus, setAtualizandoStatus] = useState(false);
+  const [modalCriacaoAberto, setModalCriacaoAberto] = useState(false);
+  const [solicitacaoParaDeletar, setSolicitacaoParaDeletar] = useState<SolicitacaoBusca | null>(null);
+  const [deletando, setDeletando] = useState(false);
 
   // Estados para os administradores responsáveis
   const [admins, setAdmins] = useState<any[]>([]);
@@ -473,6 +479,45 @@ export default function SolicitacoesAdm() {
     }
   }
 
+  // Exclui uma solicitação e notifica o usuário
+  async function excluirSolicitacao() {
+    if (!solicitacaoParaDeletar) return;
+    setDeletando(true);
+    try {
+      const { error } = await supabase
+        .from("solicitacoes_busca")
+        .delete()
+        .eq("id", solicitacaoParaDeletar.id);
+        
+      if (error) throw error;
+      
+      // Remove localmente
+      setSolicitacoes(prev => prev.filter(s => s.id !== solicitacaoParaDeletar.id));
+      if (selecionada?.id === solicitacaoParaDeletar.id) {
+        setSelecionada(null);
+      }
+      
+      // Envia notificação
+      fetch('/api/enviar-email-exclusao-solicitacao-busca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailDestino: solicitacaoParaDeletar.email_empresa,
+          nomeEmpresa: solicitacaoParaDeletar.razao_social,
+          cnaes: solicitacaoParaDeletar.cnaes,
+          modalidade: solicitacaoParaDeletar.modalidade
+        })
+      }).catch(err => console.error("Erro ao enviar email de exclusão:", err));
+      
+      toast.success("Solicitação excluída com sucesso.");
+      setSolicitacaoParaDeletar(null);
+    } catch (err: any) {
+      toast.error("Erro ao excluir solicitação: " + err.message);
+    } finally {
+      setDeletando(false);
+    }
+  }
+
   // Atualiza o status de uma solicitação
   async function atualizarStatus(id: string, novoStatus: string) {
     setAtualizandoStatus(true);
@@ -620,14 +665,23 @@ export default function SolicitacoesAdm() {
               Solicitações de busca de empreendedores por CNAE enviadas por empresas incentivadoras.
             </p>
           </div>
-          <button
-            onClick={carregarSolicitacoes}
-            disabled={carregando}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setModalCriacaoAberto(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#7030A0] text-white hover:bg-purple-800 text-sm font-medium transition-colors shadow-sm"
+            >
+              <span className="text-lg font-medium leading-none mb-[2px]">+</span>
+              Nova Solicitação
+            </button>
+            <button
+              onClick={carregarSolicitacoes}
+              disabled={carregando}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {/* Filtros por status + responsável */}
@@ -801,6 +855,15 @@ export default function SolicitacoesAdm() {
                               <Eye className="w-3.5 h-3.5" />
                               Detalhes
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSolicitacaoParaDeletar(sol)}
+                              className="border-red-200 text-red-600 hover:bg-red-50 flex items-center p-2"
+                              title="Excluir solicitação"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -963,33 +1026,31 @@ export default function SolicitacoesAdm() {
                     </Button>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
                       onClick={() => copiarLink(selecionada, true)}
-                      className="flex-1 border-purple-200 text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1.5"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-purple-200 bg-purple-50 text-purple-700 text-xs font-medium hover:bg-purple-100 transition-colors"
                     >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      Copiar com texto pronto
-                    </Button>
+                      <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">Copiar texto</span>
+                    </button>
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhamento(selecionada, montarLinkOportunidade(selecionada.id)))}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-green-200 bg-white text-green-700 text-sm font-medium hover:bg-green-50 transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-green-200 bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors"
                     >
-                      <SendIcon className="w-3.5 h-3.5" />
-                      Abrir no WhatsApp
+                      <SendIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">WhatsApp</span>
                     </a>
                     <a
                       href={montarLinkOportunidade(selecionada.id)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-700 text-xs font-medium hover:bg-gray-100 transition-colors"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Abrir página
+                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">Abrir página</span>
                     </a>
                   </div>
 
@@ -1641,6 +1702,44 @@ export default function SolicitacoesAdm() {
           <DialogFooter className="flex flex-row justify-between gap-2 pt-2">
             <Button variant="outline" onClick={() => setFiltrosTemp(FILTROS_PADRAO)} className="flex-1">Limpar</Button>
             <Button onClick={() => { setFiltrosAtivos(filtrosTemp); setModalFiltroAberto(false); setPaginaAtual(1); }} className="flex-1 bg-[#7030A0] text-white hover:bg-purple-800">Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <ModalNovaSolicitacaoAdm 
+        aberto={modalCriacaoAberto} 
+        onOpenChange={setModalCriacaoAberto} 
+        onSucesso={() => {
+          setModalCriacaoAberto(false);
+          carregarSolicitacoes();
+        }}
+      />
+
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={!!solicitacaoParaDeletar} onOpenChange={(open) => !open && setSolicitacaoParaDeletar(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Excluir Solicitação
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-gray-700">
+            <p className="mb-2">
+              Tem certeza que deseja excluir a solicitação de busca da empresa <strong>{solicitacaoParaDeletar?.razao_social}</strong>?
+            </p>
+            <p className="text-sm text-gray-500">
+              Esta ação não pode ser desfeita e o usuário será notificado por e-mail sobre o cancelamento.
+            </p>
+          </div>
+          <DialogFooter className="gap-3 sm:gap-3">
+            <Button variant="outline" onClick={() => setSolicitacaoParaDeletar(null)} disabled={deletando}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={excluirSolicitacao} disabled={deletando} className="bg-red-600 hover:bg-red-700 text-white">
+              {deletando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Sim, Excluir
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

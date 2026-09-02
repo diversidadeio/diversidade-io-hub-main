@@ -437,31 +437,31 @@ export default function MinhasSolicitacoes() {
                                   {idCopiado === sol.id ? "Copiado" : "Copiar link"}
                                 </button>
                               </div>
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                   onClick={() => copiarLink(sol, true)}
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-medium hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
                                 >
-                                  <FileText className="w-4 h-4" />
-                                  Copiar com texto pronto
+                                  <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span className="truncate">Copiar texto</span>
                                 </button>
                                 <a
                                   href={`https://wa.me/?text=${encodeURIComponent(mensagemCompartilhamento(sol, montarLinkOportunidade(sol.id)))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm font-medium hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
                                 >
-                                  <SendIcon className="w-4 h-4" />
-                                  WhatsApp
+                                  <SendIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span className="truncate">WhatsApp</span>
                                 </a>
                                 <a
                                   href={montarLinkOportunidade(sol.id)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 >
-                                  <ExternalLink className="w-4 h-4" />
-                                  Ver página
+                                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span className="truncate">Ver página</span>
                                 </a>
                               </div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, Activity, LogOut, Shield, Send, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Activity, LogOut, Shield, Send, Menu, X, Mail } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,6 +22,7 @@ export function LayoutAdm({ children }: LayoutAdmProps) {
     { href: "/adm/cadastros", label: "Cadastros", icon: Users },
     { href: "/adm/exclusoes", label: "Exclusões", icon: FileText },
     { href: "/adm/solicitacoes-busca", label: "Solicitações de Busca", icon: Send },
+    // { href: "/adm/email-marketing", label: "E-mail Marketing", icon: Mail },
     { href: "/adm/logs", label: "Logs de Acesso", icon: Activity },
   ];
 
