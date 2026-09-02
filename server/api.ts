@@ -714,7 +714,7 @@ apiRouter.post("/ler-logs", async (req, res) => {
     const logsCompletos = data ? [...data] : [];
     
     if (logsCompletos.length > 0) {
-      const emails = [...new Set(logsCompletos.map(l => l.email).filter(Boolean))];
+      const emails = Array.from(new Set(logsCompletos.map(l => l.email).filter(Boolean)));
       
       if (emails.length > 0) {
         const { data: usuariosInfo } = await supabaseAdmin

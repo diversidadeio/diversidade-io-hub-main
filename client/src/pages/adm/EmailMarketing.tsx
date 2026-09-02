@@ -344,7 +344,7 @@ export default function EmailMarketingAdm() {
                             className="flex items-center space-x-3 p-3 hover:bg-gray-50 border-b last:border-0 cursor-pointer"
                             onClick={() => toggleValorFiltro(id)}
                           >
-                            <Checkbox checked={checked} readOnly />
+                            <Checkbox checked={checked} disabled />
                             <span className="text-sm">{label}</span>
                           </div>
                         );

@@ -4,7 +4,7 @@ import { supabase, supabaseAnon } from "@/lib/supabase";
 import { Link } from "wouter";
 import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2, Sparkles, ArrowLeft, Clock, History, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { FiltroState, FiltrosState } from "@/components/Filtros";
+
 import { ModalSolicitarBusca } from "@/components/usuario/ModalSolicitarBusca";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
