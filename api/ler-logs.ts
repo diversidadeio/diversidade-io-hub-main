@@ -79,7 +79,7 @@ export default async function handler(req: any, res: any) {
 
         if (usuariosInfo) {
           const mapUsuarios: Record<string, any> = {};
-          usuariosInfo.forEach(u => {
+          usuariosInfo.forEach((u: any) => {
             mapUsuarios[u.email] = {
               nome: u.nome_responsavel,
               empresa: u.razao_social || u.nome_fantasia || 'Administração'

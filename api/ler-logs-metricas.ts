@@ -47,7 +47,7 @@ export default async function handler(req: any, res: any) {
 
     let usuariosUnicosCount = 0;
     if (usuariosAtivos.data) {
-      const uniqueEmails = new Set(usuariosAtivos.data.map(r => r.email));
+      const uniqueEmails = new Set(usuariosAtivos.data.map((r: any) => r.email));
       usuariosUnicosCount = uniqueEmails.size;
     }
 
