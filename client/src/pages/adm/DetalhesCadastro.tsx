@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { registrarLog } from "@/lib/registrarLog";
-
+import { Edit2 } from "lucide-react";
 // ─── Lógica de completude (espelho do Cadastros.tsx) ────────────────────────
 
 const CAMPOS_OBRIGATORIOS_EMPRESA = [
@@ -270,6 +270,49 @@ export default function DetalhesCadastroAdm() {
       setVerificandoCnpj(false);
     }
   };
+
+  const [dialogoManualAberto, setDialogoManualAberto] = useState(false);
+  const [novaSituacaoManual, setNovaSituacaoManual] = useState<SituacaoCNPJ>("ATIVA");
+  const [salvandoManual, setSalvandoManual] = useState(false);
+
+  const handleAtualizarSituacaoManual = async () => {
+    if (!empresa?.id) return;
+    setSalvandoManual(true);
+    try {
+      const verificadoEm = new Date().toISOString();
+      const { error } = await supabase
+        .from('empresas')
+        .update({
+          situacao_cnpj: novaSituacaoManual,
+          situacao_cnpj_verificado_em: verificadoEm,
+        })
+        .eq('id', empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({
+        ...prev,
+        situacao_cnpj: novaSituacaoManual,
+        situacao_cnpj_verificado_em: verificadoEm,
+      }));
+      toast.success("Situação do CNPJ atualizada manualmente!");
+      
+      registrarLog({
+        tipo_evento: 'adm_atualizou_cnpj_manual',
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Atualizou manualmente o CNPJ da empresa para: ${novaSituacaoManual}`,
+      });
+
+      setDialogoManualAberto(false);
+    } catch (err: any) {
+      toast.error('Erro ao atualizar: ' + err.message);
+    } finally {
+      setSalvandoManual(false);
+    }
+  };
+
   useEffect(() => {
     async function carregar() {
       if (!id) return;
@@ -515,9 +558,16 @@ export default function DetalhesCadastroAdm() {
                       onClick={handleVerificarCNPJ}
                       disabled={verificandoCnpj}
                       className="mt-0.5 p-1.5 text-gray-500 hover:text-[#7030A0] hover:bg-purple-50 rounded-full transition-colors disabled:opacity-50 border border-transparent hover:border-purple-200 bg-gray-50"
-                      title="Verificar/Atualizar situação na Receita Federal"
+                      title="Verificar/Atualizar situação na Receita Federal (BrasilAPI)"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${verificandoCnpj ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => setDialogoManualAberto(true)}
+                      className="mt-0.5 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors border border-transparent hover:border-blue-200 bg-gray-50"
+                      title="Alterar situação manualmente"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
@@ -733,6 +783,56 @@ export default function DetalhesCadastroAdm() {
             <Button type="button" onClick={() => setDialogoSalaAberta(false)} style={{ backgroundColor: "#7030A0" }}>
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Entendi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogoManualAberto} onOpenChange={setDialogoManualAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-600">
+              <Edit2 className="w-5 h-5" /> Alterar Situação Manualmente
+            </DialogTitle>
+            <DialogDescription>
+              Atualize a situação do CNPJ caso a informação da BrasilAPI esteja desatualizada em relação à Receita Federal.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nova Situação:
+            </label>
+            <select
+              value={novaSituacaoManual || ""}
+              onChange={(e) => setNovaSituacaoManual(e.target.value as SituacaoCNPJ)}
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            >
+              <option value="ATIVA">Ativa</option>
+              <option value="INAPTA">Inapta</option>
+              <option value="BAIXADA">Baixada</option>
+              <option value="SUSPENSA">Suspensa</option>
+              <option value="NULA">Nula</option>
+            </select>
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogoManualAberto(false)}
+              disabled={salvandoManual}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleAtualizarSituacaoManual} 
+              disabled={salvandoManual}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              {salvandoManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

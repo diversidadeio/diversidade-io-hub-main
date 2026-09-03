@@ -247,15 +247,18 @@ function ModalVerificarCNPJs({
   aberto,
   onFechar,
   empresas,
+  situacoes,
   onAtualizarSituacao,
 }: {
   aberto: boolean;
   onFechar: () => void;
   empresas: any[];
+  situacoes: Record<string, { situacao: SituacaoCNPJ; verificado_em: string | null }>;
   onAtualizarSituacao: (empresaId: string, situacao: string, verificadoEm: string) => void;
 }) {
   const [estado, setEstado] = useState<EstadoVerificacao>("selecao");
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [progresso, setProgresso] = useState<ProgressoItem | null>(null);
   const [resumo, setResumo] = useState<ResumoVerificacao | null>(null);
@@ -267,6 +270,7 @@ function ModalVerificarCNPJs({
     if (aberto) {
       setEstado("selecao");
       setBusca("");
+      setFiltroStatus("todos");
       setSelecionadas(new Set(empresas.map((e) => e.id)));
       setProgresso(null);
       setResumo(null);
@@ -285,11 +289,23 @@ function ModalVerificarCNPJs({
 
   const empresasFiltradas = empresas.filter((e) => {
     const termo = busca.toLowerCase();
-    return (
+    const passaBusca =
       !termo ||
       (e.razao_social && e.razao_social.toLowerCase().includes(termo)) ||
-      (e.cnpj && e.cnpj.includes(termo))
-    );
+      (e.cnpj && e.cnpj.includes(termo));
+    
+    if (!passaBusca) return false;
+
+    const sit = situacoes[e.id];
+    
+    if (filtroStatus === "nao_verificados") {
+      if (sit && sit.situacao) return false;
+    } else if (filtroStatus !== "todos") {
+      // Filtrar por status específico (ATIVA, INAPTA, BAIXADA, etc)
+      if (!sit || sit.situacao !== filtroStatus) return false;
+    }
+
+    return true;
   });
 
   const totalSelecionadas = selecionadas.size;
@@ -309,7 +325,7 @@ function ModalVerificarCNPJs({
   }
 
   function selecionarTodas() {
-    setSelecionadas(new Set(empresas.map((e) => e.id)));
+    setSelecionadas(new Set(empresasFiltradas.map((e) => e.id)));
   }
 
   function limparSelecao() {
@@ -388,7 +404,7 @@ function ModalVerificarCNPJs({
                 onClick={selecionarTodas}
                 className="text-xs text-[#7030A0] font-medium hover:underline"
               >
-                ✓ Selecionar todas ({empresas.length})
+                ✓ Selecionar todas
               </button>
               <span className="text-gray-300">|</span>
               <button
@@ -401,20 +417,41 @@ function ModalVerificarCNPJs({
                 <span className="font-semibold text-gray-800">{totalSelecionadas}</span> selecionada{totalSelecionadas !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar empresa ou CNPJ..."
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar empresa ou CNPJ..."
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+              </div>
+              <select
+                value={filtroStatus}
+                onChange={(e: any) => {
+                  setFiltroStatus(e.target.value);
+                  setSelecionadas(new Set());
+                }}
+                className="w-48 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 px-2 bg-white"
+              >
+                <option value="todos">Todos</option>
+                <option value="nao_verificados">Nunca verificados</option>
+                <option value="ATIVA">Ativa</option>
+                <option value="INAPTA">Inapta (Inativa)</option>
+                <option value="BAIXADA">Baixada</option>
+                <option value="SUSPENSA">Suspensa</option>
+                <option value="NULA">Nula</option>
+              </select>
             </div>
+            {/* Auto-select button when filtering? We can keep it manual */}
           </div>
 
           {/* Lista de empresas */}
           <div className="flex-1 overflow-y-auto px-6 py-2">
-            {empresasFiltradas.map((emp) => (
+            {empresasFiltradas.map((emp) => {
+              const sit = situacoes[emp.id];
+              return (
               <label
                 key={emp.id}
                 className="flex items-center gap-3 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded"
@@ -431,8 +468,15 @@ function ModalVerificarCNPJs({
                   </div>
                   <div className="text-xs text-gray-400">{emp.cnpj || "CNPJ não informado"}</div>
                 </div>
+                {sit && sit.situacao ? (
+                  <div className="flex-shrink-0 scale-[0.8] origin-right">
+                    <BadgeSituacaoCNPJ situacao={sit.situacao} verificadoEm={sit.verificado_em} />
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-gray-400 italic">Nunca verificado</span>
+                )}
               </label>
-            ))}
+            )})}
             {empresasFiltradas.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-8">
                 Nenhuma empresa encontrada.
@@ -1861,6 +1905,7 @@ export default function CadastrosAdm() {
         aberto={modalVerificarAberto}
         onFechar={() => setModalVerificarAberto(false)}
         empresas={cadastros}
+        situacoes={situacoesCnpj}
         onAtualizarSituacao={atualizarSituacaoCnpj}
       />
     </LayoutAdm>
