@@ -91,7 +91,7 @@ export default async function handler(req: any, res: any) {
 
       if (cnpjLimpo.length === 14) {
         try {
-          const resposta = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
+          const resposta: any = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
             headers: { "Accept": "application/json", "User-Agent": "diversidade.io/1.0" },
             signal: AbortSignal.timeout(15000),
           });
