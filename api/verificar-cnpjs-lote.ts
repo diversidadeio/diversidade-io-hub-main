@@ -33,10 +33,7 @@ function normalizarSituacaoCNPJ(situacaoOriginal?: string): string {
   }
 }
 
-// Configuração para Vercel Serverless Function
-export const config = {
-  maxDuration: 60, // Aumenta timeout (se o plano da Vercel permitir)
-};
+
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
