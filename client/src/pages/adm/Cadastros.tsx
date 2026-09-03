@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
 import { Link } from "wouter";
@@ -17,6 +17,11 @@ import {
   History,
   RotateCcw,
   ArrowLeft,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldOff,
+  ShieldQuestion,
+  RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +55,10 @@ type OrdenacaoFiltro =
   | "antigos"
   | "nome_az"
   | "nome_za";
+type SituacaoCNPJFiltro = "todos" | "ATIVA" | "INAPTA" | "BAIXADA" | "SUSPENSA" | "nao_verificado";
+
+/** Situação cadastral na Receita Federal (retornada pela BrasilAPI e salva no banco) */
+type SituacaoCNPJ = "ATIVA" | "INAPTA" | "BAIXADA" | "SUSPENSA" | "NULA" | "NAO_ENCONTRADO" | "ERRO_CONSULTA" | "CNPJ_INVALIDO" | "RATE_LIMIT" | null;
 
 interface FiltrosState {
   status: StatusAprovacao;
@@ -64,6 +73,7 @@ interface FiltrosState {
   dataInicio: string;
   dataFim: string;
   ordenacao: OrdenacaoFiltro;
+  situacaoCnpj: SituacaoCNPJFiltro;
 }
 
 const FILTROS_PADRAO: FiltrosState = {
@@ -79,6 +89,7 @@ const FILTROS_PADRAO: FiltrosState = {
   dataInicio: "",
   dataFim: "",
   ordenacao: "recentes",
+  situacaoCnpj: "todos",
 };
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
@@ -91,7 +102,6 @@ const CAMPOS_OBRIGATORIOS = [
   "telefone_principal",
   "area_empresa",
   "sobre_empresa",
-  "logo_empresa_url",
 ];
 
 // Campos que devem estar preenchidos em cada sócio
@@ -159,6 +169,421 @@ function BarraCompletude({ porcentagem }: { porcentagem: number }) {
   );
 }
 
+// ─── Badge de Situação CNPJ ───────────────────────────────────────────────────
+
+const CONFIG_SITUACAO: Record<string, { label: string; cor: string; icone: React.ReactNode }> = {
+  ATIVA:         { label: "Ativa",          cor: "bg-green-100 text-green-700 border-green-200",   icone: <ShieldCheck className="w-3 h-3" /> },
+  INAPTA:        { label: "Inapta",         cor: "bg-orange-100 text-orange-700 border-orange-200", icone: <ShieldAlert className="w-3 h-3" /> },
+  BAIXADA:       { label: "Baixada",        cor: "bg-red-100 text-red-700 border-red-200",          icone: <ShieldOff className="w-3 h-3" /> },
+  SUSPENSA:      { label: "Suspensa",       cor: "bg-yellow-100 text-yellow-700 border-yellow-200", icone: <ShieldAlert className="w-3 h-3" /> },
+  NULA:          { label: "Nula",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  NAO_ENCONTRADO:{ label: "Não encontrado", cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  ERRO_CONSULTA: { label: "Erro",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  CNPJ_INVALIDO: { label: "CNPJ inválido",  cor: "bg-gray-100 text-gray-400 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+};
+
+function BadgeSituacaoCNPJ({
+  situacao,
+  verificadoEm,
+}: {
+  situacao: SituacaoCNPJ;
+  verificadoEm: string | null;
+}) {
+  if (!situacao) {
+    return (
+      <div className="inline-flex flex-col items-center gap-0.5">
+        <span className="inline-flex justify-center items-center gap-1.5 w-[115px] py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200 text-xs whitespace-nowrap">
+          <ShieldQuestion className="w-3 h-3" />
+          Não verificado
+        </span>
+      </div>
+    );
+  }
+  const config = CONFIG_SITUACAO[situacao] || {
+    label: situacao,
+    cor: "bg-gray-100 text-gray-500 border-gray-200",
+    icone: <ShieldQuestion className="w-3 h-3" />,
+  };
+  const dataFormatada = verificadoEm
+    ? new Date(verificadoEm).toLocaleDateString("pt-BR")
+    : null;
+
+  return (
+    <div className="inline-flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-flex justify-center items-center gap-1.5 w-[115px] py-0.5 rounded-full border text-xs font-medium whitespace-nowrap ${config.cor}`}
+        title={dataFormatada ? `Verificado em ${dataFormatada}` : undefined}
+      >
+        {config.icone}
+        {config.label}
+      </span>
+      {dataFormatada && (
+        <span className="text-[10px] text-gray-400">{dataFormatada}</span>
+      )}
+    </div>
+  );
+}
+
+// ─── Modal de Verificação em Massa de CNPJs ───────────────────────────────────
+
+type EstadoVerificacao = "selecao" | "verificando" | "concluido" | "erro";
+
+interface ProgressoItem {
+  empresa_id: string;
+  razao_social: string;
+  cnpj: string;
+  situacao: string;
+  verificado_em: string;
+  atual: number;
+  total: number;
+}
+
+interface ResumoVerificacao {
+  total: number;
+  resumo: Record<string, number>;
+}
+
+function ModalVerificarCNPJs({
+  aberto,
+  onFechar,
+  empresas,
+  onAtualizarSituacao,
+}: {
+  aberto: boolean;
+  onFechar: () => void;
+  empresas: any[];
+  onAtualizarSituacao: (empresaId: string, situacao: string, verificadoEm: string) => void;
+}) {
+  const [estado, setEstado] = useState<EstadoVerificacao>("selecao");
+  const [busca, setBusca] = useState("");
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [progresso, setProgresso] = useState<ProgressoItem | null>(null);
+  const [resumo, setResumo] = useState<ResumoVerificacao | null>(null);
+  const [erroMsg, setErroMsg] = useState("");
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Reseta o estado ao abrir o modal
+  useEffect(() => {
+    if (aberto) {
+      setEstado("selecao");
+      setBusca("");
+      setSelecionadas(new Set(empresas.map((e) => e.id)));
+      setProgresso(null);
+      setResumo(null);
+      setErroMsg("");
+    }
+  }, [aberto, empresas]);
+
+  // Limpa o SSE ao desmontar
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
+
+  if (!aberto) return null;
+
+  const empresasFiltradas = empresas.filter((e) => {
+    const termo = busca.toLowerCase();
+    return (
+      !termo ||
+      (e.razao_social && e.razao_social.toLowerCase().includes(termo)) ||
+      (e.cnpj && e.cnpj.includes(termo))
+    );
+  });
+
+  const totalSelecionadas = selecionadas.size;
+  const tempoEstimadoSeg = Math.ceil(totalSelecionadas * 0.5);
+  const tempoFormatado =
+    tempoEstimadoSeg < 60
+      ? `~${tempoEstimadoSeg} seg`
+      : `~${Math.floor(tempoEstimadoSeg / 60)} min ${tempoEstimadoSeg % 60} seg`;
+
+  function toggleEmpresa(id: string) {
+    setSelecionadas((prev) => {
+      const nova = new Set(prev);
+      if (nova.has(id)) nova.delete(id);
+      else nova.add(id);
+      return nova;
+    });
+  }
+
+  function selecionarTodas() {
+    setSelecionadas(new Set(empresas.map((e) => e.id)));
+  }
+
+  function limparSelecao() {
+    setSelecionadas(new Set());
+  }
+
+  function cancelarVerificacao() {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+    setEstado("selecao");
+  }
+
+  function iniciarVerificacao() {
+    if (selecionadas.size === 0) return;
+
+    setEstado("verificando");
+    setProgresso(null);
+    setResumo(null);
+
+    const ids = Array.from(selecionadas).join(",");
+    const es = new EventSource(`/api/verificar-cnpjs-lote?ids=${ids}`);
+    eventSourceRef.current = es;
+
+    es.addEventListener("progresso", (e) => {
+      const dado: ProgressoItem = JSON.parse(e.data);
+      setProgresso(dado);
+      onAtualizarSituacao(dado.empresa_id, dado.situacao, dado.verificado_em);
+    });
+
+    es.addEventListener("concluido", (e) => {
+      const dado: ResumoVerificacao = JSON.parse(e.data);
+      setResumo(dado);
+      setEstado("concluido");
+      es.close();
+    });
+
+    es.addEventListener("erro", (e) => {
+      const dado = JSON.parse(e.data);
+      setErroMsg(dado.mensagem || "Erro durante a verificação.");
+      setEstado("erro");
+      es.close();
+    });
+
+    es.onerror = () => {
+      setErroMsg("Conexão perdida com o servidor.");
+      setEstado("erro");
+      es.close();
+    };
+  }
+
+  // ── Tela de Seleção ─────────────────────────────────────────────────────────
+  if (estado === "selecao") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[85vh]">
+          {/* Cabeçalho */}
+          <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-start justify-between gap-4 shrink-0">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-[#7030A0]" />
+                Verificar Situação dos CNPJs
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Consulta a Receita Federal via BrasilAPI (~450ms por empresa).
+              </p>
+            </div>
+            <button onClick={onFechar} className="text-gray-400 hover:text-gray-600 mt-0.5">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Controles de seleção */}
+          <div className="px-6 py-3 border-b border-gray-100 shrink-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={selecionarTodas}
+                className="text-xs text-[#7030A0] font-medium hover:underline"
+              >
+                ✓ Selecionar todas ({empresas.length})
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={limparSelecao}
+                className="text-xs text-gray-500 hover:underline"
+              >
+                ✕ Limpar seleção
+              </button>
+              <span className="ml-auto text-xs text-gray-500">
+                <span className="font-semibold text-gray-800">{totalSelecionadas}</span> selecionada{totalSelecionadas !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar empresa ou CNPJ..."
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+              />
+            </div>
+          </div>
+
+          {/* Lista de empresas */}
+          <div className="flex-1 overflow-y-auto px-6 py-2">
+            {empresasFiltradas.map((emp) => (
+              <label
+                key={emp.id}
+                className="flex items-center gap-3 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded"
+              >
+                <input
+                  type="checkbox"
+                  checked={selecionadas.has(emp.id)}
+                  onChange={() => toggleEmpresa(emp.id)}
+                  className="w-4 h-4 accent-[#7030A0] cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">
+                    {emp.razao_social || "Sem razão social"}
+                  </div>
+                  <div className="text-xs text-gray-400">{emp.cnpj || "CNPJ não informado"}</div>
+                </div>
+              </label>
+            ))}
+            {empresasFiltradas.length === 0 && (
+              <p className="text-center text-sm text-gray-400 py-8">
+                Nenhuma empresa encontrada.
+              </p>
+            )}
+          </div>
+
+          {/* Rodapé */}
+          <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-gray-400">
+                ⏱ Tempo estimado: <span className="font-medium text-gray-600">{tempoFormatado}</span>
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onFechar}
+                className="flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={iniciarVerificacao}
+                disabled={totalSelecionadas === 0}
+                className="flex-1 py-2 rounded-lg bg-[#7030A0] hover:bg-purple-800 text-white text-sm font-medium disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Iniciar Verificação
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tela de Progresso ───────────────────────────────────────────────────────
+  if (estado === "verificando") {
+    const atual = progresso?.atual ?? 0;
+    const total = progresso?.total ?? totalSelecionadas;
+    const pct = total > 0 ? Math.round((atual / total) * 100) : 0;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Loader2 className="w-5 h-5 text-[#7030A0] animate-spin" />
+            Verificando CNPJs...
+          </h2>
+
+          {/* Barra de progresso */}
+          <div className="space-y-1.5">
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#7030A0] rounded-full transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>{atual} de {total} empresas</span>
+              <span>{pct}%</span>
+            </div>
+          </div>
+
+          {/* Empresa atual */}
+          {progresso && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Verificando agora</p>
+              <p className="text-sm font-semibold text-gray-800 truncate">{progresso.razao_social}</p>
+              <p className="text-xs text-gray-500">{progresso.cnpj}</p>
+              <div className="mt-2">
+                <BadgeSituacaoCNPJ situacao={progresso.situacao as SituacaoCNPJ} verificadoEm={null} />
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={cancelarVerificacao}
+            className="w-full py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Cancelar processo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tela de Conclusão ───────────────────────────────────────────────────────
+  if (estado === "concluido" && resumo) {
+    const labelSituacao: Record<string, string> = {
+      ATIVA: "🟢 Ativas",
+      INAPTA: "🟠 Inativas",
+      BAIXADA: "🔴 Baixadas",
+      SUSPENSA: "🟡 Suspensas",
+      NULA: "⚪ Nulas",
+      NAO_ENCONTRADO: "❓ Não encontradas",
+      ERRO_CONSULTA: "⚠️ Erros",
+      CNPJ_INVALIDO: "⛔ CNPJ inválido",
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+          <div className="text-center">
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Verificação Concluída!</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {resumo.total} empresa{resumo.total !== 1 ? "s" : ""} verificada{resumo.total !== 1 ? "s" : ""}.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+            {Object.entries(resumo.resumo).map(([sit, qtd]) => (
+              <div key={sit} className="flex justify-between items-center text-sm">
+                <span className="text-gray-700">{labelSituacao[sit] || sit}</span>
+                <span className="font-bold text-gray-900">{qtd}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={onFechar}
+            className="w-full py-2.5 rounded-lg bg-[#7030A0] hover:bg-purple-800 text-white text-sm font-medium transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tela de Erro ────────────────────────────────────────────────────────────
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 text-center">
+        <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
+        <h2 className="text-lg font-bold text-gray-900">Erro na verificação</h2>
+        <p className="text-sm text-gray-500">{erroMsg}</p>
+        <button
+          onClick={() => setEstado("selecao")}
+          className="w-full py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function CadastrosAdm() {
@@ -167,6 +592,18 @@ export default function CadastrosAdm() {
   const [ceps, setCeps] = useState<Record<string, boolean>>({});
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+
+  // ── Estados de situação CNPJ ──────────────────────────────────────────────
+  const [situacoesCnpj, setSituacoesCnpj] = useState<Record<string, { situacao: SituacaoCNPJ; verificado_em: string | null }>>({});
+  const [modalVerificarAberto, setModalVerificarAberto] = useState(false);
+
+  function atualizarSituacaoCnpj(empresaId: string, situacao: string, verificadoEm: string) {
+    setSituacoesCnpj((prev) => ({
+      ...prev,
+      [empresaId]: { situacao: situacao as SituacaoCNPJ, verificado_em: verificadoEm },
+    }));
+  }
+  // ── Fim estados CNPJ ──────────────────────────────────────────────────────
 
   // ── Estados do modo Busca com IA ─────────────────────────────────────────
   const [modoIA, setModoIA] = useState(false);
@@ -193,6 +630,7 @@ export default function CadastrosAdm() {
   useEffect(() => {
     async function carregarCadastros() {
       try {
+        // Query principal — campos que sempre existiram (sem situacao_cnpj)
         const { data, error } = await supabase
           .from("empresas")
           .select(
@@ -205,7 +643,33 @@ export default function CadastrosAdm() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setCadastros(data || []);
+        const lista = data || [];
+        setCadastros(lista);
+
+        // Query separada para situação CNPJ (campos novos — só existe após a migration)
+        // Se os campos ainda não existirem no banco, falha silenciosamente sem quebrar o carregamento
+        try {
+          const { data: cnpjData } = await supabase
+            .from("empresas")
+            .select("id, situacao_cnpj, situacao_cnpj_verificado_em")
+            .neq("tipo_usuario", "adm");
+
+          if (cnpjData) {
+            const situacoesMap: Record<string, { situacao: SituacaoCNPJ; verificado_em: string | null }> = {};
+            cnpjData.forEach((emp: any) => {
+              if (emp.situacao_cnpj || emp.situacao_cnpj_verificado_em) {
+                situacoesMap[emp.id] = {
+                  situacao: emp.situacao_cnpj as SituacaoCNPJ,
+                  verificado_em: emp.situacao_cnpj_verificado_em,
+                };
+              }
+            });
+            setSituacoesCnpj(situacoesMap);
+          }
+        } catch {
+          // Colunas de situação CNPJ ainda não existem — ignora silenciosamente
+          console.info("Campos situacao_cnpj ainda não disponíveis no banco.");
+        }
 
         // Buscar sócios com todos os campos necessários para cálculo de completude
         const { data: sociosData } = await supabase
@@ -407,6 +871,13 @@ export default function CadastrosAdm() {
         new Date(emp.created_at) <=
           new Date(filtrosAtivos.dataFim + "T23:59:59");
 
+      const matchSituacaoCnpj = (() => {
+        if (filtrosAtivos.situacaoCnpj === "todos") return true;
+        const sit = situacoesCnpj[emp.id]?.situacao;
+        if (filtrosAtivos.situacaoCnpj === "nao_verificado") return !sit;
+        return sit === filtrosAtivos.situacaoCnpj;
+      })();
+
       return (
         matchBusca &&
         matchStatus &&
@@ -419,7 +890,8 @@ export default function CadastrosAdm() {
         matchSemSocios &&
         matchSemCeps &&
         matchDataInicio &&
-        matchDataFim
+        matchDataFim &&
+        matchSituacaoCnpj
       );
     });
 
@@ -439,7 +911,7 @@ export default function CadastrosAdm() {
     });
 
     return lista;
-  }, [cadastros, socios, ceps, busca, filtrosAtivos]);
+  }, [cadastros, socios, ceps, situacoesCnpj, busca, filtrosAtivos]);
 
   // Paginação
   const totalPaginas = Math.max(1, Math.ceil(cadastrosFiltrados.length / itensPorPagina));
@@ -467,6 +939,13 @@ export default function CadastrosAdm() {
     () => cadastros.filter((e) => e.status_aprovacao === "pendente").length,
     [cadastros]
   );
+  const contCnpjIrregulares = useMemo(
+    () =>
+      Object.values(situacoesCnpj).filter(
+        (s) => s.situacao === "BAIXADA" || s.situacao === "INAPTA" || s.situacao === "SUSPENSA"
+      ).length,
+    [situacoesCnpj]
+  );
 
   // ── Contagem de filtros ativos ──────────────────────────────────────────────
   const qtdFiltrosAtivos = useMemo(() => {
@@ -483,6 +962,7 @@ export default function CadastrosAdm() {
     if (filtrosAtivos.dataInicio) count++;
     if (filtrosAtivos.dataFim) count++;
     if (filtrosAtivos.ordenacao !== "recentes") count++;
+    if (filtrosAtivos.situacaoCnpj !== "todos") count++;
     return count;
   }, [filtrosAtivos]);
 
@@ -501,6 +981,8 @@ export default function CadastrosAdm() {
           ? "todos"
           : chave === "ordenacao"
           ? "recentes"
+          : chave === "situacaoCnpj"
+          ? "todos"
           : typeof prev[chave] === "boolean"
           ? false
           : "",
@@ -536,6 +1018,16 @@ export default function CadastrosAdm() {
   if (filtrosAtivos.ordenacao !== "recentes") {
     const labels: Record<string, string> = { antigos: "Mais antigos", nome_az: "Nome A→Z", nome_za: "Nome Z→A" };
     tagsFiltros.push({ label: `Ordem: ${labels[filtrosAtivos.ordenacao]}`, chave: "ordenacao" });
+  }
+  if (filtrosAtivos.situacaoCnpj !== "todos") {
+    const labelsCnpj: Record<string, string> = {
+      ATIVA: "CNPJ: Ativa",
+      INAPTA: "CNPJ: Inapta",
+      BAIXADA: "CNPJ: Baixada",
+      SUSPENSA: "CNPJ: Suspensa",
+      nao_verificado: "CNPJ: Não verificado",
+    };
+    tagsFiltros.push({ label: labelsCnpj[filtrosAtivos.situacaoCnpj] || `CNPJ: ${filtrosAtivos.situacaoCnpj}`, chave: "situacaoCnpj" });
   }
 
   // ── Ações do modal ──────────────────────────────────────────────────────────
@@ -620,8 +1112,18 @@ export default function CadastrosAdm() {
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">Modo Busca com IA</span>
+                <span className="hidden sm:inline">Busca com IA</span>
                 <span className="sm:hidden">IA</span>
+              </button>
+
+              {/* Botão Verificar CNPJs */}
+              <button
+                onClick={() => setModalVerificarAberto(true)}
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50 whitespace-nowrap"
+                title="Verificar situação dos CNPJs na Receita Federal"
+              >
+                <RefreshCw className="w-4 h-4 text-[#7030A0]" />
+                <span className="hidden sm:inline">Verificar CNPJs</span>
               </button>
             </div>
           )}
@@ -650,7 +1152,7 @@ export default function CadastrosAdm() {
                 </button>
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Modo Busca com IA
+                  Busca com IA
                 </span>
               </div>
             </div>
@@ -808,7 +1310,7 @@ export default function CadastrosAdm() {
           <>
         {/* Mini-cards de atalho */}
         {!carregando && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <button
               onClick={() => {
                 setFiltrosAtivos((prev) => ({ ...prev, status: "pendente" }));
@@ -853,6 +1355,23 @@ export default function CadastrosAdm() {
                 <div className="text-xs text-gray-500 mt-0.5">Incompletos</div>
               </div>
             </button>
+
+            {/* Novo card: CNPJs Irregulares (Baixados / Inativos / Suspensos) */}
+            <button
+              onClick={() => {
+                setFiltrosAtivos((prev) => ({ ...prev, situacaoCnpj: "BAIXADA" }));
+              }}
+              className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-colors text-left group"
+              title="CNPJs com situação Baixada, Inapta ou Suspensa"
+            >
+              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <ShieldOff className="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <div className="text-lg font-bold text-gray-900 leading-none">{contCnpjIrregulares}</div>
+                <div className="text-xs text-gray-500 mt-0.5">CNPJ irregular</div>
+              </div>
+            </button>
           </div>
         )}
 
@@ -891,7 +1410,7 @@ export default function CadastrosAdm() {
                 <tr>
                   <th className="px-6 py-4 font-semibold">Empresa</th>
                   <th className="px-6 py-4 font-semibold">CNPJ</th>
-                  <th className="px-6 py-4 font-semibold">Responsável</th>
+                  <th className="px-6 py-4 font-semibold">Situação CNPJ</th>
                   <th className="px-6 py-4 font-semibold">Cadastro</th>
                   <th className="px-6 py-4 font-semibold">Data</th>
                   <th className="px-6 py-4 font-semibold text-right">Ação</th>
@@ -918,6 +1437,7 @@ export default function CadastrosAdm() {
                     const listaSocios = socios[emp.id] || [];
                     const completude = calcularCompletude(emp, listaSocios);
                     const semOptin = emp.autoriza_compartilhamento !== "Sim";
+                    const cnpjSituacao = situacoesCnpj[emp.id];
 
                     return (
                       <tr
@@ -953,8 +1473,11 @@ export default function CadastrosAdm() {
                         <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                           {emp.cnpj || "N/A"}
                         </td>
-                        <td className="px-6 py-4 text-gray-600 truncate max-w-[180px]">
-                          {emp.nome_responsavel || "N/A"}
+                        <td className="px-6 py-4">
+                          <BadgeSituacaoCNPJ
+                            situacao={cnpjSituacao?.situacao ?? null}
+                            verificadoEm={cnpjSituacao?.verificado_em ?? null}
+                          />
                         </td>
                         <td className="px-6 py-4">
                           <BarraCompletude porcentagem={completude} />
@@ -1281,6 +1804,38 @@ export default function CadastrosAdm() {
                 ))}
               </div>
             </div>
+
+            <Separator />
+
+            {/* Situação do CNPJ */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Situação do CNPJ</p>
+              <p className="text-xs text-gray-400 mb-2">
+                Filtra por situação cadastral na Receita Federal. Empresas não verificadas não aparecerão, a não ser que selecione "Não verificado".
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {([
+                  { value: "todos", label: "Todos" },
+                  { value: "ATIVA", label: "🟢 Ativa" },
+                  { value: "INAPTA", label: "🟠 Inapta" },
+                  { value: "BAIXADA", label: "🔴 Baixada" },
+                  { value: "SUSPENSA", label: "🟡 Suspensa" },
+                  { value: "nao_verificado", label: "⚪ Não verificado" },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setFiltrosTemp((p) => ({ ...p, situacaoCnpj: value }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      filtrosTemp.situacaoCnpj === value
+                        ? "bg-[#7030A0] text-white border-[#7030A0]"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="flex flex-row justify-between gap-2 pt-2">
@@ -1300,6 +1855,14 @@ export default function CadastrosAdm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Modal de Verificação de CNPJs ───────────────────────────────────────── */}
+      <ModalVerificarCNPJs
+        aberto={modalVerificarAberto}
+        onFechar={() => setModalVerificarAberto(false)}
+        empresas={cadastros}
+        onAtualizarSituacao={atualizarSituacaoCnpj}
+      />
     </LayoutAdm>
   );
 }

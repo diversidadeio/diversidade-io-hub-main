@@ -1412,3 +1412,198 @@ apiRouter.post("/email-marketing", async (req, res) => {
     return res.status(500).json({ erro: "Erro interno do servidor." });
   }
 });
+
+// ─── Verificação de CNPJ via BrasilAPI ────────────────────────────────────────
+
+/**
+ * Normaliza a situação cadastral retornada pela BrasilAPI
+ * para um dos valores padrão do sistema.
+ */
+function normalizarSituacaoCNPJ(descricao: string | null | undefined): string {
+  if (!descricao) return "NULA";
+  const upper = descricao.toUpperCase().trim();
+  if (upper.includes("ATIVA")) return "ATIVA";
+  if (upper.includes("INAPTA")) return "INAPTA";
+  if (upper.includes("BAIXADA")) return "BAIXADA";
+  if (upper.includes("SUSPENSA")) return "SUSPENSA";
+  if (upper.includes("NULA")) return "NULA";
+  return upper; // retorna o valor bruto normalizado caso seja outro
+}
+
+/**
+ * Remove pontuação do CNPJ (deixa apenas os 14 dígitos).
+ */
+function limparCNPJ(cnpj: string): string {
+  return (cnpj || "").replace(/\D/g, "");
+}
+
+/**
+ * POST /api/verificar-cnpj
+ * Verifica um único CNPJ na BrasilAPI e salva o resultado no banco.
+ * Body: { empresa_id: string, cnpj: string }
+ */
+apiRouter.post("/verificar-cnpj", async (req, res) => {
+  try {
+    const { empresa_id, cnpj } = req.body;
+    if (!empresa_id || !cnpj) {
+      return res.status(400).json({ erro: "empresa_id e cnpj são obrigatórios." });
+    }
+
+    const cnpjLimpo = limparCNPJ(cnpj);
+    if (cnpjLimpo.length !== 14) {
+      return res.status(400).json({ erro: "CNPJ inválido (deve ter 14 dígitos)." });
+    }
+
+    // Consulta a BrasilAPI
+    const resposta = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
+      headers: { "Accept": "application/json", "User-Agent": "diversidade.io/1.0" },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    let situacao = "ERRO_CONSULTA";
+    if (resposta.ok) {
+      const dados = await resposta.json() as any;
+      situacao = normalizarSituacaoCNPJ(dados?.descricao_situacao_cadastral);
+    } else if (resposta.status === 404) {
+      situacao = "NAO_ENCONTRADO";
+    }
+
+    const verificadoEm = new Date().toISOString();
+
+    // Salva no banco
+    const { error: updateError } = await supabaseAdmin
+      .from("empresas")
+      .update({
+        situacao_cnpj: situacao,
+        situacao_cnpj_verificado_em: verificadoEm,
+      })
+      .eq("id", empresa_id);
+
+    if (updateError) {
+      console.error("Erro ao salvar situação CNPJ:", updateError);
+      return res.status(500).json({ erro: "Erro ao salvar resultado no banco." });
+    }
+
+    return res.json({ situacao, verificado_em: verificadoEm });
+  } catch (err: any) {
+    console.error("Erro no endpoint /verificar-cnpj:", err);
+    return res.status(500).json({ erro: "Erro interno ao verificar CNPJ." });
+  }
+});
+
+/**
+ * GET /api/verificar-cnpjs-lote
+ * Verifica múltiplos CNPJs em sequência usando Server-Sent Events (SSE).
+ * O frontend abre uma conexão SSE e recebe atualizações de progresso em tempo real.
+ * Query params: ids=uuid1,uuid2,uuid3,...
+ *
+ * Eventos SSE emitidos:
+ *   - "progresso": { empresa_id, cnpj, razao_social, situacao, atual, total }
+ *   - "concluido": { total, resumo: { ATIVA, INAPTA, BAIXADA, SUSPENSA, ... } }
+ *   - "erro":      { empresa_id, cnpj, mensagem }
+ */
+apiRouter.get("/verificar-cnpjs-lote", async (req, res) => {
+  // Cabeçalhos SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // necessário em alguns proxies (Nginx)
+  res.flushHeaders();
+
+  const emitir = (evento: string, dados: object) => {
+    res.write(`event: ${evento}\ndata: ${JSON.stringify(dados)}\n\n`);
+  };
+
+  try {
+    const idsParam = (req.query.ids as string) || "";
+    const ids = idsParam.split(",").map((id) => id.trim()).filter(Boolean);
+
+    if (ids.length === 0) {
+      emitir("erro", { mensagem: "Nenhuma empresa selecionada." });
+      return res.end();
+    }
+
+    // Busca dados das empresas selecionadas
+    const { data: empresas, error: fetchError } = await supabaseAdmin
+      .from("empresas")
+      .select("id, razao_social, cnpj")
+      .in("id", ids)
+      .neq("tipo_usuario", "adm");
+
+    if (fetchError || !empresas) {
+      emitir("erro", { mensagem: "Erro ao buscar empresas no banco." });
+      return res.end();
+    }
+
+    const total = empresas.length;
+    const resumo: Record<string, number> = {};
+
+    for (let i = 0; i < empresas.length; i++) {
+      // Cancela se o cliente desconectou
+      if (req.socket.destroyed) break;
+
+      const empresa = empresas[i];
+      const cnpjLimpo = limparCNPJ(empresa.cnpj || "");
+      let situacao = "CNPJ_INVALIDO";
+
+      if (cnpjLimpo.length === 14) {
+        try {
+          const resposta = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
+            headers: { "Accept": "application/json", "User-Agent": "diversidade.io/1.0" },
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (resposta.ok) {
+            const dados = await resposta.json() as any;
+            situacao = normalizarSituacaoCNPJ(dados?.descricao_situacao_cadastral);
+          } else if (resposta.status === 404) {
+            situacao = "NAO_ENCONTRADO";
+          } else if (resposta.status === 429) {
+            situacao = "RATE_LIMIT";
+            // Aguarda mais tempo antes de continuar
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        } catch (err: any) {
+          situacao = "ERRO_CONSULTA";
+        }
+      }
+
+      // Salva no banco
+      const verificadoEm = new Date().toISOString();
+      await supabaseAdmin
+        .from("empresas")
+        .update({
+          situacao_cnpj: situacao,
+          situacao_cnpj_verificado_em: verificadoEm,
+        })
+        .eq("id", empresa.id);
+
+      // Acumula no resumo
+      resumo[situacao] = (resumo[situacao] || 0) + 1;
+
+      // Emite progresso ao frontend
+      emitir("progresso", {
+        empresa_id: empresa.id,
+        razao_social: empresa.razao_social,
+        cnpj: empresa.cnpj,
+        situacao,
+        verificado_em: verificadoEm,
+        atual: i + 1,
+        total,
+      });
+
+      // Aguarda 450ms entre consultas para respeitar o rate limit da BrasilAPI
+      if (i < empresas.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 450));
+      }
+    }
+
+    // Emite evento de conclusão com resumo
+    emitir("concluido", { total, resumo });
+    res.end();
+  } catch (err: any) {
+    console.error("Erro no endpoint /verificar-cnpjs-lote:", err);
+    emitir("erro", { mensagem: "Erro interno do servidor." });
+    res.end();
+  }
+});

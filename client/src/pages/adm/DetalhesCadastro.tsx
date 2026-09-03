@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle, AlertTriangle, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
@@ -19,7 +19,6 @@ const CAMPOS_OBRIGATORIOS_EMPRESA = [
   { campo: "telefone_principal", label: "Telefone Principal",  secao: "Responsável" },
   { campo: "area_empresa",       label: "Área de Atuação",     secao: "Dados da Empresa" },
   { campo: "sobre_empresa",      label: "Sobre a Empresa",     secao: "Dados da Empresa" },
-  { campo: "logo_empresa_url",   label: "Logo da Empresa",     secao: "Dados da Empresa" },
 ];
 
 const CAMPOS_OBRIGATORIOS_SOCIO = [
@@ -170,6 +169,64 @@ function PainelCamposFaltandoAdm({ empresa, socios }: { empresa: any; socios: an
   );
 }
 
+// ─── Badge de Situação CNPJ ───────────────────────────────────────────────────
+
+export type SituacaoCNPJ = "ATIVA" | "INAPTA" | "BAIXADA" | "SUSPENSA" | "NULA" | "NAO_ENCONTRADO" | "ERRO_CONSULTA" | "CNPJ_INVALIDO" | null | undefined;
+
+const CONFIG_SITUACAO: Record<string, { label: string; cor: string; icone: React.ReactNode }> = {
+  ATIVA:         { label: "Ativa",          cor: "bg-green-100 text-green-700 border-green-200",   icone: <ShieldCheck className="w-3 h-3" /> },
+  INAPTA:        { label: "Inapta",         cor: "bg-orange-100 text-orange-700 border-orange-200", icone: <ShieldAlert className="w-3 h-3" /> },
+  BAIXADA:       { label: "Baixada",        cor: "bg-red-100 text-red-700 border-red-200",          icone: <ShieldOff className="w-3 h-3" /> },
+  SUSPENSA:      { label: "Suspensa",       cor: "bg-yellow-100 text-yellow-700 border-yellow-200", icone: <ShieldAlert className="w-3 h-3" /> },
+  NULA:          { label: "Nula",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  NAO_ENCONTRADO:{ label: "Não encontrado", cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  ERRO_CONSULTA: { label: "Erro",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  CNPJ_INVALIDO: { label: "CNPJ inválido",  cor: "bg-gray-100 text-gray-400 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+};
+
+function BadgeSituacaoCNPJ({
+  situacao,
+  verificadoEm,
+}: {
+  situacao: SituacaoCNPJ;
+  verificadoEm: string | null;
+}) {
+  if (!situacao) {
+    return (
+      <div className="inline-flex flex-col items-center gap-0.5">
+        <span className="inline-flex justify-center items-center gap-1.5 w-[115px] py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200 text-xs whitespace-nowrap">
+          <ShieldQuestion className="w-3 h-3" />
+          Não verificado
+        </span>
+      </div>
+    );
+  }
+  const config = CONFIG_SITUACAO[situacao] || {
+    label: situacao,
+    cor: "bg-gray-100 text-gray-500 border-gray-200",
+    icone: <ShieldQuestion className="w-3 h-3" />,
+  };
+  const dataFormatada = verificadoEm
+    ? new Date(verificadoEm).toLocaleDateString("pt-BR")
+    : null;
+
+  return (
+    <div className="inline-flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-flex justify-center items-center gap-1.5 w-[115px] py-0.5 rounded-full border text-xs font-medium whitespace-nowrap ${config.cor}`}
+        title={dataFormatada ? `Verificado em ${dataFormatada}` : undefined}
+      >
+        {config.icone}
+        {config.label}
+      </span>
+      {dataFormatada && (
+        <span className="text-[10px] text-gray-400">{dataFormatada}</span>
+      )}
+    </div>
+  );
+}
+
+
 export default function DetalhesCadastroAdm() {
   const [, params] = useRoute("/adm/cadastros/:id");
   const id = params?.id;
@@ -186,7 +243,33 @@ export default function DetalhesCadastroAdm() {
   const [dialogoSalaAberta, setDialogoSalaAberta] = useState(false);
   const [mostrarMapa, setMostrarMapa] = useState(false);
   const [aprovando, setAprovando] = useState(false);
+  const [verificandoCnpj, setVerificandoCnpj] = useState(false);
 
+  const handleVerificarCNPJ = async () => {
+    if (!empresa?.id || !empresa?.cnpj) return;
+    setVerificandoCnpj(true);
+    try {
+      const resposta = await fetch('/api/verificar-cnpj', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresa_id: empresa.id, cnpj: empresa.cnpj }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(dados.erro || "Erro ao verificar CNPJ");
+      }
+      setEmpresa((prev: any) => ({
+        ...prev,
+        situacao_cnpj: dados.situacao,
+        situacao_cnpj_verificado_em: dados.verificado_em,
+      }));
+      toast.success("Situação do CNPJ verificada!");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setVerificandoCnpj(false);
+    }
+  };
   useEffect(() => {
     async function carregar() {
       if (!id) return;
@@ -416,7 +499,30 @@ export default function DetalhesCadastroAdm() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {renderField("Razão Social", empresa.razao_social)}
             {renderField("Nome Fantasia", empresa.nome_fantasia)}
-            {renderField("CNPJ", empresa.cnpj)}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNPJ</p>
+              <div className="flex flex-col gap-1 items-start">
+                <p className="text-gray-900 text-sm">
+                  {empresa.cnpj || <span className="text-gray-400 italic">Não informado</span>}
+                </p>
+                {empresa.cnpj && (
+                  <div className="flex items-start gap-2 mt-2">
+                    <BadgeSituacaoCNPJ 
+                      situacao={empresa.situacao_cnpj} 
+                      verificadoEm={empresa.situacao_cnpj_verificado_em} 
+                    />
+                    <button
+                      onClick={handleVerificarCNPJ}
+                      disabled={verificandoCnpj}
+                      className="mt-0.5 p-1.5 text-gray-500 hover:text-[#7030A0] hover:bg-purple-50 rounded-full transition-colors disabled:opacity-50 border border-transparent hover:border-purple-200 bg-gray-50"
+                      title="Verificar/Atualizar situação na Receita Federal"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${verificandoCnpj ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             {renderField("Tipo de Acesso", empresa.acesso_tipo)}
             {renderField("Área de Atuação", empresa.area_empresa)}
             {renderField("Área Geográfica", empresa.area_geografica)}

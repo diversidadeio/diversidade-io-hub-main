@@ -229,7 +229,7 @@ export default function SolicitacoesAdm() {
   // Util para completude
   function calcularCompletude(empresa: any, socios: any[]) {
     let preenchidos = 0;
-    const CAMPOS_OBRIGATORIOS = ["razao_social", "cnpj", "nome_responsavel", "telefone_principal", "area_empresa", "sobre_empresa", "logo_empresa_url"];
+    const CAMPOS_OBRIGATORIOS = ["razao_social", "cnpj", "nome_responsavel", "telefone_principal", "area_empresa", "sobre_empresa"];
     const CAMPOS_SOCIO = ["nome", "cpf", "email", "cep", "data_nascimento", "nacionalidade", "raca", "sexo"];
     
     CAMPOS_OBRIGATORIOS.forEach(c => { if (empresa[c]) preenchidos++; });

@@ -48,7 +48,6 @@ const CAMPOS_OBRIGATORIOS = [
   "telefone_principal",
   "area_empresa",
   "sobre_empresa",
-  "logo_empresa_url",
 ];
 
 const CAMPOS_SOCIO_OBRIGATORIOS = [
