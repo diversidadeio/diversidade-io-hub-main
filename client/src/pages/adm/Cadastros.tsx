@@ -48,7 +48,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
-// ������ Tipos ��������������������������������������������������������������������������������������������������������������������������������������
+//  Tipos 
 
 type StatusAprovacao = "todos" | "pendente" | "aprovado" | "suspenso";
 type OptinFiltro = "todos" | "com_optin" | "sem_optin";
@@ -120,7 +120,7 @@ const CAMPOS_SOCIO_OBRIGATORIOS = [
   "participacao_valor",
 ];
 
-// ������ Helpers ����������������������������������������������������������������������������������������������������������������������������������
+//  Helpers 
 
 /** Retorna true se todos os 10 campos obrigatórios do sócio estão preenchidos */
 function socioCompleto(socio: any): boolean {
@@ -130,8 +130,7 @@ function socioCompleto(socio: any): boolean {
 }
 
 /**
- * Calcula a completude da empresa (0�100%).
- * A parte de sócios só conta como 100% se:
+ * Calcula a completude da empresa (0-100%). * A parte de sócios só conta como 100% se:
  *   - a empresa NÒO é do tipo "EMPRESA OU INICIATIVA INCENTIVADORA", E
  *   - existe ao menos 1 sócio cadastrado, E
  *   - todos os sócios têm os campos obrigatórios preenchidos.
@@ -172,7 +171,7 @@ function BarraCompletude({ porcentagem }: { porcentagem: number }) {
   );
 }
 
-// ������ Badge de Situação CNPJ ������������������������������������������������������������������������������������������������������
+//  Badge de Situação CNPJ 
 
 const CONFIG_SITUACAO: Record<string, { label: string; cor: string; icone: React.ReactNode }> = {
   ATIVA:         { label: "Ativa",          cor: "bg-green-100 text-green-700 border-green-200",   icone: <ShieldCheck className="w-3 h-3" /> },
@@ -227,7 +226,7 @@ function BadgeSituacaoCNPJ({
   );
 }
 
-// ������ Modal de Verificação em Massa de CNPJs ����������������������������������������������������������������������
+//  Modal de Verificação em Massa de CNPJs 
 
 type EstadoVerificacao = "selecao" | "verificando" | "concluido" | "erro";
 
@@ -379,7 +378,7 @@ function ModalVerificarCNPJs({
     };
   }
 
-  // ���� Tela de Seleção ������������������������������������������������������������������������������������������������������������������
+  //  Tela de Seleção 
   if (estado === "selecao") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -407,14 +406,13 @@ function ModalVerificarCNPJs({
                 onClick={selecionarTodas}
                 className="text-xs text-[#7030A0] font-medium hover:underline"
               >
-                �S Selecionar todas
-              </button>
+                Selecionar todas              </button>
               <span className="text-gray-300">|</span>
               <button
                 onClick={limparSelecao}
                 className="text-xs text-gray-500 hover:underline"
               >
-                �S" Limpar seleção
+                S" Limpar seleção
               </button>
               <span className="ml-auto text-xs text-gray-500">
                 <span className="font-semibold text-gray-800">{totalSelecionadas}</span> selecionada{totalSelecionadas !== 1 ? "s" : ""}
@@ -516,7 +514,7 @@ function ModalVerificarCNPJs({
     );
   }
 
-  // ���� Tela de Progresso ��������������������������������������������������������������������������������������������������������������
+  //  Tela de Progresso 
   if (estado === "verificando") {
     const atual = progresso?.atual ?? 0;
     const total = progresso?.total ?? totalSelecionadas;
@@ -567,17 +565,17 @@ function ModalVerificarCNPJs({
     );
   }
 
-  // ���� Tela de Conclusão ��������������������������������������������������������������������������������������������������������������
+  //  Tela de Conclusão 
   if (estado === "concluido" && resumo) {
     const labelSituacao: Record<string, string> = {
-      ATIVA: "�xx� Ativas",
-      INAPTA: "�xx� Inativas",
-      BAIXADA: "�x� Baixadas",
-      SUSPENSA: "�xx� Suspensas",
-      NULA: "�a� Nulas",
-      NAO_ENCONTRADO: "� Não encontradas",
-      ERRO_CONSULTA: "�a�️ Erros",
-      CNPJ_INVALIDO: "�: CNPJ inválido",
+      ATIVA: "🟢 Ativas",
+      INAPTA: "🟠 Inativas",
+      BAIXADA: "🔴 Baixadas",
+      SUSPENSA: "🟡 Suspensas",
+      NULA: "⚪ Nulas",
+      NAO_ENCONTRADO: "❓ Não encontradas",
+      ERRO_CONSULTA: "⚠️ Erros",
+      CNPJ_INVALIDO: "❌ CNPJ inválido",
     };
 
     return (
@@ -613,7 +611,7 @@ function ModalVerificarCNPJs({
     );
   }
 
-  // ���� Tela de Erro ������������������������������������������������������������������������������������������������������������������������
+  //  Tela de Erro 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 text-center">
@@ -631,7 +629,7 @@ function ModalVerificarCNPJs({
   );
 }
 
-// ������ Componente principal ����������������������������������������������������������������������������������������������������������
+//  Componente principal 
 
 export default function CadastrosAdm() {
   const { usuario } = useAuth();
@@ -653,7 +651,7 @@ export default function CadastrosAdm() {
 
   const [busca, setBusca] = useState(estadoInicialLista?.busca ?? "");
 
-  // ���� Estados de situação CNPJ ��������������������������������������������������������������������������������������������
+  //  Estados de situação CNPJ 
   const [situacoesCnpj, setSituacoesCnpj] = useState<Record<string, { situacao: SituacaoCNPJ; verificado_em: string | null }>>({});
   const [modalVerificarAberto, setModalVerificarAberto] = useState(false);
 
@@ -663,9 +661,9 @@ export default function CadastrosAdm() {
       [empresaId]: { situacao: situacao as SituacaoCNPJ, verificado_em: verificadoEm },
     }));
   }
-  // ���� Fim estados CNPJ ������������������������������������������������������������������������������������������������������������
+  //  Fim estados CNPJ 
 
-  // ���� Estados do modo Busca com IA ����������������������������������������������������������������������������������
+  //  Estados do modo Busca com IA 
   const [modoIA, setModoIA] = useState(false);
   const [buscaIA, setBuscaIA] = useState("");
   const [resultadosIA, setResultadosIA] = useState<any[]>([]);
@@ -674,14 +672,14 @@ export default function CadastrosAdm() {
   const [historicoAberto, setHistoricoAberto] = useState(false);
   const [historicoIA, setHistoricoIA] = useState<any[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
-  // ���� Fim do modo IA ����������������������������������������������������������������������������������������������������������������
+  //  Fim do modo IA 
 
   // Filtros
   const [modalAberto, setModalAberto] = useState(false);
     const [filtrosTemp, setFiltrosTemp] = useState<FiltrosState>(estadoInicialLista?.filtrosAtivos ?? FILTROS_PADRAO);
   const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosState>(estadoInicialLista?.filtrosAtivos ?? FILTROS_PADRAO);
 
-  // Pagina��o
+  // Paginao
   const [pagina, setPagina] = useState<number>(estadoInicialLista?.pagina ?? 1);
   const [itensPorPagina, setItensPorPagina] = useState<number>(estadoInicialLista?.itensPorPagina ?? 20);
 
@@ -694,12 +692,12 @@ export default function CadastrosAdm() {
     }));
   }, [filtrosAtivos, busca, pagina, itensPorPagina]);
 
-  // ���� Carregar dados ��������������������������������������������������������������������������������������������������������������������
+  //  Carregar dados 
 
   useEffect(() => {
     async function carregarCadastros() {
       try {
-        // Query principal � campos que sempre existiram (sem situacao_cnpj)
+        // Query principal  campos que sempre existiram (sem situacao_cnpj)
         const { data, error } = await supabase
           .from("empresas")
           .select("*")
@@ -710,7 +708,7 @@ export default function CadastrosAdm() {
         const lista = data || [];
         setCadastros(lista);
 
-        // Query separada para situação CNPJ (campos novos � só existe após a migration)
+        // Query separada para situação CNPJ (campos novos  só existe após a migration)
         // Se os campos ainda não existirem no banco, falha silenciosamente sem quebrar o carregamento
         try {
           const { data: cnpjData } = await supabase
@@ -731,7 +729,7 @@ export default function CadastrosAdm() {
             setSituacoesCnpj(situacoesMap);
           }
         } catch {
-          // Colunas de situação CNPJ ainda não existem � ignora silenciosamente
+          // Colunas de situação CNPJ ainda não existem  ignora silenciosamente
           console.info("Campos situacao_cnpj ainda não disponíveis no banco.");
         }
 
@@ -765,7 +763,7 @@ export default function CadastrosAdm() {
     carregarCadastros();
   }, []);
 
-  // ���� Funções de Busca com IA ����������������������������������������������������������������������������������������������
+  //  Funções de Busca com IA 
   const SESSAO_KEY = "admin_pesquisas_ia_estado";
   
   // Restaura estado do sessionStorage ao montar (ex: ao voltar da página de detalhes)
@@ -866,9 +864,9 @@ export default function CadastrosAdm() {
     setResultadosIA([]);
     setErroIA("");
   }
-  // ���� Fim Busca com IA ������������������������������������������������������������������������������������������������������������
+  //  Fim Busca com IA 
 
-  // ���� Filtros e paginação ����������������������������������������������������������������������������������������������������������
+  //  Filtros e paginação 
 
   const cadastrosFiltrados = useMemo(() => {
     let lista = cadastros.filter((emp) => {
@@ -1063,7 +1061,7 @@ export default function CadastrosAdm() {
   const fim = Math.min(inicio + itensPorPagina, cadastrosFiltrados.length);
   const cadastrosPagina = cadastrosFiltrados.slice(inicio, fim);
 
-    // Reset para p�gina 1 ao mudar filtros ou busca
+    // Reset para pgina 1 ao mudar filtros ou busca
   const montadoRef = useRef(false);
   useEffect(() => {
     if (montadoRef.current) {
@@ -1073,7 +1071,7 @@ export default function CadastrosAdm() {
     }
   }, [filtrosAtivos, busca, itensPorPagina]);
 
-  // ���� Contadores para mini-cards ��������������������������������������������������������������������������������������������
+  //  Contadores para mini-cards 
   const contSemOptin = useMemo(
     () => cadastros.filter((e) => e.autoriza_compartilhamento !== "Sim").length,
     [cadastros]
@@ -1100,7 +1098,7 @@ export default function CadastrosAdm() {
     [situacoesCnpj]
   );
 
-  // ���� Contagem de filtros ativos ��������������������������������������������������������������������������������������������
+  //  Contagem de filtros ativos 
   const qtdFiltrosAtivos = useMemo(() => {
     let count = 0;
     if (filtrosAtivos.status !== "todos") count++;
@@ -1119,7 +1117,7 @@ export default function CadastrosAdm() {
     return count;
   }, [filtrosAtivos]);
 
-  // ���� Tags de filtros ativos ����������������������������������������������������������������������������������������������������
+  //  Tags de filtros ativos 
   function removerFiltro(chave: keyof FiltrosState) {
     setFiltrosAtivos((prev) => ({
       ...prev,
@@ -1169,7 +1167,7 @@ export default function CadastrosAdm() {
   if (filtrosAtivos.dataInicio) tagsFiltros.push({ label: `A partir de ${filtrosAtivos.dataInicio}`, chave: "dataInicio" });
   if (filtrosAtivos.dataFim) tagsFiltros.push({ label: `Até ${filtrosAtivos.dataFim}`, chave: "dataFim" });
   if (filtrosAtivos.ordenacao !== "recentes") {
-    const labels: Record<string, string> = { antigos: "Mais antigos", nome_az: "Nome A� Z", nome_za: "Nome Z� A" };
+    const labels: Record<string, string> = { antigos: "Mais antigos", nome_az: "Nome A→Z", nome_za: "Nome Z→A" };
     tagsFiltros.push({ label: `Ordem: ${labels[filtrosAtivos.ordenacao]}`, chave: "ordenacao" });
   }
   if (filtrosAtivos.situacaoCnpj !== "todos") {
@@ -1183,7 +1181,7 @@ export default function CadastrosAdm() {
     tagsFiltros.push({ label: labelsCnpj[filtrosAtivos.situacaoCnpj] || `CNPJ: ${filtrosAtivos.situacaoCnpj}`, chave: "situacaoCnpj" });
   }
 
-  // ���� Ações do modal ��������������������������������������������������������������������������������������������������������������������
+  //  Ações do modal 
   function abrirModal() {
     setFiltrosTemp(filtrosAtivos);
     setModalAberto(true);
@@ -1198,7 +1196,7 @@ export default function CadastrosAdm() {
     setFiltrosTemp(FILTROS_PADRAO);
   }
 
-  // ���� Páginas numéricas ��������������������������������������������������������������������������������������������������������������
+  //  Páginas numéricas 
   function gerarNumeroPaginas(): (number | "...")[] {
     if (totalPaginas <= 7) return Array.from({ length: totalPaginas }, (_, i) => i + 1);
     const paginas: (number | "...")[] = [1];
@@ -1211,7 +1209,7 @@ export default function CadastrosAdm() {
     return paginas;
   }
 
-  // ���� Render ������������������������������������������������������������������������������������������������������������������������������������
+  //  Render 
 
   return (
     <LayoutAdm>
@@ -1409,8 +1407,7 @@ export default function CadastrosAdm() {
               </div>
             )}
 
-            {/* ���� Sheet de Histórico �������������������������������������������������������������������������������������� */}
-            <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
+            {/* Sheet de Histórico */}            <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
               <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full dark:bg-gray-900 dark:border-gray-700">
                 <SheetHeader className="mb-6 space-y-2 shrink-0">
                   <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white mt-4 sm:mt-0">
@@ -1709,8 +1706,7 @@ export default function CadastrosAdm() {
                 <span className="text-sm text-gray-500">
                   Exibindo{" "}
                   <span className="font-medium text-gray-900">
-                    {inicio + 1}�{fim}
-                  </span>{" "}
+                    {inicio + 1}–{fim}                  </span>{" "}
                   de{" "}
                   <span className="font-medium text-gray-900">
                     {cadastrosFiltrados.length}
@@ -1766,8 +1762,7 @@ export default function CadastrosAdm() {
       )}
       </div>
 
-      {/* ���� Modal de Filtros ���������������������������������������������������������������������������������������������������������� */}
-      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+      {/* Modal de Filtros */}      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-900">
@@ -1792,7 +1787,7 @@ export default function CadastrosAdm() {
                         : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    {s === "todos" ? "Todos" : s === "pendente" ? "⏳ Pendentes" : s === "suspenso" ? "�a�️ Suspensos" : "�S& Aprovados"}
+                    {s === "todos" ? "Todos" : s === "pendente" ? "⏳ Pendentes" : s === "suspenso" ? "⚠️ Suspensos" : "✅ Aprovados"}
                   </button>
                 ))}
               </div>
@@ -1967,8 +1962,8 @@ export default function CadastrosAdm() {
                   [
                     { value: "recentes", label: "Mais recentes" },
                     { value: "antigos", label: "Mais antigos" },
-                    { value: "nome_az", label: "Nome A� Z" },
-                    { value: "nome_za", label: "Nome Z� A" },
+                    { value: "nome_az", label: "Nome A→Z" },
+                    { value: "nome_za", label: "Nome Z→A" },
                   ] as const
                 ).map(({ value, label }) => (
                   <button
@@ -1999,11 +1994,11 @@ export default function CadastrosAdm() {
               <div className="flex gap-2 flex-wrap">
                 {([
                   { value: "todos", label: "Todos" },
-                  { value: "ATIVA", label: "�xx� Ativa" },
-                  { value: "INAPTA", label: "�xx� Inapta" },
-                  { value: "BAIXADA", label: "�x� Baixada" },
-                  { value: "SUSPENSA", label: "�xx� Suspensa" },
-                  { value: "nao_verificado", label: "�a� Não verificado" },
+                  { value: "ATIVA", label: "🟢 Ativa" },
+                  { value: "INAPTA", label: "🟠 Inapta" },
+                  { value: "BAIXADA", label: "🔴 Baixada" },
+                  { value: "SUSPENSA", label: "🟡 Suspensa" },
+                  { value: "nao_verificado", label: "⚪ Não verificado" },
                 ] as const).map(({ value, label }) => (
                   <button
                     key={value}
@@ -2039,8 +2034,7 @@ export default function CadastrosAdm() {
         </DialogContent>
       </Dialog>
 
-      {/* ���� Modal de Verificação de CNPJs ���������������������������������������������������������������������������������� */}
-      <ModalVerificarCNPJs
+      {/* Modal de Verificação de CNPJs */}      <ModalVerificarCNPJs
         aberto={modalVerificarAberto}
         onFechar={() => setModalVerificarAberto(false)}
         empresas={cadastros}
