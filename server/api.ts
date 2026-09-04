@@ -1092,15 +1092,34 @@ apiRouter.post("/busca-ia", async (req, res) => {
       .toLowerCase()
       .replace(/[^a-záéíóúàâêîôûãõüç\s]/gi, " ")
       .split(/\s+/)
-      .filter((p) => p.length >= 4 && !STOP_WORDS.has(p));
+      .filter((p) => p.length >= 3 && !STOP_WORDS.has(p));
 
-    // Monta filtro OR para atividade_empresarial usando as palavras-chave
-    const filtrosAtividade = palavrasChave.map((p) => `atividade_empresarial.ilike.%${p}%`).join(",");
-    const filtrosSobre = palavrasChave.map((p) => `sobre_empresa.ilike.%${p}%`).join(",");
+    // Monta filtros OR para TODOS os campos textuais relevantes
+    const camposTextuais = [
+      "razao_social",
+      "nome_fantasia",
+      "area_empresa",
+      "atividade_empresarial",
+      "sobre_empresa",
+      "area_geografica",
+    ];
+
+    // Etapa 1: filtro nos campos principais (mais relevantes para identidade da empresa)
+    const camposPrimarios = ["razao_social", "nome_fantasia", "area_empresa", "atividade_empresarial"];
+    const filtrosPrimarios = palavrasChave.length > 0
+      ? palavrasChave.flatMap((p) => camposPrimarios.map((c) => `${c}.ilike.%${p}%`)).join(",")
+      : "";
+
+    // Etapa 2 (ampliação): inclui sobre_empresa e area_geografica
+    const filtrosTodos = palavrasChave.length > 0
+      ? palavrasChave.flatMap((p) => camposTextuais.map((c) => `${c}.ilike.%${p}%`)).join(",")
+      : "";
+
+    const baseSelect = "id, razao_social, nome_fantasia, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa, area_geografica";
 
     let baseQuery = supabaseAdmin
       .from("empresas")
-      .select("id, razao_social, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa")
+      .select(baseSelect)
       .eq("status_aprovacao", "aprovado")
       .neq("tipo_usuario", "adm")
       .eq("autoriza_compartilhamento", "Sim")
@@ -1110,9 +1129,9 @@ apiRouter.post("/busca-ia", async (req, res) => {
       baseQuery = baseQuery.neq("id", empresaId);
     }
 
-    // Etapa 1: busca por palavras-chave na atividade empresarial
+    // Etapa 1: busca nos campos principais (razao_social, nome_fantasia, area_empresa, atividade_empresarial)
     let { data: empresasFiltradas, error: erroEmpresasData } = palavrasChave.length > 0
-      ? await baseQuery.or(filtrosAtividade)
+      ? await baseQuery.or(filtrosPrimarios)
       : await baseQuery;
 
     if (erroEmpresasData) {
@@ -1120,11 +1139,11 @@ apiRouter.post("/busca-ia", async (req, res) => {
       return res.status(500).json({ erro: "Erro ao consultar o banco de dados." });
     }
 
-    // Etapa 2: se encontrou menos de 5 resultados, amplia para buscar em sobre_empresa também
-    if (palavrasChave.length > 0 && (empresasFiltradas?.length ?? 0) < 5) {
+    // Etapa 2: se encontrou menos de 10, amplia para todos os campos de texto
+    if (palavrasChave.length > 0 && (empresasFiltradas?.length ?? 0) < 10) {
       let queryAmpliada = supabaseAdmin
         .from("empresas")
-        .select("id, razao_social, cnpj, email, nome_responsavel, atividade_empresarial, area_empresa, sobre_empresa")
+        .select(baseSelect)
         .eq("status_aprovacao", "aprovado")
         .neq("tipo_usuario", "adm")
         .eq("autoriza_compartilhamento", "Sim")
@@ -1134,7 +1153,7 @@ apiRouter.post("/busca-ia", async (req, res) => {
         queryAmpliada = queryAmpliada.neq("id", empresaId);
       }
       
-      const { data: empresasAmpladas } = await queryAmpliada.or(`${filtrosAtividade},${filtrosSobre}`);
+      const { data: empresasAmpladas } = await queryAmpliada.or(filtrosTodos);
 
       // Mescla e deduplica por ID
       const idsJaVistos = new Set((empresasFiltradas || []).map((e: any) => e.id));
@@ -1156,12 +1175,16 @@ apiRouter.post("/busca-ia", async (req, res) => {
 
     console.log(`[busca-ia] Pré-filtro: ${empresas.length} candidatas para "${descricao.trim().slice(0, 60)}"`);
 
-    // Monta contexto compacto das empresas para o prompt
+    // Monta contexto completo das empresas para o prompt da IA
     const contextoEmpresas = empresas
       .map((e: any) => {
-        const atividade = e.atividade_empresarial || e.area_empresa || "Não informado";
-        const sobre = e.sobre_empresa ? e.sobre_empresa.slice(0, 100) : "";
-        return `ID:${e.id} | ${e.razao_social} | Atividade: ${atividade}${sobre ? " | Sobre: " + sobre : ""}`;
+        const partes: string[] = [];
+        partes.push(`ID:${e.id}`);
+        partes.push(`${e.razao_social || ""}${e.nome_fantasia ? ` (${e.nome_fantasia})` : ""}`);
+        partes.push(`Atividade/Área: ${e.atividade_empresarial || e.area_empresa || "N/A"}`);
+        partes.push(`Sobre: ${e.sobre_empresa ? e.sobre_empresa.slice(0, 150) : "N/A"}`);
+        partes.push(`Região: ${e.area_geografica || "N/A"}`);
+        return partes.join(" | ");
       })
       .join("\n");
 
@@ -1177,17 +1200,17 @@ apiRouter.post("/busca-ia", async (req, res) => {
     // Prompt para o modelo
     const prompt = `Você é um assistente de matchmaking empresarial para a plataforma Diversidade.io.
 
-TAREFA: Encontrar empresas cujas ATIVIDADES REAIS correspondam ao que o usuário precisa.
+TAREFA: Encontrar empresas cujos DADOS correspondam ao que o usuário precisa.
 
 O usuário precisa de:
 "${descricao.trim()}"
 
 REGRAS OBRIGATÓRIAS — leia com atenção antes de responder:
-1. Analise o campo "atividade" de cada empresa na lista abaixo.
-2. Inclua uma empresa SOMENTE se a atividade dela tiver correspondência DIRETA e REAL com o que o usuário precisa. Não invente, não suponha.
-3. A justificativa deve ser baseada EXCLUSIVAMENTE no texto da atividade da empresa. NUNCA invente serviços que a empresa não declarou.
+1. Analise TODOS os campos disponíveis de cada empresa: nome (razão social e nome fantasia), atividade, área, descrição (sobre) e região.
+2. Inclua uma empresa SOMENTE se houver correspondência DIRETA e REAL com o que o usuário precisa em qualquer um desses campos. Não invente, não suponha.
+3. A justificativa deve mencionar QUAL campo evidenciou a correspondência (ex: "O nome fantasia indica...", "A atividade declarada é..."). NUNCA invente informações.
 4. Se uma empresa é confeitaria, cabeleireiro, arquitetura ou qualquer área não relacionada ao pedido, NÃO a inclua.
-5. Retorne até 10 empresas relevantes. Se houver menos de 10 com correspondência real, retorne apenas as que realmente correspondem. Se não houver nenhuma, retorne lista vazia.
+5. Retorne até 10 empresas relevantes. Se houver menos, retorne apenas as que realmente correspondem. Se não houver nenhuma, retorne lista vazia.
 6. Ordene da mais relevante para a menos relevante.
 
 Formato de resposta (JSON válido, sem texto extra):

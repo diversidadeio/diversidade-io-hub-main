@@ -49,7 +49,7 @@ import { Separator } from "@/components/ui/separator";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
-type StatusAprovacao = "todos" | "pendente" | "aprovado";
+type StatusAprovacao = "todos" | "pendente" | "aprovado" | "suspenso";
 type OptinFiltro = "todos" | "com_optin" | "sem_optin";
 type CompletudeFiltro = "todos" | "completo" | "incompleto";
 type OrdenacaoFiltro =
@@ -984,7 +984,7 @@ export default function CadastrosAdm() {
         "Situação CNPJ": sit?.situacao || "Não verificado",
         "Data Situação": sit?.verificado_em ? new Date(sit.verificado_em).toLocaleDateString("pt-BR") : "",
         "Completude (%)": completude,
-        "Status de Aprovação": emp.status_aprovacao === "aprovado" ? "Aprovado" : "Pendente",
+        "Status de Aprovação": emp.status_aprovacao === "aprovado" ? "Aprovado" : emp.status_aprovacao === "suspenso" ? "Suspenso" : emp.status_aprovacao === "rejeitado" ? "Rejeitado" : "Pendente",
         "Data de Cadastro": emp.created_at ? new Date(emp.created_at).toLocaleDateString("pt-BR") : "",
       };
 
@@ -1114,7 +1114,7 @@ export default function CadastrosAdm() {
   const tagsFiltros: { label: string; chave: keyof FiltrosState }[] = [];
   if (filtrosAtivos.status !== "todos")
     tagsFiltros.push({
-      label: filtrosAtivos.status === "pendente" ? "Pendentes" : "Aprovados",
+      label: filtrosAtivos.status === "pendente" ? "Pendentes" : filtrosAtivos.status === "suspenso" ? "Suspensos" : "Aprovados",
       chave: "status",
     });
   if (filtrosAtivos.optin !== "todos")
@@ -1594,6 +1594,11 @@ export default function CadastrosAdm() {
                                   Pendente
                                 </span>
                               )}
+                              {emp.status_aprovacao === "suspenso" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-800 text-xs font-semibold border border-gray-300 whitespace-nowrap">
+                                  Suspenso
+                                </span>
+                              )}
                               {semOptin && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-semibold border border-red-200 whitespace-nowrap">
                                   Sem opt-in
@@ -1731,7 +1736,7 @@ export default function CadastrosAdm() {
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">Status de Aprovação</p>
               <div className="flex gap-2 flex-wrap">
-                {(["todos", "pendente", "aprovado"] as const).map((s) => (
+                {(["todos", "pendente", "aprovado", "suspenso"] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => setFiltrosTemp((p) => ({ ...p, status: s }))}
@@ -1741,7 +1746,7 @@ export default function CadastrosAdm() {
                         : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    {s === "todos" ? "Todos" : s === "pendente" ? "⏳ Pendentes" : "✅ Aprovados"}
+                    {s === "todos" ? "Todos" : s === "pendente" ? "⏳ Pendentes" : s === "suspenso" ? "⚠️ Suspensos" : "✅ Aprovados"}
                   </button>
                 ))}
               </div>

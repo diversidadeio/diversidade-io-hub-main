@@ -247,6 +247,7 @@ export default function DetalhesCadastroAdm() {
   const [dialogoSalaAberta, setDialogoSalaAberta] = useState(false);
   const [mostrarMapa, setMostrarMapa] = useState(false);
   const [aprovando, setAprovando] = useState(false);
+  const [suspendendo, setSuspendendo] = useState(false);
   const [verificandoCnpj, setVerificandoCnpj] = useState(false);
   const [modalUsuariosAberto, setModalUsuariosAberto] = useState(false);
 
@@ -441,6 +442,35 @@ export default function DetalhesCadastroAdm() {
     }
   };
 
+  const handleAlternarSuspensao = async (suspender: boolean) => {
+    if (!id || !empresa) return;
+    setSuspendendo(true);
+    const novoStatus = suspender ? 'suspenso' : 'aprovado';
+    try {
+      const { error } = await supabase
+        .from('empresas')
+        .update({ status_aprovacao: novoStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEmpresa({ ...empresa, status_aprovacao: novoStatus });
+      toast.success(suspender ? 'Empresa suspensa com sucesso!' : 'Suspensão removida! A empresa está aprovada.');
+
+      registrarLog({
+        tipo_evento: suspender ? 'adm_suspender_empresa' : 'adm_remover_suspensao_empresa',
+        empresa_id: id,
+        nome_empresa: empresa?.razao_social || empresa?.email,
+        email: usuario?.email || 'admin',
+        detalhes: suspender ? `Suspendeu a empresa: ${empresa?.razao_social || empresa?.email}` : `Removeu a suspensão da empresa: ${empresa?.razao_social || empresa?.email}`,
+      });
+    } catch (err: any) {
+      toast.error('Erro ao alterar suspensão: ' + err.message);
+    } finally {
+      setSuspendendo(false);
+    }
+  };
+
   if (carregando) {
     return (
       <LayoutAdm>
@@ -512,8 +542,7 @@ export default function DetalhesCadastroAdm() {
                 <ArrowLeft className="w-4 h-4" /> Voltar para lista
               </a>
             </Link>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-gray-900">{empresa.razao_social || 'Cadastro Sem Razão Social'}</h1>
+            <div className="flex items-center gap-3 mt-2">
               {/* Badge de status */}
               {empresa.status_aprovacao === 'pendente' && (
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200">
@@ -530,8 +559,12 @@ export default function DetalhesCadastroAdm() {
                   <XCircle className="w-3 h-3" /> Rejeitado
                 </span>
               )}
+              {empresa.status_aprovacao === 'suspenso' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-xs font-semibold border border-gray-300">
+                  <AlertTriangle className="w-3 h-3" /> Suspenso
+                </span>
+              )}
             </div>
-            <p className="text-gray-600 mt-1">CNPJ: {empresa.cnpj || 'Não informado'}</p>
           </div>
           
           <div className="flex gap-3">
@@ -545,6 +578,23 @@ export default function DetalhesCadastroAdm() {
                 Aprovar Cadastro
               </Button>
             )}
+            
+            <Button
+              onClick={() => handleAlternarSuspensao(empresa.status_aprovacao !== 'suspenso')}
+              disabled={suspendendo}
+              className={`flex items-center gap-2 text-white shadow-md rounded-xl h-11 px-6 ${
+                empresa.status_aprovacao === 'suspenso' 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-gray-600 hover:bg-gray-700'
+              }`}
+            >
+              {suspendendo ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                empresa.status_aprovacao === 'suspenso' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />
+              )}
+              {empresa.status_aprovacao === 'suspenso' ? 'Remover Suspensão' : 'Suspender'}
+            </Button>
             <Button 
               onClick={() => setModalUsuariosAberto(true)}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-md rounded-xl h-11 px-6"
