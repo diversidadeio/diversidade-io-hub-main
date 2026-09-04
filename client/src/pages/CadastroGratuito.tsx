@@ -1190,10 +1190,12 @@ export default function CadastroGratuito() {
                               )}
                             </div>
                             <div>
-                              <h3 className={`font-semibold text-sm mb-1 ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                              <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                                {descricao}
+                              </h3>
+                              <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
                                 {titulo}
                               </h3>
-                              <p className="text-xs text-gray-500 leading-relaxed">{descricao}</p>
                             </div>
                           </div>
                         </div>

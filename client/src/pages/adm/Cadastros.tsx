@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
 import { Link } from "wouter";
@@ -57,7 +57,7 @@ type OrdenacaoFiltro =
   | "nome_za";
 type SituacaoCNPJFiltro = "todos" | "ATIVA" | "INAPTA" | "BAIXADA" | "SUSPENSA" | "nao_verificado" | "irregular";
 
-/** SituaÃ§Ã£o cadastral na Receita Federal (retornada pela BrasilAPI e salva no banco) */
+/** Situação cadastral na Receita Federal (retornada pela BrasilAPI e salva no banco) */
 type SituacaoCNPJ = "ATIVA" | "INAPTA" | "BAIXADA" | "SUSPENSA" | "NULA" | "NAO_ENCONTRADO" | "ERRO_CONSULTA" | "CNPJ_INVALIDO" | "RATE_LIMIT" | null;
 
 interface FiltrosState {
@@ -92,7 +92,7 @@ const FILTROS_PADRAO: FiltrosState = {
   situacaoCnpj: "todos",
 };
 
-const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "MÃ©dia Empresa", "Grande Empresa"];
+const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
 const TIPOS_ACESSO_DISPONIVEIS = ["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO"];
 
 const CAMPOS_OBRIGATORIOS = [
@@ -104,7 +104,7 @@ const CAMPOS_OBRIGATORIOS = [
   "sobre_empresa",
 ];
 
-// Campos que devem estar preenchidos em cada sÃ³cio
+// Campos que devem estar preenchidos em cada sócio
 const CAMPOS_SOCIO_OBRIGATORIOS = [
   "nome",
   "cpf",
@@ -119,7 +119,7 @@ const CAMPOS_SOCIO_OBRIGATORIOS = [
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Retorna true se todos os 10 campos obrigatÃ³rios do sÃ³cio estÃ£o preenchidos */
+/** Retorna true se todos os 10 campos obrigatórios do sócio estÃ£o preenchidos */
 function socioCompleto(socio: any): boolean {
   return CAMPOS_SOCIO_OBRIGATORIOS.every(
     (campo) => socio[campo] != null && String(socio[campo]).trim() !== ""
@@ -128,20 +128,20 @@ function socioCompleto(socio: any): boolean {
 
 /**
  * Calcula a completude da empresa (0â€“100%).
- * A parte de sÃ³cios sÃ³ conta como 100% se:
- *   - a empresa NÃƒO Ã© do tipo "EMPRESA OU INICIATIVA INCENTIVADORA", E
- *   - existe ao menos 1 sÃ³cio cadastrado, E
- *   - todos os sÃ³cios tÃªm os campos obrigatÃ³rios preenchidos.
- * Empresas incentivadoras nÃ£o precisam de quadro societÃ¡rio para atingir 100%.
+ * A parte de sócios sÃ³ conta como 100% se:
+ *   - a empresa NÃO Ã© do tipo "EMPRESA OU INICIATIVA INCENTIVADORA", E
+ *   - existe ao menos 1 sócio cadastrado, E
+ *   - todos os sócios têm os campos obrigatórios preenchidos.
+ * Empresas incentivadoras não precisam de quadro societário para atingir 100%.
  */
 function calcularCompletude(emp: any, listaSocios: any[]): number {
   const ehIncentivadora = emp.acesso_tipo === "EMPRESA OU INICIATIVA INCENTIVADORA";
-  const total = CAMPOS_OBRIGATORIOS.length + (ehIncentivadora ? 0 : 1); // sÃ³cios nÃ£o contam para incentivadoras
+  const total = CAMPOS_OBRIGATORIOS.length + (ehIncentivadora ? 0 : 1); // sócios não contam para incentivadoras
   let preenchidos = 0;
   for (const campo of CAMPOS_OBRIGATORIOS) {
     if (emp[campo] && String(emp[campo]).trim() !== "") preenchidos++;
   }
-  // SÃ³cios: sÃ³ verifica se nÃ£o for incentivadora
+  // SÃ³cios: sÃ³ verifica se não for incentivadora
   if (!ehIncentivadora) {
     if (listaSocios.length > 0 && listaSocios.every(socioCompleto)) preenchidos++;
   }
@@ -169,7 +169,7 @@ function BarraCompletude({ porcentagem }: { porcentagem: number }) {
   );
 }
 
-// â”€â”€â”€ Badge de SituaÃ§Ã£o CNPJ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Badge de Situação CNPJ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CONFIG_SITUACAO: Record<string, { label: string; cor: string; icone: React.ReactNode }> = {
   ATIVA:         { label: "Ativa",          cor: "bg-green-100 text-green-700 border-green-200",   icone: <ShieldCheck className="w-3 h-3" /> },
@@ -177,9 +177,9 @@ const CONFIG_SITUACAO: Record<string, { label: string; cor: string; icone: React
   BAIXADA:       { label: "Baixada",        cor: "bg-red-100 text-red-700 border-red-200",          icone: <ShieldOff className="w-3 h-3" /> },
   SUSPENSA:      { label: "Suspensa",       cor: "bg-yellow-100 text-yellow-700 border-yellow-200", icone: <ShieldAlert className="w-3 h-3" /> },
   NULA:          { label: "Nula",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
-  NAO_ENCONTRADO:{ label: "NÃ£o encontrado", cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  NAO_ENCONTRADO:{ label: "Não encontrado", cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
   ERRO_CONSULTA: { label: "Erro",           cor: "bg-gray-100 text-gray-500 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
-  CNPJ_INVALIDO: { label: "CNPJ invÃ¡lido",  cor: "bg-gray-100 text-gray-400 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
+  CNPJ_INVALIDO: { label: "CNPJ inválido",  cor: "bg-gray-100 text-gray-400 border-gray-200",       icone: <ShieldQuestion className="w-3 h-3" /> },
 };
 
 function BadgeSituacaoCNPJ({
@@ -194,7 +194,7 @@ function BadgeSituacaoCNPJ({
       <div className="inline-flex flex-col items-center gap-0.5">
         <span className="inline-flex justify-center items-center gap-1.5 w-[115px] py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200 text-xs whitespace-nowrap">
           <ShieldQuestion className="w-3 h-3" />
-          NÃ£o verificado
+          Não verificado
         </span>
       </div>
     );
@@ -224,7 +224,7 @@ function BadgeSituacaoCNPJ({
   );
 }
 
-// â”€â”€â”€ Modal de VerificaÃ§Ã£o em Massa de CNPJs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Modal de Verificação em Massa de CNPJs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type EstadoVerificacao = "selecao" | "verificando" | "concluido" | "erro";
 
@@ -364,29 +364,29 @@ function ModalVerificarCNPJs({
 
     es.addEventListener("erro", (e) => {
       const dado = JSON.parse(e.data);
-      setErroMsg(dado.mensagem || "Erro durante a verificaÃ§Ã£o.");
+      setErroMsg(dado.mensagem || "Erro durante a verificação.");
       setEstado("erro");
       es.close();
     });
 
     es.onerror = () => {
-      setErroMsg("ConexÃ£o perdida com o servidor.");
+      setErroMsg("Conexão perdida com o servidor.");
       setEstado("erro");
       es.close();
     };
   }
 
-  // â”€â”€ Tela de SeleÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Tela de Seleção â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (estado === "selecao") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[85vh]">
-          {/* CabeÃ§alho */}
+          {/* Cabeçalho */}
           <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-start justify-between gap-4 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <RefreshCw className="w-5 h-5 text-[#7030A0]" />
-                Verificar SituaÃ§Ã£o dos CNPJs
+                Verificar Situação dos CNPJs
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 Consulta a Receita Federal via BrasilAPI (~450ms por empresa).
@@ -397,7 +397,7 @@ function ModalVerificarCNPJs({
             </button>
           </div>
 
-          {/* Controles de seleÃ§Ã£o */}
+          {/* Controles de seleção */}
           <div className="px-6 py-3 border-b border-gray-100 shrink-0 space-y-2">
             <div className="flex items-center gap-2">
               <button
@@ -411,7 +411,7 @@ function ModalVerificarCNPJs({
                 onClick={limparSelecao}
                 className="text-xs text-gray-500 hover:underline"
               >
-                âœ• Limpar seleÃ§Ã£o
+                âœ• Limpar seleção
               </button>
               <span className="ml-auto text-xs text-gray-500">
                 <span className="font-semibold text-gray-800">{totalSelecionadas}</span> selecionada{totalSelecionadas !== 1 ? "s" : ""}
@@ -464,9 +464,9 @@ function ModalVerificarCNPJs({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 truncate">
-                    {emp.razao_social || "Sem razÃ£o social"}
+                    {emp.razao_social || "Sem razão social"}
                   </div>
-                  <div className="text-xs text-gray-400">{emp.cnpj || "CNPJ nÃ£o informado"}</div>
+                  <div className="text-xs text-gray-400">{emp.cnpj || "CNPJ não informado"}</div>
                 </div>
                 {sit && sit.situacao ? (
                   <div className="flex-shrink-0 scale-[0.8] origin-right">
@@ -484,7 +484,7 @@ function ModalVerificarCNPJs({
             )}
           </div>
 
-          {/* RodapÃ© */}
+          {/* Rodapé */}
           <div className="px-6 py-4 border-t border-gray-100 shrink-0">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-gray-400">
@@ -504,7 +504,7 @@ function ModalVerificarCNPJs({
                 className="flex-1 py-2 rounded-lg bg-[#7030A0] hover:bg-purple-800 text-white text-sm font-medium disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Iniciar VerificaÃ§Ã£o
+                Iniciar Verificação
               </button>
             </div>
           </div>
@@ -564,7 +564,7 @@ function ModalVerificarCNPJs({
     );
   }
 
-  // â”€â”€ Tela de ConclusÃ£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Tela de Conclusão â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (estado === "concluido" && resumo) {
     const labelSituacao: Record<string, string> = {
       ATIVA: "ðŸŸ¢ Ativas",
@@ -572,9 +572,9 @@ function ModalVerificarCNPJs({
       BAIXADA: "ðŸ”´ Baixadas",
       SUSPENSA: "ðŸŸ¡ Suspensas",
       NULA: "âšª Nulas",
-      NAO_ENCONTRADO: "â“ NÃ£o encontradas",
+      NAO_ENCONTRADO: "â“ Não encontradas",
       ERRO_CONSULTA: "âš ï¸ Erros",
-      CNPJ_INVALIDO: "â›” CNPJ invÃ¡lido",
+      CNPJ_INVALIDO: "â›” CNPJ inválido",
     };
 
     return (
@@ -584,7 +584,7 @@ function ModalVerificarCNPJs({
             <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">VerificaÃ§Ã£o ConcluÃ­da!</h2>
+            <h2 className="text-xl font-bold text-gray-900">Verificação Concluída!</h2>
             <p className="text-sm text-gray-500 mt-1">
               {resumo.total} empresa{resumo.total !== 1 ? "s" : ""} verificada{resumo.total !== 1 ? "s" : ""}.
             </p>
@@ -615,7 +615,7 @@ function ModalVerificarCNPJs({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 text-center">
         <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
-        <h2 className="text-lg font-bold text-gray-900">Erro na verificaÃ§Ã£o</h2>
+        <h2 className="text-lg font-bold text-gray-900">Erro na verificação</h2>
         <p className="text-sm text-gray-500">{erroMsg}</p>
         <button
           onClick={() => setEstado("selecao")}
@@ -665,7 +665,7 @@ export default function CadastrosAdm() {
   const [filtrosTemp, setFiltrosTemp] = useState<FiltrosState>(FILTROS_PADRAO);
   const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosState>(FILTROS_PADRAO);
 
-  // PaginaÃ§Ã£o
+  // Paginação
   const [pagina, setPagina] = useState(1);
   const [itensPorPagina, setItensPorPagina] = useState(20);
 
@@ -691,7 +691,7 @@ export default function CadastrosAdm() {
         setCadastros(lista);
 
         // Query separada para situaÃ§Ã£o CNPJ (campos novos â€” sÃ³ existe apÃ³s a migration)
-        // Se os campos ainda nÃ£o existirem no banco, falha silenciosamente sem quebrar o carregamento
+        // Se os campos ainda não existirem no banco, falha silenciosamente sem quebrar o carregamento
         try {
           const { data: cnpjData } = await supabase
             .from("empresas")
@@ -711,11 +711,11 @@ export default function CadastrosAdm() {
             setSituacoesCnpj(situacoesMap);
           }
         } catch {
-          // Colunas de situaÃ§Ã£o CNPJ ainda nÃ£o existem â€” ignora silenciosamente
-          console.info("Campos situacao_cnpj ainda nÃ£o disponÃ­veis no banco.");
+          // Colunas de situaÃ§Ã£o CNPJ ainda não existem â€” ignora silenciosamente
+          console.info("Campos situacao_cnpj ainda não disponíveis no banco.");
         }
 
-        // Buscar sÃ³cios com todos os campos necessÃ¡rios para cÃ¡lculo de completude
+        // Buscar sócios com todos os campos necessários para cÃ¡lculo de completude
         const { data: sociosData } = await supabase
           .from("socios")
           .select(
@@ -728,7 +728,7 @@ export default function CadastrosAdm() {
         });
         setSocios(sociosMap);
 
-        // Buscar quais empresas tÃªm CEPs de impacto
+        // Buscar quais empresas têm CEPs de impacto
         const { data: cepsData } = await supabase
           .from("ceps_impactados")
           .select("empresa_id");
@@ -749,13 +749,13 @@ export default function CadastrosAdm() {
   // â”€â”€ FunÃ§Ãµes de Busca com IA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const SESSAO_KEY = "admin_pesquisas_ia_estado";
   
-  // Pegamos o email do admin para registrar no histÃ³rico
+  // Pegamos o email do admin para registrar no histórico
   const getAdminEmail = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     return user?.email || "admin@diversidade.io";
   };
 
-  // Restaura estado do sessionStorage ao montar (ex: ao voltar da pÃ¡gina de detalhes)
+  // Restaura estado do sessionStorage ao montar (ex: ao voltar da página de detalhes)
   useEffect(() => {
     try {
       const salvo = sessionStorage.getItem(SESSAO_KEY);
@@ -786,7 +786,7 @@ export default function CadastrosAdm() {
 
   async function executarBuscaIA() {
     if (!buscaIA.trim() || buscaIA.trim().length < 5) {
-      setErroIA("Descreva com mais detalhes o que vocÃª precisa (mÃ­nimo 5 caracteres).");
+      setErroIA("Descreva com mais detalhes o que você precisa (mínimo 5 caracteres).");
       return;
     }
     setErroIA("");
@@ -813,10 +813,10 @@ export default function CadastrosAdm() {
       // Persiste no sessionStorage para restaurar ao voltar
       sessionStorage.setItem(SESSAO_KEY, JSON.stringify({ buscaIA: buscaIA.trim(), resultadosIA: resultados }));
       if (resultados.length === 0) {
-        setErroIA(dados.mensagem || "Nenhuma empresa encontrada para essa descriÃ§Ã£o. Tente usar outras palavras.");
+        setErroIA(dados.mensagem || "Nenhuma empresa encontrada para essa descrição. Tente usar outras palavras.");
       }
     } catch {
-      setErroIA("Erro de conexÃ£o. Verifique sua internet e tente novamente.");
+      setErroIA("Erro de conexão. Verifique sua internet e tente novamente.");
     } finally {
       setCarregandoIA(false);
     }
@@ -832,7 +832,7 @@ export default function CadastrosAdm() {
   }
 
   function abrirModoIA() {
-    // SÃ³ limpa se nÃ£o houver estado salvo no sessionStorage
+    // SÃ³ limpa se não houver estado salvo no sessionStorage
     const salvo = sessionStorage.getItem(SESSAO_KEY);
     if (!salvo) {
       setBuscaIA("");
@@ -851,7 +851,7 @@ export default function CadastrosAdm() {
   }
   // â”€â”€ Fim Busca com IA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // â”€â”€ Filtros e paginaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Filtros e paginação â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const cadastrosFiltrados = useMemo(() => {
     let lista = cadastros.filter((emp) => {
@@ -940,7 +940,7 @@ export default function CadastrosAdm() {
       );
     });
 
-    // OrdenaÃ§Ã£o
+    // Ordenação
     lista = [...lista].sort((a, b) => {
       if (filtrosAtivos.ordenacao === "antigos") {
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -958,14 +958,14 @@ export default function CadastrosAdm() {
     return lista;
   }, [cadastros, socios, ceps, situacoesCnpj, busca, filtrosAtivos]);
 
-  // PaginaÃ§Ã£o
+  // Paginação
   const totalPaginas = Math.max(1, Math.ceil(cadastrosFiltrados.length / itensPorPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const inicio = (paginaAtual - 1) * itensPorPagina;
   const fim = Math.min(inicio + itensPorPagina, cadastrosFiltrados.length);
   const cadastrosPagina = cadastrosFiltrados.slice(inicio, fim);
 
-  // Reset para pÃ¡gina 1 ao mudar filtros ou busca
+  // Reset para página 1 ao mudar filtros ou busca
   useEffect(() => {
     setPagina(1);
   }, [filtrosAtivos, busca, itensPorPagina]);
@@ -1056,10 +1056,10 @@ export default function CadastrosAdm() {
     tagsFiltros.push({ label: `Tipo: ${filtrosAtivos.tiposAcesso.join(", ")}`, chave: "tiposAcesso" });
   if (filtrosAtivos.semLogo) tagsFiltros.push({ label: "Sem logo", chave: "semLogo" });
   if (filtrosAtivos.semDocumentos) tagsFiltros.push({ label: "Sem documentos", chave: "semDocumentos" });
-  if (filtrosAtivos.semSocios) tagsFiltros.push({ label: "Sem sÃ³cios", chave: "semSocios" });
+  if (filtrosAtivos.semSocios) tagsFiltros.push({ label: "Sem sócios", chave: "semSocios" });
   if (filtrosAtivos.semCeps) tagsFiltros.push({ label: "Sem CEPs de impacto", chave: "semCeps" });
   if (filtrosAtivos.dataInicio) tagsFiltros.push({ label: `A partir de ${filtrosAtivos.dataInicio}`, chave: "dataInicio" });
-  if (filtrosAtivos.dataFim) tagsFiltros.push({ label: `AtÃ© ${filtrosAtivos.dataFim}`, chave: "dataFim" });
+  if (filtrosAtivos.dataFim) tagsFiltros.push({ label: `Até ${filtrosAtivos.dataFim}`, chave: "dataFim" });
   if (filtrosAtivos.ordenacao !== "recentes") {
     const labels: Record<string, string> = { antigos: "Mais antigos", nome_az: "Nome Aâ†’Z", nome_za: "Nome Zâ†’A" };
     tagsFiltros.push({ label: `Ordem: ${labels[filtrosAtivos.ordenacao]}`, chave: "ordenacao" });
@@ -1070,12 +1070,12 @@ export default function CadastrosAdm() {
       INAPTA: "CNPJ: Inapta",
       BAIXADA: "CNPJ: Baixada",
       SUSPENSA: "CNPJ: Suspensa",
-      nao_verificado: "CNPJ: NÃ£o verificado",
+      nao_verificado: "CNPJ: Não verificado",
     };
     tagsFiltros.push({ label: labelsCnpj[filtrosAtivos.situacaoCnpj] || `CNPJ: ${filtrosAtivos.situacaoCnpj}`, chave: "situacaoCnpj" });
   }
 
-  // â”€â”€ AÃ§Ãµes do modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Ações do modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function abrirModal() {
     setFiltrosTemp(filtrosAtivos);
     setModalAberto(true);
@@ -1090,7 +1090,7 @@ export default function CadastrosAdm() {
     setFiltrosTemp(FILTROS_PADRAO);
   }
 
-  // â”€â”€ PÃ¡ginas numÃ©ricas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Páginas numéricas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function gerarNumeroPaginas(): (number | "...")[] {
     if (totalPaginas <= 7) return Array.from({ length: totalPaginas }, (_, i) => i + 1);
     const paginas: (number | "...")[] = [1];
@@ -1109,7 +1109,7 @@ export default function CadastrosAdm() {
     <LayoutAdm>
       <div className="space-y-5">
 
-        {/* CabeÃ§alho */}
+        {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Cadastros</h1>
@@ -1129,7 +1129,7 @@ export default function CadastrosAdm() {
                 />
               </div>
 
-              {/* BotÃ£o Filtrar */}
+              {/* Botão Filtrar */}
               <button
                 onClick={abrirModal}
                 className={`relative inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${
@@ -1147,7 +1147,7 @@ export default function CadastrosAdm() {
                 )}
               </button>
               
-              {/* BotÃ£o Busca com IA */}
+              {/* Botão Busca com IA */}
               <button
                 onClick={abrirModoIA}
                 className={`inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${
@@ -1161,7 +1161,7 @@ export default function CadastrosAdm() {
                 <span className="sm:hidden">IA</span>
               </button>
 
-              {/* BotÃ£o Verificar CNPJs */}
+              {/* Botão Verificar CNPJs */}
               <button
                 onClick={() => setModalVerificarAberto(true)}
                 className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50 whitespace-nowrap"
@@ -1177,7 +1177,7 @@ export default function CadastrosAdm() {
         {/* RenderizaÃ§Ã£o condicional: IA vs Tabela normal */}
         {modoIA ? (
           <div className="space-y-6">
-            {/* CabeÃ§alho do painel IA */}
+            {/* Cabeçalho do painel IA */}
             <div className="flex items-center justify-between">
               <button
                 onClick={fecharModoIA}
@@ -1187,13 +1187,13 @@ export default function CadastrosAdm() {
                 Voltar para a lista
               </button>
               <div className="flex items-center gap-2">
-                {/* BotÃ£o HistÃ³rico */}
+                {/* Botão Histórico */}
                 <button
                   onClick={() => { setHistoricoAberto(true); carregarHistorico(); }}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#7030A0] dark:hover:text-purple-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 hover:border-[#7030A0] dark:hover:border-purple-500 transition-colors"
                 >
                   <History className="w-3.5 h-3.5" />
-                  HistÃ³rico
+                  Histórico
                 </button>
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7030A0] dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full border border-purple-200 dark:border-purple-700">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -1202,17 +1202,17 @@ export default function CadastrosAdm() {
               </div>
             </div>
 
-            {/* Campo de descriÃ§Ã£o */}
+            {/* Campo de descrição */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Descreva o serviÃ§o ou produto que vocÃª precisa
+                  Descreva o serviço ou produto que você precisa
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Quanto mais detalhes vocÃª fornecer, melhores serÃ£o os resultados. A IA irÃ¡ analisar as atividades de todas as empresas cadastradas e encontrar as mais relevantes para vocÃª.
+                  Quanto mais detalhes você fornecer, melhores serão os resultados. A IA irá analisar as atividades de todas as empresas cadastradas e encontrar as mais relevantes para você.
                 </p>
                 <Textarea
-                  placeholder="Ex: Preciso de fornecedores de TI com experiÃªncia em infraestrutura..."
+                  placeholder="Ex: Preciso de fornecedores de TI com experiência em infraestrutura..."
                   value={buscaIA}
                   onChange={(e) => { setBuscaIA(e.target.value); setErroIA(""); }}
                   rows={4}
@@ -1291,13 +1291,13 @@ export default function CadastrosAdm() {
               </div>
             )}
 
-            {/* â”€â”€ Sheet de HistÃ³rico â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* â”€â”€ Sheet de Histórico â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Sheet open={historicoAberto} onOpenChange={setHistoricoAberto}>
               <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full dark:bg-gray-900 dark:border-gray-700">
                 <SheetHeader className="mb-6 space-y-2 shrink-0">
                   <SheetTitle className="flex items-center gap-2 text-gray-900 dark:text-white mt-4 sm:mt-0">
                     <History className="w-5 h-5 text-[#7030A0] dark:text-purple-400" />
-                    HistÃ³rico de Buscas com IA
+                    Histórico de Buscas com IA
                   </SheetTitle>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Acesse suas buscas recentes e restaure os resultados a qualquer momento sem precisar refazer a pesquisa.
@@ -1313,7 +1313,7 @@ export default function CadastrosAdm() {
                     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
                       <Clock className="w-10 h-10 text-gray-300 dark:text-gray-600" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Nenhuma busca com IA encontrada no histÃ³rico.
+                        Nenhuma busca com IA encontrada no histórico.
                       </p>
                     </div>
                   ) : (
@@ -1326,7 +1326,7 @@ export default function CadastrosAdm() {
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hover:border-purple-200 dark:hover:border-purple-700 transition-colors">
                             <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
                               <Clock className="w-3 h-3" />
-                              {dataFormatada} Ã s {horaFormatada}
+                              {dataFormatada} às {horaFormatada}
                             </div>
                             <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
                               "{item.descricao}"
@@ -1455,10 +1455,10 @@ export default function CadastrosAdm() {
                 <tr>
                   <th className="px-6 py-4 font-semibold">Empresa</th>
                   <th className="px-6 py-4 font-semibold">CNPJ</th>
-                  <th className="px-6 py-4 font-semibold">SituaÃ§Ã£o CNPJ</th>
+                  <th className="px-6 py-4 font-semibold">Situação CNPJ</th>
                   <th className="px-6 py-4 font-semibold">Cadastro</th>
                   <th className="px-6 py-4 font-semibold">Data</th>
-                  <th className="px-6 py-4 font-semibold text-right">AÃ§Ã£o</th>
+                  <th className="px-6 py-4 font-semibold text-right">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1548,10 +1548,10 @@ export default function CadastrosAdm() {
             </table>
           </div>
 
-          {/* RodapÃ© da tabela: itens por pÃ¡gina + paginaÃ§Ã£o */}
+          {/* Rodapé da tabela: itens por página + paginação */}
           {!carregando && cadastrosFiltrados.length > 0 && (
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-              {/* Itens por pÃ¡gina + contador */}
+              {/* Itens por página + contador */}
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-500">Mostrar</span>
                 <Select
@@ -1571,7 +1571,7 @@ export default function CadastrosAdm() {
                 <span className="text-sm text-gray-500">
                   Exibindo{" "}
                   <span className="font-medium text-gray-900">
-                    {inicio + 1}â€“{fim}
+                    {inicio + 1}-{fim}
                   </span>{" "}
                   de{" "}
                   <span className="font-medium text-gray-900">
@@ -1581,7 +1581,7 @@ export default function CadastrosAdm() {
                 </span>
               </div>
 
-              {/* PaginaÃ§Ã£o */}
+              {/* Paginação */}
               {totalPaginas > 1 && (
                 <div className="flex items-center gap-1">
                   <button
@@ -1595,7 +1595,7 @@ export default function CadastrosAdm() {
                   {gerarNumeroPaginas().map((p, idx) =>
                     p === "..." ? (
                       <span key={`ellipsis-${idx}`} className="w-8 text-center text-gray-400 text-sm">
-                        â€¦
+                        ...
                       </span>
                     ) : (
                       <button
@@ -1634,7 +1634,7 @@ export default function CadastrosAdm() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-900">
               <SlidersHorizontal className="w-5 h-5 text-[#7030A0]" />
-              Filtros AvanÃ§ados
+              Filtros Avançados
             </DialogTitle>
           </DialogHeader>
 
@@ -1642,7 +1642,7 @@ export default function CadastrosAdm() {
 
             {/* Status */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Status de AprovaÃ§Ã£o</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Status de Aprovação</p>
               <div className="flex gap-2 flex-wrap">
                 {(["todos", "pendente", "aprovado"] as const).map((s) => (
                   <button
@@ -1664,7 +1664,7 @@ export default function CadastrosAdm() {
 
             {/* Opt-in */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Opt-in (AutorizaÃ§Ã£o)</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Opt-in (Autorização)</p>
               <div className="flex gap-2 flex-wrap">
                 {(["todos", "com_optin", "sem_optin"] as const).map((o) => (
                   <button
@@ -1762,9 +1762,9 @@ export default function CadastrosAdm() {
 
             <Separator />
 
-            {/* PerÃ­odo */}
+            {/* Período */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">PerÃ­odo de Cadastro</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Período de Cadastro</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500 mb-1 block">A partir de</Label>
@@ -1778,7 +1778,7 @@ export default function CadastrosAdm() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">AtÃ©</Label>
+                  <Label className="text-xs text-gray-500 mb-1 block">Até</Label>
                   <Input
                     type="date"
                     value={filtrosTemp.dataFim}
@@ -1800,7 +1800,7 @@ export default function CadastrosAdm() {
                 {[
                   { key: "semLogo", label: "Sem logo da empresa" },
                   { key: "semDocumentos", label: "Sem documentos (CNPJ / Junta)" },
-                  { key: "semSocios", label: "Sem sÃ³cios cadastrados" },
+                  { key: "semSocios", label: "Sem sócios cadastrados" },
                   { key: "semCeps", label: "Sem CEPs de impacto" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center gap-2">
@@ -1821,9 +1821,9 @@ export default function CadastrosAdm() {
 
             <Separator />
 
-            {/* OrdenaÃ§Ã£o */}
+            {/* Ordenação */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">OrdenaÃ§Ã£o</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Ordenação</p>
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
@@ -1852,11 +1852,11 @@ export default function CadastrosAdm() {
 
             <Separator />
 
-            {/* SituaÃ§Ã£o do CNPJ */}
+            {/* Situação do CNPJ */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">SituaÃ§Ã£o do CNPJ</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Situação do CNPJ</p>
               <p className="text-xs text-gray-400 mb-2">
-                Filtra por situaÃ§Ã£o cadastral na Receita Federal. Empresas nÃ£o verificadas nÃ£o aparecerÃ£o, a nÃ£o ser que selecione "NÃ£o verificado".
+                Filtra por situaÃ§Ã£o cadastral na Receita Federal. Empresas não verificadas não aparecerão, a não ser que selecione "Não verificado".
               </p>
               <div className="flex gap-2 flex-wrap">
                 {([
@@ -1865,7 +1865,7 @@ export default function CadastrosAdm() {
                   { value: "INAPTA", label: "ðŸŸ  Inapta" },
                   { value: "BAIXADA", label: "ðŸ”´ Baixada" },
                   { value: "SUSPENSA", label: "ðŸŸ¡ Suspensa" },
-                  { value: "nao_verificado", label: "âšª NÃ£o verificado" },
+                  { value: "nao_verificado", label: "âšª Não verificado" },
                 ] as const).map(({ value, label }) => (
                   <button
                     key={value}
@@ -1901,7 +1901,7 @@ export default function CadastrosAdm() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Modal de VerificaÃ§Ã£o de CNPJs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ Modal de Verificação de CNPJs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <ModalVerificarCNPJs
         aberto={modalVerificarAberto}
         onFechar={() => setModalVerificarAberto(false)}

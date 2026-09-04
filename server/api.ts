@@ -895,6 +895,156 @@ apiRouter.post("/remover-usuario", async (req, res) => {
 });
 
 /**
+ * Endpoint admin: gera senha temporária para um usuário específico (por auth_user_id).
+ * Se o auth_user_id não existir no Auth (usuário legado), faz fallback por e-mail.
+ * Gera uma senha aleatória, atualiza no Supabase Auth e retorna para exibição no modal.
+ */
+apiRouter.post("/adm/gerar-senha-usuario", async (req, res) => {
+  try {
+    const { auth_user_id, email_fallback } = req.body;
+    if (!auth_user_id) {
+      return res.status(400).json({ erro: "auth_user_id é obrigatório." });
+    }
+
+    // Gera senha aleatória de 8 caracteres alfanuméricos
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let senha = "";
+    for (let i = 0; i < 8; i++) {
+      senha += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Tenta atualizar pelo auth_user_id direto
+    let { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      auth_user_id,
+      { password: senha }
+    );
+
+    // Fallback: se não encontrou pelo ID, busca pelo e-mail
+    if (updateError && updateError.message?.toLowerCase().includes("user not found") && email_fallback) {
+      console.log(`[adm/gerar-senha-usuario] Fallback por e-mail: ${email_fallback}`);
+      const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+      const authUser = authList?.users?.find((u) => u.email === email_fallback);
+      if (authUser) {
+        const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
+          authUser.id,
+          { password: senha }
+        );
+        if (retryError) {
+          return res.status(500).json({ erro: "Erro ao atualizar senha: " + retryError.message });
+        }
+      } else {
+        return res.status(404).json({ erro: "Usuário não encontrado no Auth (nem por ID nem por e-mail)." });
+      }
+    } else if (updateError) {
+      return res.status(500).json({ erro: "Erro ao atualizar senha: " + updateError.message });
+    }
+
+    return res.json({ sucesso: true, senha });
+  } catch (err: any) {
+    console.error("Erro no endpoint /adm/gerar-senha-usuario:", err);
+    return res.status(500).json({ erro: "Erro interno: " + (err.message || "Desconhecido") });
+  }
+});
+
+/**
+ * Endpoint admin: atualiza dados de um usuário da empresa (nome, e-mail, telefone).
+ * - Se o e-mail mudar: atualiza auth.users + empresa_usuarios + empresas (se for o responsável).
+ * - Se nome/telefone mudar: atualiza empresa_usuarios.
+ * - Fallback: se o auth_user_id não existir, busca o usuário pelo e-mail atual (email_atual).
+ */
+apiRouter.post("/adm/atualizar-usuario", async (req, res) => {
+  try {
+    const {
+      auth_user_id,
+      empresa_usuario_id,
+      empresa_id,
+      empresa_principal,   // true se o usuário é o responsável principal da tabela empresas
+      email_atual,         // e-mail atual do usuário (para fallback de busca no Auth)
+      nome,
+      email,
+      telefone,
+    } = req.body;
+
+    if (!auth_user_id || !empresa_id) {
+      return res.status(400).json({ erro: "auth_user_id e empresa_id são obrigatórios." });
+    }
+
+    const erros: string[] = [];
+
+    // ─── Atualiza e-mail no Auth (se informado) ────────────────────────────────
+    if (email) {
+      let { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        auth_user_id,
+        { email, email_confirm: true }
+      );
+
+      // Fallback: se não achou pelo ID, busca pelo e-mail atual
+      if (authError && authError.message?.toLowerCase().includes("user not found") && email_atual) {
+        console.log(`[adm/atualizar-usuario] Fallback por e-mail: ${email_atual}`);
+        const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+        const authUser = authList?.users?.find((u) => u.email === email_atual);
+        if (authUser) {
+          const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
+            authUser.id,
+            { email, email_confirm: true }
+          );
+          if (retryError) {
+            return res.status(500).json({ erro: "Erro ao atualizar e-mail no Auth: " + retryError.message });
+          }
+        } else {
+          return res.status(404).json({ erro: "Usuário não encontrado no Auth. Verifique se este usuário possui acesso ativo à plataforma." });
+        }
+      } else if (authError) {
+        return res.status(500).json({ erro: "Erro ao atualizar e-mail no Auth: " + authError.message });
+      }
+    }
+
+    // ─── Atualiza na tabela empresa_usuarios (se tiver registro lá) ────────────
+    if (empresa_usuario_id) {
+      const camposEu: Record<string, any> = {};
+      if (nome !== undefined && nome !== null)     camposEu.nome     = nome;
+      if (email !== undefined && email !== null)   camposEu.email    = email;
+      if (telefone !== undefined)                   camposEu.telefone = telefone;
+
+      if (Object.keys(camposEu).length > 0) {
+        const { error: euError } = await supabaseAdmin
+          .from("empresa_usuarios")
+          .update(camposEu)
+          .eq("id", empresa_usuario_id);
+
+        if (euError) erros.push("empresa_usuarios: " + euError.message);
+      }
+    }
+
+    // ─── Se for o usuário principal, atualiza também a tabela empresas ─────────
+    if (empresa_principal) {
+      const camposEmp: Record<string, any> = {};
+      if (email !== undefined && email !== null)       camposEmp.email              = email;
+      if (nome !== undefined && nome !== null)         camposEmp.nome_responsavel   = nome;
+      if (telefone !== undefined && telefone !== null) camposEmp.telefone_principal = telefone;
+
+      if (Object.keys(camposEmp).length > 0) {
+        const { error: empError } = await supabaseAdmin
+          .from("empresas")
+          .update(camposEmp)
+          .eq("id", empresa_id);
+
+        if (empError) erros.push("empresas: " + empError.message);
+      }
+    }
+
+    if (erros.length > 0) {
+      return res.status(500).json({ erro: "Erros parciais: " + erros.join("; ") });
+    }
+
+    return res.json({ sucesso: true, mensagem: "Dados atualizados com sucesso." });
+  } catch (err: any) {
+    console.error("Erro no endpoint /adm/atualizar-usuario:", err);
+    return res.status(500).json({ erro: "Erro interno: " + (err.message || "Desconhecido") });
+  }
+});
+
+/**
  * Busca com IA — retorna as 10 empresas mais relevantes para a necessidade descrita
  * Exclusivo para empresas do tipo "EMPRESA OU INICIATIVA INCENTIVADORA"
  */

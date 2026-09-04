@@ -1179,14 +1179,14 @@ export default function MeuCadastro() {
                   <Input id="razaoSocial" required value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} placeholder="Razão social da empresa" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="nomeFantasia" className="text-gray-700 font-medium flex items-center">
                     Nome Fantasia <InfoNomeFantasia />
                   </Label>
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 md:col-span-2">
                   <div>
                     <Label className="text-gray-700 font-medium">O seu acesso é como:</Label>
                     <p className="text-xs text-gray-500 mt-1">
@@ -1250,10 +1250,12 @@ export default function MeuCadastro() {
                               )}
                             </div>
                             <div>
-                              <h3 className={`font-semibold text-sm mb-1 ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                              <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                                {descricao}
+                              </h3>
+                              <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
                                 {titulo}
                               </h3>
-                              <p className="text-xs text-gray-500 leading-relaxed">{descricao}</p>
                             </div>
                           </div>
                         </div>

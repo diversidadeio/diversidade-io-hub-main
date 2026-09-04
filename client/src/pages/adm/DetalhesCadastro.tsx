@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle, AlertTriangle, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, Key, ExternalLink, Building2, User, CreditCard, Users, FileText, CheckCircle2, MapPin, Clock, XCircle, AlertTriangle, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapaImpactados from "@/components/MapaImpactados";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { registrarLog } from "@/lib/registrarLog";
 import { Edit2 } from "lucide-react";
+import ModalUsuariosEmpresa from "@/components/adm/ModalUsuariosEmpresa";
+
 // ─── Lógica de completude (espelho do Cadastros.tsx) ────────────────────────
 
 const CAMPOS_OBRIGATORIOS_EMPRESA = [
@@ -229,10 +231,12 @@ function BadgeSituacaoCNPJ({
 
 export default function DetalhesCadastroAdm() {
   const [, params] = useRoute("/adm/cadastros/:id");
+  const [, setLocation] = useLocation();
   const id = params?.id;
   const { usuario } = useAuth();
 
   const [carregando, setCarregando] = useState(true);
+  const [deletando, setDeletando] = useState(false);
   const [empresa, setEmpresa] = useState<any>(null);
   const [socios, setSocios] = useState<any[]>([]);
   const [ceps, setCeps] = useState<any[]>([]);
@@ -244,6 +248,8 @@ export default function DetalhesCadastroAdm() {
   const [mostrarMapa, setMostrarMapa] = useState(false);
   const [aprovando, setAprovando] = useState(false);
   const [verificandoCnpj, setVerificandoCnpj] = useState(false);
+  const [modalUsuariosAberto, setModalUsuariosAberto] = useState(false);
+
 
   const handleVerificarCNPJ = async () => {
     if (!empresa?.id || !empresa?.cnpj) return;
@@ -366,6 +372,32 @@ export default function DetalhesCadastroAdm() {
       alert("Erro ao gerar senha: " + err.message);
     } finally {
       setGerandoSenha(false);
+    }
+  };
+
+  const handleDeletar = async () => {
+    if (!id || !empresa) return;
+    const confirmacao = window.confirm("Tem certeza que deseja deletar a empresa e TODOS os usuários vinculados a ela? Esta ação é IRREVERSÍVEL.");
+    if (!confirmacao) return;
+
+    setDeletando(true);
+    try {
+      const { error } = await supabase.rpc('deletar_empresa_completo', { p_empresa_id: id });
+      if (error) throw error;
+      
+      registrarLog({
+        tipo_evento: 'adm_deletar_empresa',
+        empresa_id: id,
+        nome_empresa: empresa?.razao_social || empresa?.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Deletou o cadastro da empresa: ${empresa?.razao_social || empresa?.email} e todos os usuários vinculados.`,
+      });
+
+      toast.success("Empresa e usuários deletados com sucesso!");
+      setLocation('/adm/cadastros');
+    } catch (err: any) {
+      toast.error('Erro ao deletar: ' + err.message);
+      setDeletando(false);
     }
   };
 
@@ -515,12 +547,19 @@ export default function DetalhesCadastroAdm() {
               </Button>
             )}
             <Button 
-              onClick={handleGerarSenha} 
-              disabled={gerandoSenha}
+              onClick={() => setModalUsuariosAberto(true)}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-md rounded-xl h-11 px-6"
             >
-              {gerandoSenha ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
-              Gerar Senha Temporária
+              <Users className="w-4 h-4" />
+              Gerenciar Usuários
+            </Button>
+            <Button 
+              onClick={handleDeletar} 
+              disabled={deletando}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white shadow-md rounded-xl h-11 px-6"
+            >
+              {deletando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Deletar Empresa
             </Button>
           </div>
         </div>
@@ -837,6 +876,26 @@ export default function DetalhesCadastroAdm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de gerenciamento de usuários da empresa */}
+      {empresa && (
+        <ModalUsuariosEmpresa
+          aberto={modalUsuariosAberto}
+          onFechar={() => setModalUsuariosAberto(false)}
+          empresa={{
+            id: empresa.id,
+            email: empresa.email,
+            nome_responsavel: empresa.nome_responsavel,
+            telefone_principal: empresa.telefone_principal,
+          }}
+          onDadosAlterados={() => {
+            // Recarrega os dados da empresa ao fechar o modal após alteração
+            supabase.from('empresas').select('*').eq('id', empresa.id).single().then(({ data }) => {
+              if (data) setEmpresa(data);
+            });
+          }}
+        />
+      )}
 
       {/* Painel flutuante de campos faltando — visível apenas quando os dados já carregaram */}
       <PainelCamposFaltandoAdm empresa={empresa} socios={socios} />
