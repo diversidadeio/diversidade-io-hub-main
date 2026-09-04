@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "wouter";
 import {
   Search,
@@ -633,6 +634,7 @@ function ModalVerificarCNPJs({
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function CadastrosAdm() {
+  const { usuario } = useAuth();
   const [cadastros, setCadastros] = useState<any[]>([]);
   const [socios, setSocios] = useState<Record<string, any[]>>({});
   const [ceps, setCeps] = useState<Record<string, any[]>>({});
@@ -745,12 +747,6 @@ export default function CadastrosAdm() {
   // ── Funções de Busca com IA ───────────────────────────────────────────────
   const SESSAO_KEY = "admin_pesquisas_ia_estado";
   
-  // Pegamos o email do admin para registrar no histórico
-  const getAdminEmail = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.email || "admin@diversidade.io";
-  };
-
   // Restaura estado do sessionStorage ao montar (ex: ao voltar da página de detalhes)
   useEffect(() => {
     try {
@@ -769,7 +765,11 @@ export default function CadastrosAdm() {
   async function carregarHistorico() {
     setCarregandoHistorico(true);
     try {
-      const email = await getAdminEmail();
+      const email = usuario?.email || "";
+      if (!email) {
+        setHistoricoIA([]);
+        return;
+      }
       const resp = await fetch(`/api/historico-buscas-ia?isAdmin=true&adminEmail=${encodeURIComponent(email)}`);
       const dados = await resp.json();
       setHistoricoIA(dados.historico || []);
@@ -789,7 +789,7 @@ export default function CadastrosAdm() {
     setCarregandoIA(true);
     setResultadosIA([]);
     try {
-      const email = await getAdminEmail();
+      const email = usuario?.email || "";
       const resposta = await fetch("/api/busca-ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
