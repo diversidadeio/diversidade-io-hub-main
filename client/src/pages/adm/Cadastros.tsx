@@ -1814,7 +1814,7 @@ export default function CadastrosAdm() {
                         : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    {o === "todos" ? "Todos" : o === "com_optin" ? "�S Com opt-in" : "�S" Sem opt-in"}
+                    {o === "todos" ? "Todos" : o === "com_optin" ? "Com opt-in" : "Sem opt-in"}
                   </button>
                 ))}
               </div>
