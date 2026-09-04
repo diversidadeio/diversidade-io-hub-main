@@ -141,6 +141,9 @@ export default async function handler(req, res) {
             return res.status(404).json({ erro: "Usuário não encontrado no Auth." });
           }
         } else if (authError) {
+          if (authError.message?.toLowerCase().includes("already been registered")) {
+            return res.status(400).json({ erro: "Este e-mail já está em uso por outro usuário no sistema." });
+          }
           return res.status(500).json({ erro: "Erro Auth: " + authError.message });
         }
       }

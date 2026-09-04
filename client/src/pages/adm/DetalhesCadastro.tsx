@@ -304,6 +304,7 @@ export default function DetalhesCadastroAdm() {
   };
 
   const [dialogoCnaeManualAberto, setDialogoCnaeManualAberto] = useState(false);
+  const [dialogoTabelaCnaesAberto, setDialogoTabelaCnaesAberto] = useState(false);
   const [novoCnaeManual, setNovoCnaeManual] = useState("");
   const [salvandoCnaeManual, setSalvandoCnaeManual] = useState(false);
 
@@ -738,7 +739,11 @@ export default function DetalhesCadastroAdm() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNAEs</p>
               <div className="flex flex-col gap-1 items-start">
                 <p className="text-gray-900 text-sm">
-                  {empresa.atividade_empresarial || <span className="text-gray-400 italic">Não informado</span>}
+                  {(() => {
+                    if (!empresa.atividade_empresarial) return <span className="text-gray-400 italic">Não informado</span>;
+                    const cnaesArray = empresa.atividade_empresarial.split(',').map((c: string) => c.trim());
+                    return cnaesArray[0] || <span className="text-gray-400 italic">Não informado</span>;
+                  })()}
                 </p>
                 {empresa.cnpj && (
                   <div className="flex items-start gap-2 mt-2">
@@ -756,6 +761,13 @@ export default function DetalhesCadastroAdm() {
                       title="Adicionar CNAE manualmente"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDialogoTabelaCnaesAberto(true)}
+                      className="mt-0.5 px-3 py-1 text-xs font-medium text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-colors border border-gray-200 hover:border-blue-200 bg-white"
+                      title="Ver todos os CNAEs em tabela"
+                    >
+                      Ver Tabela
                     </button>
                   </div>
                 )}
@@ -1068,6 +1080,65 @@ export default function DetalhesCadastroAdm() {
             >
               {salvandoCnaeManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogoTabelaCnaesAberto} onOpenChange={setDialogoTabelaCnaesAberto}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#7030A0]">
+              <FileText className="w-5 h-5" /> Todos os CNAEs da Empresa
+            </DialogTitle>
+            <DialogDescription>
+              Abaixo estão listados o CNAE principal e os secundários da empresa.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 overflow-x-auto">
+            {(() => {
+              if (!empresa?.atividade_empresarial) return <p className="text-gray-500 italic">Nenhum CNAE registrado.</p>;
+              const cnaesArray = empresa.atividade_empresarial.split(',').map((c: string) => c.trim()).filter(Boolean);
+              if (cnaesArray.length === 0) return <p className="text-gray-500 italic">Nenhum CNAE registrado.</p>;
+              
+              const cnaePrincipal = cnaesArray[0];
+              const cnaesSecundarios = cnaesArray.slice(1);
+              
+              return (
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Tipo</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[80%]">Código e Descrição</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 bg-green-50/30">Principal</td>
+                        <td className="px-6 py-4 text-sm text-gray-900 bg-green-50/30 font-medium">{cnaePrincipal}</td>
+                      </tr>
+                      {cnaesSecundarios.map((cnae: string, index: number) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Secundário</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{cnae}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+
+          <DialogFooter className="sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogoTabelaCnaesAberto(false)}
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
