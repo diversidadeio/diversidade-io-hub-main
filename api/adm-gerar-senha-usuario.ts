@@ -26,7 +26,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // Tenta atualizar pelo auth_user_id direto
-    let { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+    let { error: updateError } = await (supabaseAdmin.auth as any).admin.updateUserById(
       auth_user_id,
       { password: senha }
     );
@@ -34,10 +34,10 @@ export default async function handler(req: any, res: any) {
     // Fallback: se não encontrou pelo ID, busca pelo e-mail
     if (updateError && updateError.message?.toLowerCase().includes("user not found") && email_fallback) {
       console.log(`[adm-gerar-senha-usuario] Fallback por e-mail: ${email_fallback}`);
-      const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+      const { data: authList } = await (supabaseAdmin.auth as any).admin.listUsers();
       const authUser = authList?.users?.find((u: any) => u.email === email_fallback);
       if (authUser) {
-        const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
+        const { error: retryError } = await (supabaseAdmin.auth as any).admin.updateUserById(
           authUser.id,
           { password: senha }
         );

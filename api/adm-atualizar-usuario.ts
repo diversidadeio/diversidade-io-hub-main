@@ -32,7 +32,7 @@ export default async function handler(req: any, res: any) {
 
     // ─── Atualiza e-mail no Auth (se informado) ────────────────────────────────
     if (email) {
-      let { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+      let { error: authError } = await (supabaseAdmin.auth as any).admin.updateUserById(
         auth_user_id,
         { email, email_confirm: true }
       );
@@ -40,10 +40,10 @@ export default async function handler(req: any, res: any) {
       // Fallback: se não achou pelo ID, busca pelo e-mail atual
       if (authError && authError.message?.toLowerCase().includes("user not found") && email_atual) {
         console.log(`[adm-atualizar-usuario] Fallback por e-mail: ${email_atual}`);
-        const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+        const { data: authList } = await (supabaseAdmin.auth as any).admin.listUsers();
         const authUser = authList?.users?.find((u: any) => u.email === email_atual);
         if (authUser) {
-          const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
+          const { error: retryError } = await (supabaseAdmin.auth as any).admin.updateUserById(
             authUser.id,
             { email, email_confirm: true }
           );
