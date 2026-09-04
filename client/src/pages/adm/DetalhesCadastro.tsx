@@ -250,7 +250,6 @@ export default function DetalhesCadastroAdm() {
   const [verificandoCnpj, setVerificandoCnpj] = useState(false);
   const [modalUsuariosAberto, setModalUsuariosAberto] = useState(false);
 
-
   const handleVerificarCNPJ = async () => {
     if (!empresa?.id || !empresa?.cnpj) return;
     setVerificandoCnpj(true);
