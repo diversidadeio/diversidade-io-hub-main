@@ -65,9 +65,11 @@ export default function Usuarios() {
     
     try {
       // Chama o endpoint do servidor que cria o usuário no Auth e envia o e-mail
-      const resposta = await fetch('/api/convidar-usuario', {
+      const resposta = await fetch('/api/usuarios?action=convidar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           empresaId: (usuario as any)?.empresaId,
           nome: conviteNome,
@@ -120,9 +122,9 @@ export default function Usuarios() {
         return;
       }
 
-      // Chama a API do servidor — usa supabaseAdmin para garantir a deleção
+      // Chama a API do servidor
       // e também remove do Supabase Auth, revogando o acesso completamente
-      const resposta = await fetch('/api/remover-usuario', {
+      const resposta = await fetch('/api/usuarios?action=remover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
