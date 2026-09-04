@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
   }
@@ -26,7 +26,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // Tenta atualizar pelo auth_user_id direto
-    let { error: updateError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+    let { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       auth_user_id,
       { password: senha }
     );
@@ -34,10 +34,10 @@ export default async function handler(req: any, res: any) {
     // Fallback: se não encontrou pelo ID, busca pelo e-mail
     if (updateError && updateError.message?.toLowerCase().includes("user not found") && email_fallback) {
       console.log(`[adm-gerar-senha-usuario] Fallback por e-mail: ${email_fallback}`);
-      const { data: authList } = await (supabaseAdmin.auth as any).admin.listUsers();
-      const authUser = authList?.users?.find((u: any) => u.email === email_fallback);
+      const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+      const authUser = authList?.users?.find((u) => u.email === email_fallback);
       if (authUser) {
-        const { error: retryError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+        const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
           authUser.id,
           { password: senha }
         );
@@ -52,8 +52,9 @@ export default async function handler(req: any, res: any) {
     }
 
     return res.json({ sucesso: true, senha });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no endpoint /adm-gerar-senha-usuario:", err);
     return res.status(500).json({ erro: "Erro interno: " + (err.message || "Desconhecido") });
   }
 }
+

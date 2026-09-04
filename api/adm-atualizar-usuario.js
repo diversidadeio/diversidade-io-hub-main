@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
   }
@@ -28,11 +28,11 @@ export default async function handler(req: any, res: any) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const erros: string[] = [];
+    const erros = [];
 
     // ─── Atualiza e-mail no Auth (se informado) ────────────────────────────────
     if (email) {
-      let { error: authError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+      let { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
         auth_user_id,
         { email, email_confirm: true }
       );
@@ -40,10 +40,10 @@ export default async function handler(req: any, res: any) {
       // Fallback: se não achou pelo ID, busca pelo e-mail atual
       if (authError && authError.message?.toLowerCase().includes("user not found") && email_atual) {
         console.log(`[adm-atualizar-usuario] Fallback por e-mail: ${email_atual}`);
-        const { data: authList } = await (supabaseAdmin.auth as any).admin.listUsers();
-        const authUser = authList?.users?.find((u: any) => u.email === email_atual);
+        const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+        const authUser = authList?.users?.find((u) => u.email === email_atual);
         if (authUser) {
-          const { error: retryError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+          const { error: retryError } = await supabaseAdmin.auth.admin.updateUserById(
             authUser.id,
             { email, email_confirm: true }
           );
@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
     // ─── Atualiza na tabela empresa_usuarios (se tiver registro lá) ────────────
     if (empresa_usuario_id) {
-      const camposEu: Record<string, any> = {};
+      const camposEu = {};
       if (nome !== undefined && nome !== null)     camposEu.nome     = nome;
       if (email !== undefined && email !== null)   camposEu.email    = email;
       if (telefone !== undefined)                   camposEu.telefone = telefone;
@@ -77,7 +77,7 @@ export default async function handler(req: any, res: any) {
 
     // ─── Se for o usuário principal, atualiza também a tabela empresas ─────────
     if (empresa_principal) {
-      const camposEmp: Record<string, any> = {};
+      const camposEmp = {};
       if (email !== undefined && email !== null)       camposEmp.email              = email;
       if (nome !== undefined && nome !== null)         camposEmp.nome_responsavel   = nome;
       if (telefone !== undefined && telefone !== null) camposEmp.telefone_principal = telefone;
@@ -97,8 +97,9 @@ export default async function handler(req: any, res: any) {
     }
 
     return res.json({ sucesso: true, mensagem: "Dados atualizados com sucesso." });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no endpoint /adm-atualizar-usuario:", err);
     return res.status(500).json({ erro: "Erro interno: " + (err.message || "Desconhecido") });
   }
 }
+
