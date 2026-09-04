@@ -22,7 +22,9 @@ import {
   ShieldOff,
   ShieldQuestion,
   RefreshCw,
+  Download,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -633,7 +635,7 @@ function ModalVerificarCNPJs({
 export default function CadastrosAdm() {
   const [cadastros, setCadastros] = useState<any[]>([]);
   const [socios, setSocios] = useState<Record<string, any[]>>({});
-  const [ceps, setCeps] = useState<Record<string, boolean>>({});
+  const [ceps, setCeps] = useState<Record<string, any[]>>({});
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
 
@@ -677,12 +679,7 @@ export default function CadastrosAdm() {
         // Query principal — campos que sempre existiram (sem situacao_cnpj)
         const { data, error } = await supabase
           .from("empresas")
-          .select(
-            `id, razao_social, cnpj, email, created_at, nome_responsavel,
-             status_aprovacao, autoriza_compartilhamento, porte_empresa,
-             area_empresa, sobre_empresa, logo_empresa_url, cartao_cnpj_url,
-             ficha_junta_url, telefone_principal, acesso_tipo, atividade_empresarial`
-          )
+          .select("*")
           .neq("tipo_usuario", "adm")
           .order("created_at", { ascending: false });
 
@@ -718,9 +715,7 @@ export default function CadastrosAdm() {
         // Buscar sócios com todos os campos necessários para cálculo de completude
         const { data: sociosData } = await supabase
           .from("socios")
-          .select(
-            "empresa_id, nome, cpf, email, cep, data_nascimento, nacionalidade, raca, genero, participacao_percentual, participacao_valor"
-          );
+          .select("*");
         const sociosMap: Record<string, any[]> = {};
         (sociosData || []).forEach((s: any) => {
           if (!sociosMap[s.empresa_id]) sociosMap[s.empresa_id] = [];
@@ -731,10 +726,11 @@ export default function CadastrosAdm() {
         // Buscar quais empresas têm CEPs de impacto
         const { data: cepsData } = await supabase
           .from("ceps_impactados")
-          .select("empresa_id");
-        const cepsMap: Record<string, boolean> = {};
+          .select("*");
+        const cepsMap: Record<string, any[]> = {};
         (cepsData || []).forEach((c: any) => {
-          cepsMap[c.empresa_id] = true;
+          if (!cepsMap[c.empresa_id]) cepsMap[c.empresa_id] = [];
+          cepsMap[c.empresa_id].push(c);
         });
         setCeps(cepsMap);
       } catch (err) {
@@ -898,13 +894,13 @@ export default function CadastrosAdm() {
 
       const matchSemDoc =
         !filtrosAtivos.semDocumentos ||
-        (!emp.cartao_cnpj_url && !emp.ficha_junta_url);
+                (!emp.cartao_cnpj_url && !emp.ficha_junta_url);
 
       const matchSemSocios =
         !filtrosAtivos.semSocios || !(socios[emp.id]?.length > 0);
 
       const matchSemCeps =
-        !filtrosAtivos.semCeps || !ceps[emp.id];
+        !filtrosAtivos.semCeps || !(ceps[emp.id] && ceps[emp.id].length > 0);
 
       const matchDataInicio =
         !filtrosAtivos.dataInicio ||
@@ -957,6 +953,87 @@ export default function CadastrosAdm() {
 
     return lista;
   }, [cadastros, socios, ceps, situacoesCnpj, busca, filtrosAtivos]);
+
+  const exportarParaExcel = () => {
+    const dadosFormatados = cadastrosFiltrados.map((emp) => {
+      const sit = situacoesCnpj[emp.id];
+      const listaSocios = socios[emp.id] || [];
+      const listaCeps = ceps[emp.id] || [];
+      const completude = calcularCompletude(emp, listaSocios);
+      
+      const baseObj: any = {
+        "Razão Social": emp.razao_social || "",
+        "Nome Fantasia": emp.nome_fantasia || "",
+        "CNPJ": emp.cnpj || "",
+        "Tipo de Acesso": emp.acesso_tipo || "",
+        "Área de Atuação": emp.area_empresa || "",
+        "Área Geográfica": emp.area_geografica || emp.cidade || "",
+        "Sobre a Empresa": emp.sobre_empresa || "",
+        "Responsável": emp.nome_responsavel || "",
+        "E-mail": emp.email || "",
+        "Telefone Principal": emp.telefone_principal || "",
+        "Outro Telefone": emp.telefone || "",
+        "Informações Financeiras": emp.informacoes_financeiras || "",
+        "Faturamento": emp.faturamento || "",
+        "Porte da Empresa": emp.porte_empresa || "",
+        "Atividade Empresarial": emp.atividade_empresarial || "",
+        "Emite Nota Fiscal": emp.emite_nota_fiscal === true ? "Sim" : (emp.emite_nota_fiscal === false ? "Não" : ""),
+        "Possui Conta PJ": emp.possui_conta_pj === true ? "Sim" : (emp.possui_conta_pj === false ? "Não" : ""),
+        "Forma de Pagamento": emp.forma_pagamento || "",
+        "Forma de Recebimento": emp.forma_recebimento || "",
+        "Situação CNPJ": sit?.situacao || "Não verificado",
+        "Data Situação": sit?.verificado_em ? new Date(sit.verificado_em).toLocaleDateString("pt-BR") : "",
+        "Completude (%)": completude,
+        "Status de Aprovação": emp.status_aprovacao === "aprovado" ? "Aprovado" : "Pendente",
+        "Data de Cadastro": emp.created_at ? new Date(emp.created_at).toLocaleDateString("pt-BR") : "",
+      };
+
+      // Adicionando Quadro Societário
+      listaSocios.forEach((socio, index) => {
+        const prefix = `Sócio ${index + 1} - `;
+        baseObj[`${prefix}Nome`] = socio.nome || "";
+        baseObj[`${prefix}CPF`] = socio.cpf || "";
+        baseObj[`${prefix}E-mail`] = socio.email || "";
+        baseObj[`${prefix}Data Nascimento`] = socio.data_nascimento ? new Date(socio.data_nascimento).toLocaleDateString("pt-BR") : "";
+        baseObj[`${prefix}Nacionalidade`] = socio.nacionalidade || "";
+        baseObj[`${prefix}Raça`] = socio.raca || "";
+        baseObj[`${prefix}Gênero`] = socio.genero || "";
+        baseObj[`${prefix}PCD`] = socio.pcd === true ? "Sim" : (socio.pcd === false ? "Não" : "");
+        baseObj[`${prefix}Deficiência`] = socio.deficiencia || "";
+        baseObj[`${prefix}Comunidade LGBTQIA+`] = socio.comunidade_lgbtqia === true ? "Sim" : (socio.comunidade_lgbtqia === false ? "Não" : "");
+        baseObj[`${prefix}Localização (CEP)`] = socio.cep || "";
+        baseObj[`${prefix}Participação (%)`] = socio.participacao_percentual || "";
+        baseObj[`${prefix}Participação (Valor)`] = socio.participacao_valor || "";
+      });
+
+      // Adicionando Localizações (Gestores e Colaboradores) do array de CEPs
+      // Filtramos para não repetir os sócios, ou podemos colocar todos organizados por tipo
+      const cepsGestores = listaCeps.filter(c => c.tipo_pessoa === 'gestor');
+      const cepsColabs = listaCeps.filter(c => c.tipo_pessoa === 'colaborador');
+
+      cepsGestores.forEach((cepInfo, index) => {
+        const prefix = `Gestor ${index + 1} - `;
+        baseObj[`${prefix}CEP`] = cepInfo.cep || cepInfo.codigo_postal || "";
+        baseObj[`${prefix}Endereço`] = cepInfo.endereco || "";
+        baseObj[`${prefix}País`] = cepInfo.pais || "BR";
+      });
+
+      cepsColabs.forEach((cepInfo, index) => {
+        const prefix = `Colaborador ${index + 1} - `;
+        baseObj[`${prefix}CEP`] = cepInfo.cep || cepInfo.codigo_postal || "";
+        baseObj[`${prefix}Endereço`] = cepInfo.endereco || "";
+        baseObj[`${prefix}País`] = cepInfo.pais || "BR";
+      });
+
+      return baseObj;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dadosFormatados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Empresas");
+    
+    XLSX.writeFile(workbook, "empresas_cadastradas.xlsx");
+  };
 
   // Paginação
   const totalPaginas = Math.max(1, Math.ceil(cadastrosFiltrados.length / itensPorPagina));
@@ -1159,6 +1236,16 @@ export default function CadastrosAdm() {
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">Busca com IA</span>
                 <span className="sm:hidden">IA</span>
+              </button>
+
+              {/* Botão Exportar Excel */}
+              <button
+                onClick={exportarParaExcel}
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50 whitespace-nowrap"
+                title="Exportar dados para Excel"
+              >
+                <Download className="w-4 h-4 text-green-600" />
+                <span className="hidden sm:inline">Exportar Excel</span>
               </button>
 
               {/* Botão Verificar CNPJs */}
