@@ -657,7 +657,7 @@ export default function Pesquisas() {
             </Sheet>
 
             {/* Campo de descrição */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-400 dark:border-gray-600 p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Descreva o serviço ou produto que você precisa
@@ -670,7 +670,7 @@ export default function Pesquisas() {
                   value={buscaIA}
                   onChange={(e) => { setBuscaIA(e.target.value); setErroIA(""); }}
                   rows={4}
-                  className="resize-none dark:bg-gray-900 dark:border-gray-700 dark:text-white text-sm"
+                  className="resize-none border-gray-400 dark:border-gray-600 focus:border-[#7030A0] dark:focus:border-purple-400 dark:bg-gray-900 dark:text-white text-sm"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) executarBuscaIA();
                   }}

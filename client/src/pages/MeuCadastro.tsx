@@ -135,6 +135,7 @@ export default function MeuCadastro() {
   const [analisandoJucesp, setAnalisandoJucesp] = useState(false);
   const [jucespPreencheu, setJucespPreencheu] = useState(false);
   const [areaEmpresa, setAreaEmpresa] = useState("");
+  const [atividadeEmpresarial, setAtividadeEmpresarial] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
   const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
   const [sobreEmpresa, setSobreEmpresa] = useState("");
@@ -293,6 +294,7 @@ export default function MeuCadastro() {
         setAcessoTipoOutro(outroValue);
 
         setAreaEmpresa(empresa.area_empresa ?? "");
+        setAtividadeEmpresarial(empresa.atividade_empresarial ?? "");
 
         const areaGeoDB = empresa.area_geografica ?? "";
         if (["Meu Bairro", "Minha região da minha cidade", "Minha cidade", "Minha cidade e o entorno", "Meu estado", "Os estados da minha região", "Todo o Brasil", ""].includes(areaGeoDB)) {
@@ -778,6 +780,59 @@ export default function MeuCadastro() {
     navigate("/");
   };
 
+  const handleCnpjChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let valor = e.target.value.replace(/\D/g, "");
+    
+    // Formatação
+    let formatado = valor;
+    if (valor.length > 0) {
+      formatado = formatado.replace(/^(\d{2})(\d)/, "$1.$2");
+      formatado = formatado.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+      formatado = formatado.replace(/\.(\d{3})(\d)/, ".$1/$2");
+      formatado = formatado.replace(/(\d{4})(\d)/, "$1-$2");
+    }
+    setCnpj(formatado);
+
+    if (valor.length === 14) {
+      try {
+        toast.info("Buscando dados na Receita Federal...", { id: "busca-cnpj" });
+        const resposta = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${valor}`);
+        if (resposta.ok) {
+          const dados = await resposta.json();
+          if (dados.razao_social) setRazaoSocial(dados.razao_social);
+          if (dados.nome_fantasia) setNomeFantasia(dados.nome_fantasia);
+          
+          const cnaes = [];
+          if (dados.cnae_fiscal && dados.cnae_fiscal_descricao) {
+              cnaes.push(`${dados.cnae_fiscal} - ${dados.cnae_fiscal_descricao}`);
+          } else if (dados.cnae_fiscal) {
+              cnaes.push(dados.cnae_fiscal.toString());
+          }
+          if (dados.cnaes_secundarios && Array.isArray(dados.cnaes_secundarios)) {
+              dados.cnaes_secundarios.forEach((cnae: any) => {
+                  if (cnae.codigo && cnae.descricao) {
+                      cnaes.push(`${cnae.codigo} - ${cnae.descricao}`);
+                  } else if (cnae.codigo) {
+                      cnaes.push(cnae.codigo.toString());
+                  }
+              });
+          }
+          const cnaesFormatados = cnaes.join(", ");
+          if (cnaesFormatados) {
+             setAtividadeEmpresarial(cnaesFormatados);
+          }
+
+          toast.success("Dados preenchidos via Receita Federal!", { id: "busca-cnpj" });
+        } else {
+          toast.dismiss("busca-cnpj");
+        }
+      } catch (err) {
+        console.error("Erro ao buscar CNPJ:", err);
+        toast.dismiss("busca-cnpj");
+      }
+    }
+  };
+
   // ── Salvar alterações ──
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -853,6 +908,7 @@ export default function MeuCadastro() {
           cnpj: cnpj,
           acesso_tipo: acessoTipo.includes("OUTRO") ? acessoTipo.filter(t => t !== "OUTRO").concat(`OUTRO: ${acessoTipoOutro}`).join(', ') : acessoTipo.join(', '),
           area_empresa: areaEmpresa,
+          atividade_empresarial: atividadeEmpresarial,
           area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
           sobre_empresa: sobreEmpresa,
           emite_nota_fiscal: emiteNotaFiscal,
@@ -1143,7 +1199,7 @@ export default function MeuCadastro() {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="cnpj" className="text-gray-700 font-medium">CNPJ da empresa</Label>
-                  <Input id="cnpj" required value={cnpj} onChange={(e) => setCnpj(e.target.value)} placeholder="00.000.000/0000-00" maxLength={18} className="h-12 bg-gray-50 focus:bg-white" />
+                  <Input id="cnpj" required value={cnpj} onChange={handleCnpjChange} placeholder="00.000.000/0000-00" maxLength={18} className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
               </div>
 

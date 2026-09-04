@@ -277,6 +277,77 @@ export default function DetalhesCadastroAdm() {
     }
   };
 
+  const [atualizandoCnaes, setAtualizandoCnaes] = useState(false);
+  const handleAtualizarCnaesAPI = async () => {
+    if (!empresa?.id || !empresa?.cnpj) return;
+    setAtualizandoCnaes(true);
+    try {
+      const resposta = await fetch('/api/atualizar-cnaes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresa_id: empresa.id, cnpj: empresa.cnpj }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(dados.erro || "Erro ao atualizar CNAEs");
+      }
+      setEmpresa((prev: any) => ({
+        ...prev,
+        atividade_empresarial: dados.cnaes,
+      }));
+      toast.success("CNAEs atualizados pela Receita Federal!");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setAtualizandoCnaes(false);
+    }
+  };
+
+  const [dialogoCnaeManualAberto, setDialogoCnaeManualAberto] = useState(false);
+  const [novoCnaeManual, setNovoCnaeManual] = useState("");
+  const [salvandoCnaeManual, setSalvandoCnaeManual] = useState(false);
+
+  const handleSalvarCnaeManual = async () => {
+    if (!empresa?.id || !novoCnaeManual.trim()) return;
+    setSalvandoCnaeManual(true);
+    try {
+      let cnaesAtuais = empresa.atividade_empresarial || "";
+      const cnaesAtualizados = cnaesAtuais 
+        ? `${cnaesAtuais}, ${novoCnaeManual.trim()}` 
+        : novoCnaeManual.trim();
+
+      const { error } = await supabase
+        .from('empresas')
+        .update({
+          atividade_empresarial: cnaesAtualizados,
+        })
+        .eq('id', empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({
+        ...prev,
+        atividade_empresarial: cnaesAtualizados,
+      }));
+      toast.success("CNAE adicionado manualmente!");
+      
+      registrarLog({
+        tipo_evento: 'adm_atualizou_cnae_manual',
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Adicionou manualmente um CNAE para a empresa: ${novoCnaeManual.trim()}`,
+      });
+
+      setDialogoCnaeManualAberto(false);
+      setNovoCnaeManual("");
+    } catch (err: any) {
+      toast.error('Erro ao salvar: ' + err.message);
+    } finally {
+      setSalvandoCnaeManual(false);
+    }
+  };
+
   const [dialogoManualAberto, setDialogoManualAberto] = useState(false);
   const [novaSituacaoManual, setNovaSituacaoManual] = useState<SituacaoCNPJ>("ATIVA");
   const [salvandoManual, setSalvandoManual] = useState(false);
@@ -663,6 +734,33 @@ export default function DetalhesCadastroAdm() {
             </div>
             {renderField("Tipo de Acesso", empresa.acesso_tipo)}
             {renderField("Área de Atuação", empresa.area_empresa)}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNAEs</p>
+              <div className="flex flex-col gap-1 items-start">
+                <p className="text-gray-900 text-sm">
+                  {empresa.atividade_empresarial || <span className="text-gray-400 italic">Não informado</span>}
+                </p>
+                {empresa.cnpj && (
+                  <div className="flex items-start gap-2 mt-2">
+                    <button
+                      onClick={handleAtualizarCnaesAPI}
+                      disabled={atualizandoCnaes}
+                      className="mt-0.5 p-1.5 text-gray-500 hover:text-[#7030A0] hover:bg-purple-50 rounded-full transition-colors disabled:opacity-50 border border-transparent hover:border-purple-200 bg-gray-50"
+                      title="Atualizar CNAEs na Receita Federal (BrasilAPI)"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${atualizandoCnaes ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => setDialogoCnaeManualAberto(true)}
+                      className="mt-0.5 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors border border-transparent hover:border-blue-200 bg-gray-50"
+                      title="Adicionar CNAE manualmente"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             {renderField("Área Geográfica", empresa.area_geografica)}
             {renderField("Logo da Empresa", empresa.logo_empresa_url, 'image')}
             {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, 'link')}
@@ -920,6 +1018,55 @@ export default function DetalhesCadastroAdm() {
               className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
             >
               {salvandoManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogoCnaeManualAberto} onOpenChange={setDialogoCnaeManualAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-600">
+              <Edit2 className="w-5 h-5" /> Adicionar CNAE Manualmente
+            </DialogTitle>
+            <DialogDescription>
+              Adicione um CNAE que não tenha sido retornado automaticamente pela API (ex: adicionado recentemente).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Código e Descrição do CNAE:
+            </label>
+            <input
+              type="text"
+              value={novoCnaeManual}
+              onChange={(e) => setNovoCnaeManual(e.target.value)}
+              placeholder="Ex: 6201-5/01 - Desenvolvimento de programas..."
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDialogoCnaeManualAberto(false);
+                setNovoCnaeManual("");
+              }}
+              disabled={salvandoCnaeManual}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleSalvarCnaeManual} 
+              disabled={salvandoCnaeManual || !novoCnaeManual.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              {salvandoCnaeManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               Salvar
             </Button>
           </DialogFooter>

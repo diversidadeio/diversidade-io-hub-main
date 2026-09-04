@@ -1057,6 +1057,11 @@ export default function CadastrosAdm() {
       cadastros.filter((e) => calcularCompletude(e, socios[e.id] || []) < 100).length,
     [cadastros, socios]
   );
+  const contCompletos = useMemo(
+    () =>
+      cadastros.filter((e) => calcularCompletude(e, socios[e.id] || []) === 100).length,
+    [cadastros, socios]
+  );
   const contPendentes = useMemo(
     () => cadastros.filter((e) => e.status_aprovacao === "pendente").length,
     [cadastros]
@@ -1290,7 +1295,7 @@ export default function CadastrosAdm() {
             </div>
 
             {/* Campo de descrição */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-400 dark:border-gray-600 p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Descreva o serviço ou produto que você precisa
@@ -1303,7 +1308,7 @@ export default function CadastrosAdm() {
                   value={buscaIA}
                   onChange={(e) => { setBuscaIA(e.target.value); setErroIA(""); }}
                   rows={4}
-                  className="resize-none dark:bg-gray-900 dark:border-gray-700 dark:text-white text-sm"
+                  className="resize-none border-gray-400 dark:border-gray-600 focus:border-[#7030A0] dark:focus:border-purple-400 dark:bg-gray-900 dark:text-white text-sm"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) executarBuscaIA();
                   }}
@@ -1442,7 +1447,7 @@ export default function CadastrosAdm() {
           <>
         {/* Mini-cards de atalho */}
         {!carregando && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 md:grid-cols-3 gap-3">
             <button
               onClick={() => {
                 setFiltrosAtivos((prev) => ({ ...prev, status: "pendente" }));
@@ -1470,6 +1475,21 @@ export default function CadastrosAdm() {
               <div>
                 <div className="text-lg font-bold text-gray-900 leading-none">{contSemOptin}</div>
                 <div className="text-xs text-gray-500 mt-0.5">Sem opt-in</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setFiltrosAtivos((prev) => ({ ...prev, completude: "completo" }));
+              }}
+              className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-green-300 hover:bg-green-50 transition-colors text-left group"
+            >
+              <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <div className="text-lg font-bold text-gray-900 leading-none">{contCompletos}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Completos</div>
               </div>
             </button>
 

@@ -186,6 +186,7 @@ export default function EmpresaDetalhes() {
             {renderField("CNPJ", empresa.cnpj)}
             {renderField("Tipo de Acesso", empresa.acesso_tipo)}
             {renderField("Área de Atuação", empresa.area_empresa)}
+            {renderField("CNAEs", empresa.atividade_empresarial)}
             {renderField("Área Geográfica", empresa.area_geografica)}
             {renderField("Logo da Empresa", empresa.logo_empresa_url, 'image')}
             {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, 'link')}
