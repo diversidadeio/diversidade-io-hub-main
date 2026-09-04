@@ -1,4 +1,4 @@
-�import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
