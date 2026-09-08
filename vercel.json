@@ -8,6 +8,26 @@
       "destination": "/api/verificar-cnpj"
     },
     {
+      "source": "/api/ping",
+      "destination": "/api/presence?action=ping"
+    },
+    {
+      "source": "/api/usuarios-online",
+      "destination": "/api/presence?action=online"
+    },
+    {
+      "source": "/api/ler-logs",
+      "destination": "/api/logs?action=geral"
+    },
+    {
+      "source": "/api/ler-logs-empresa",
+      "destination": "/api/logs?action=empresa"
+    },
+    {
+      "source": "/api/ler-logs-metricas",
+      "destination": "/api/logs?action=metricas"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
