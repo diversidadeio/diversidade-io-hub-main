@@ -109,6 +109,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [usuario?.empresaId, usuario?.tipoUsuario]);
 
+  // Hook de Ping de Presença (Janela aberta e cliques do usuário)
+  useEffect(() => {
+    if (!usuario) return;
+    
+    // Função que envia o ping para o backend informando que o usuário está ativo
+    const enviarPing = async () => {
+      try {
+        await fetch("/api/ping", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: usuario.email })
+        });
+      } catch (e) {
+        console.error("Erro ao enviar ping de presença:", e);
+      }
+    };
+    
+    enviarPing(); // Envia um logo ao renderizar
+    const interval = setInterval(enviarPing, 3 * 60 * 1000); // Manutenção automática a cada 3 minutos
+    
+    // Listener de cliques com throttle para renovar a sessão instantaneamente nas ações do usuário
+    let ultimoPingExtra = Date.now();
+    const aoClicar = () => {
+      const agora = Date.now();
+      // Limita os pings de clique para no máximo 1 a cada 60 segundos (evita DDoS na API em botões)
+      if (agora - ultimoPingExtra > 60000) {
+        ultimoPingExtra = agora;
+        enviarPing();
+      }
+    };
+    
+    // Captura qualquer clique em toda a aplicação (event delegation na window)
+    window.addEventListener('click', aoClicar);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', aoClicar);
+    };
+  }, [usuario]);
+
   const hashPassword = async (password: string) => {
     const msgBuffer = new TextEncoder().encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -128,12 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (authError || !authData?.user) {
-        // Registra log de falha de login
-        registrarLog({
-          tipo_evento: 'login_falha',
-          email,
-          detalhes: authError?.message || 'Credenciais inválidas',
-        });
+        let detalheFalha = 'Senha incorreta'; // Assumimos senha incorreta como padrão se o email existir
+        let erroRetorno = "Senha incorreta.";
+
         try {
           const checkRes = await fetch("/api/verificar-email", {
             method: "POST",
@@ -143,14 +180,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (checkRes.ok) {
             const checkData = await checkRes.json();
             if (checkData && checkData.existe === false) {
-              return { sucesso: false, erro: "E-mail não cadastrado. Por favor, realize o seu cadastro." };
+              detalheFalha = 'E-mail não cadastrado na plataforma';
+              erroRetorno = "E-mail não cadastrado. Por favor, realize o seu cadastro.";
             }
           }
         } catch (e) {
           console.error("Erro ao verificar email:", e);
         }
 
-        return { sucesso: false, erro: "Senha incorreta." };
+        // Registra log de falha de login com o motivo correto
+        registrarLog({
+          tipo_evento: 'login_falha',
+          email,
+          detalhes: detalheFalha,
+        });
+
+        return { sucesso: false, erro: erroRetorno };
       }
 
       // 2. Busca dados de sessão via RPC (une profiles + empresas)

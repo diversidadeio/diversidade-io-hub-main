@@ -134,6 +134,7 @@ export default function CadastroGratuito() {
   const [analisandoJucesp, setAnalisandoJucesp] = useState(false);
   const [jucespPreencheu, setJucespPreencheu] = useState(false);
   const [areaEmpresa, setAreaEmpresa] = useState("");
+  const [atividadeEmpresarial, setAtividadeEmpresarial] = useState("");
   const [areaGeografica, setAreaGeografica] = useState("");
   const [areaGeograficaOutro, setAreaGeograficaOutro] = useState("");
   const [sobreEmpresa, setSobreEmpresa] = useState("");
@@ -500,6 +501,25 @@ export default function CadastroGratuito() {
       if (data.razao_social) setRazaoSocial(data.razao_social);
       if (data.nome_fantasia) setNomeFantasia(data.nome_fantasia);
       
+      const cnaes = [];
+      if (data.cnae_fiscal && data.cnae_fiscal_descricao) {
+        cnaes.push(`${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}`);
+      } else if (data.cnae_fiscal) {
+        cnaes.push(data.cnae_fiscal.toString());
+      }
+      if (data.cnaes_secundarios && Array.isArray(data.cnaes_secundarios)) {
+        data.cnaes_secundarios.forEach((cnae: any) => {
+          if (cnae.codigo && cnae.descricao) {
+            cnaes.push(`${cnae.codigo} - ${cnae.descricao}`);
+          } else if (cnae.codigo) {
+            cnaes.push(cnae.codigo.toString());
+          }
+        });
+      }
+      if (cnaes.length > 0) {
+        setAtividadeEmpresarial(cnaes.join(", "));
+      }
+      
       if (data.qsa && Array.isArray(data.qsa)) {
         const sociosQsa = data.qsa;
         if (sociosQsa.length > 0) {
@@ -629,7 +649,7 @@ export default function CadastroGratuito() {
           faltando.push({ id: "eSocio", label: "Você é sócio?", secao: "4. Sócios e Impacto" });
         if (!temNegrosSocios)
           faltando.push({ id: "temNegrosSocios", label: "Negros entre os sócios?", secao: "4. Sócios e Impacto" });
-        if (!numeroSocios)
+        if (numeroSocios === "")
           faltando.push({ id: "numeroSocios", label: "Número de Sócios", secao: "4. Sócios e Impacto" });
       }
 
@@ -684,8 +704,33 @@ export default function CadastroGratuito() {
         });
       }
 
+      if (numGestoresDiretos === "")
+        faltando.push({ id: "numGestoresDiretos", label: "Quantidade de gestores", secao: "4. Localização" });
+      if (numColaboradoresDiretos === "")
+        faltando.push({ id: "numColaboradoresDiretos", label: "Quantidade de colaboradores", secao: "4. Localização" });
+      
+      if (numeroImpactadasSocios === "")
+        faltando.push({ id: "impactadasSocios", label: "Impactadas pelo salário do Sócio(a)s", secao: "4. Pessoas Impactadas" });
+      if (numeroImpactadasGestores === "")
+        faltando.push({ id: "impactadasGestores", label: "Impactadas pelo salário do Gestore(a)s", secao: "4. Pessoas Impactadas" });
+      if (numeroImpactadasColaboradores === "")
+        faltando.push({ id: "impactadasColab", label: "Impactadas pelo salário do Colaboradore(a)s", secao: "4. Pessoas Impactadas" });
+
       gestoresDiretosData.forEach((g, idx) => {
         if (!g.codigoPostal) faltando.push({ id: `cp-gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "4. Localização" });
+      });
+
+      const recortesValidar = [
+        { key: "Pessoas Negras (pretas e pardas)", idx: 1 },
+        { key: "Mulheres", idx: 2 },
+        { key: "Pessoas com Deficiência (PCD)", idx: 3 },
+        { key: "Pessoas 60+", idx: 4 }
+      ];
+      recortesValidar.forEach((recorte) => {
+        const item = diversidadeGlobal[recorte.key as keyof typeof diversidadeGlobal];
+        if (item.socios === "") faltando.push({ id: `recorte-${recorte.idx}-socios`, label: `${recorte.key} - Sócios`, secao: "5. Recortes de Diversidade" });
+        if (item.gestores === "") faltando.push({ id: `recorte-${recorte.idx}-gestores`, label: `${recorte.key} - Gestores`, secao: "5. Recortes de Diversidade" });
+        if (item.colaboradores === "") faltando.push({ id: `recorte-${recorte.idx}-colaboradores`, label: `${recorte.key} - Colaboradores`, secao: "5. Recortes de Diversidade" });
       });
       colaboradoresDiretosData.forEach((c, idx) => {
         if (!c.codigoPostal) faltando.push({ id: `cp-colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "4. Localização" });
@@ -717,7 +762,8 @@ export default function CadastroGratuito() {
       acessoTipo, areaEmpresa, areaGeografica, sobreEmpresa,
       formasPagamento, formasRecebimento, emiteNotaFiscal, temContaPJ,
       eSocio, temNegrosSocios, numeroSocios, sociosData, autorizaCompartilhamento,
-      gestoresDiretosData, colaboradoresDiretosData, sociosImpactadosData, gestoresData, colaboradoresData
+      gestoresDiretosData, colaboradoresDiretosData, sociosImpactadosData, gestoresData, colaboradoresData,
+      diversidadeGlobal, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores
     ]
   );
 
@@ -860,6 +906,7 @@ export default function CadastroGratuito() {
         cnpj: cnpj,
         acesso_tipo: acessoTipo.join(', '),
         area_empresa: areaEmpresa,
+        atividade_empresarial: atividadeEmpresarial,
         area_geografica: areaGeografica === "Outro" ? areaGeograficaOutro : areaGeografica,
         sobre_empresa: sobreEmpresa,
         emite_nota_fiscal: emiteNotaFiscal,
@@ -1125,6 +1172,18 @@ export default function CadastroGratuito() {
                   </Label>
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={e=>setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
+
+                {atividadeEmpresarial && (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-gray-700 font-medium">CNAEs (Automático)</Label>
+                    <textarea 
+                      readOnly 
+                      value={atividadeEmpresarial} 
+                      className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-not-allowed resize-none"
+                      rows={3}
+                    />
+                  </div>
+                )}
 
                 <div id="acessoTipo" className="space-y-3 md:col-span-2">
                   <div>
@@ -2039,6 +2098,7 @@ export default function CadastroGratuito() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-socios`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
                                   disabled={isTotal || isDep}
@@ -2055,6 +2115,7 @@ export default function CadastroGratuito() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-gestores`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
                                   disabled={isTotal || isDep}
@@ -2071,6 +2132,7 @@ export default function CadastroGratuito() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-colaboradores`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
                                   disabled={isTotal || isDep}

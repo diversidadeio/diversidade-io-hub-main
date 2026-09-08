@@ -391,6 +391,57 @@ export default function DetalhesCadastroAdm() {
     }
   };
 
+  const [dialogoAcessoAberto, setDialogoAcessoAberto] = useState(false);
+  const [novoAcessoTipo, setNovoAcessoTipo] = useState<string[]>([]);
+  const [salvandoAcesso, setSalvandoAcesso] = useState(false);
+
+  const handleAbrirDialogoAcesso = () => {
+    const tipos = (empresa?.acesso_tipo || "").split(",").map((s:string) => s.trim()).filter((s:string) => s !== "");
+    const standardTypes = ["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO"];
+    const selectedTipos: string[] = [];
+    tipos.forEach((t: string) => {
+      if (standardTypes.includes(t)) {
+        selectedTipos.push(t);
+      }
+    });
+    setNovoAcessoTipo(Array.from(new Set(selectedTipos)));
+    setDialogoAcessoAberto(true);
+  };
+
+  const handleSalvarAcesso = async () => {
+    if (!empresa?.id) return;
+    setSalvandoAcesso(true);
+    try {
+      const acessoStr = novoAcessoTipo.join(', ');
+      const { error } = await supabase
+        .from('empresas')
+        .update({ acesso_tipo: acessoStr })
+        .eq('id', empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({
+        ...prev,
+        acesso_tipo: acessoStr,
+      }));
+      toast.success("Tipo de Acesso atualizado!");
+      
+      registrarLog({
+        tipo_evento: 'adm_atualizou_acesso_tipo',
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || 'admin',
+        detalhes: `Atualizou o Tipo de Acesso da empresa para: ${acessoStr}`,
+      });
+
+      setDialogoAcessoAberto(false);
+    } catch (err: any) {
+      toast.error('Erro ao salvar: ' + err.message);
+    } finally {
+      setSalvandoAcesso(false);
+    }
+  };
+
   useEffect(() => {
     async function carregar() {
       if (!id) return;
@@ -733,7 +784,23 @@ export default function DetalhesCadastroAdm() {
                 )}
               </div>
             </div>
-            {renderField("Tipo de Acesso", empresa.acesso_tipo)}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tipo de Acesso</p>
+              <div className="flex flex-col gap-1 items-start">
+                <p className="text-gray-900 text-sm">
+                  {empresa.acesso_tipo || <span className="text-gray-400 italic">Não informado</span>}
+                </p>
+                <div className="flex items-start gap-2 mt-2">
+                  <button
+                    onClick={handleAbrirDialogoAcesso}
+                    className="mt-0.5 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors border border-transparent hover:border-blue-200 bg-gray-50"
+                    title="Editar Tipo de Acesso"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
             {renderField("Área de Atuação", empresa.area_empresa)}
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNAEs</p>
@@ -1080,6 +1147,116 @@ export default function DetalhesCadastroAdm() {
             >
               {salvandoCnaeManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogoAcessoAberto} onOpenChange={setDialogoAcessoAberto}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#7030A0]">
+              <Edit2 className="w-5 h-5" /> Editar Tipo de Acesso
+            </DialogTitle>
+            <DialogDescription>
+              Selecione os tipos de acesso para este cadastro. A opção <strong>Empresa ou Iniciativa Incentivadora</strong> deve ser selecionada sozinha.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {([
+              {
+                valor: "EMPRESA OU INICIATIVA INCENTIVADORA",
+                titulo: "Empresa ou Iniciativa Incentivadora",
+                descricao: "Grandes empresas que contrataram a plataforma para buscar e contratar serviços e produtos de negócios diversos."
+              },
+              {
+                valor: "FORNECEDOR INCLUSIVO",
+                titulo: "Fornecedor Inclusivo",
+                descricao: "Empreendedor diverso que, além de ofertar soluções, também contrata serviços ou compra produtos de outros negócios liderados por pessoas de grupos diversos."
+              },
+              {
+                valor: "EMPREENDIMENTO DIVERSO",
+                titulo: "Empreendimento Diverso",
+                descricao: "Negócio liderado por pessoas de grupos diversos focado em ofertar e vender suas soluções para a rede."
+              }
+            ] as { valor: string; titulo: string; descricao: string }[]).map(({ valor, titulo, descricao }) => {
+              const selecionado = novoAcessoTipo.includes(valor);
+              const ehEmpresaIncentivadora = valor === "EMPRESA OU INICIATIVA INCENTIVADORA";
+              const temEmpresaIncentivadoraSelecionada = novoAcessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA");
+              
+              const desabilitado = !selecionado && (
+                (ehEmpresaIncentivadora && novoAcessoTipo.length > 0) ||
+                (!ehEmpresaIncentivadora && temEmpresaIncentivadoraSelecionada) ||
+                (!ehEmpresaIncentivadora && !temEmpresaIncentivadoraSelecionada && novoAcessoTipo.length >= 2)
+              );
+
+              return (
+                <div
+                  key={valor}
+                  onClick={() => {
+                    if (desabilitado) return;
+                    setNovoAcessoTipo(prev =>
+                      selecionado
+                        ? prev.filter(item => item !== valor)
+                        : [...prev, valor]
+                    );
+                  }}
+                  className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                    desabilitado
+                      ? "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                      : selecionado
+                      ? "border-[#7030A0] bg-[#7030A0]/5 shadow-sm"
+                      : "border-gray-200 hover:border-[#7030A0]/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      selecionado ? "border-[#7030A0] bg-[#7030A0]" : "border-gray-300"
+                    }`}>
+                      {selecionado && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                        {descricao}
+                      </h3>
+                      <h3 className={`font-semibold text-sm ${selecionado ? "text-[#7030A0]" : "text-gray-900"}`}>
+                        {titulo}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogoAcessoAberto(false)}
+              disabled={salvandoAcesso}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#7030A0] hover:bg-[#5b2783] text-white"
+              onClick={handleSalvarAcesso}
+              disabled={salvandoAcesso || novoAcessoTipo.length === 0}
+            >
+              {salvandoAcesso ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Tipo de Acesso"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

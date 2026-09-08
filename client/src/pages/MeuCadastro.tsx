@@ -858,6 +858,33 @@ export default function MeuCadastro() {
       return;
     }
 
+    if (mostrarCompleto) {
+      const recortesValidar = [
+        { key: "Pessoas Negras (pretas e pardas)" },
+        { key: "Mulheres" },
+        { key: "Pessoas com Deficiência (PCD)" },
+        { key: "Pessoas 60+" }
+      ];
+      const temRecorteVazio = recortesValidar.some((recorte) => {
+        const item = diversidadeGlobal[recorte.key as keyof typeof diversidadeGlobal];
+        return item.socios === "" || item.gestores === "" || item.colaboradores === "";
+      });
+
+      if (
+        (!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA") && numeroSocios === "") ||
+        numGestoresDiretos === "" ||
+        numColaboradoresDiretos === "" ||
+        numeroImpactadasSocios === "" ||
+        numeroImpactadasGestores === "" ||
+        numeroImpactadasColaboradores === "" ||
+        temRecorteVazio
+      ) {
+        setSenhaErro("Por favor, preencha todos os campos de quantidade e a tabela de recortes (mesmo que seja com 0).");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
     setSalvando(true);
     try {
       // Função auxiliar de upload
@@ -1241,6 +1268,18 @@ export default function MeuCadastro() {
                   </Label>
                   <Input id="nomeFantasia" required value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} placeholder="Nome fantasia" className="h-12 bg-gray-50 focus:bg-white" />
                 </div>
+
+                {atividadeEmpresarial && (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-gray-700 font-medium">CNAEs (Automático)</Label>
+                    <textarea 
+                      readOnly 
+                      value={atividadeEmpresarial} 
+                      className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-not-allowed resize-none"
+                      rows={3}
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-3 md:col-span-2">
                   <div>
@@ -2061,6 +2100,7 @@ export default function MeuCadastro() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-socios`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.socios || ""}
                                   disabled={isTotal || isDep}
@@ -2078,6 +2118,7 @@ export default function MeuCadastro() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-gestores`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.gestores || ""}
                                   disabled={isTotal || isDep}
@@ -2095,6 +2136,7 @@ export default function MeuCadastro() {
                                   <div className="text-[10px] text-gray-500 mb-1 leading-none">Preencha abaixo:</div>
                                 )}
                                 <Input 
+                                  id={`recorte-${idx}-colaboradores`}
                                   className={`w-20 mx-auto text-center h-10 border-black ${isTotal || isDep ? 'bg-gray-100 cursor-not-allowed border-gray-300' : ''}`} 
                                   value={diversidadeGlobal[key]?.colaboradores || ""}
                                   disabled={isTotal || isDep}

@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
 import {
-  Activity,
+  Activity, AlertCircle,
   LogIn,
   LogOut,
   Key,
@@ -19,6 +19,8 @@ import {
   Building2,
   Filter,
   ArrowRight,
+  Radio,
+  Ban,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -56,7 +58,7 @@ interface LogEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Configuração visual dos badges por tipo de evento
+// ConfiguraÃ§Ã£o visual dos badges por tipo de evento
 // ---------------------------------------------------------------------------
 const BADGE_CONFIG: Record<
   string,
@@ -66,10 +68,10 @@ const BADGE_CONFIG: Record<
   login_falha:             { label: "Falha de Login",     cor: "bg-red-100 text-red-800",            icone: XCircle },
   logout:                  { label: "Logout",             cor: "bg-gray-100 text-gray-700",          icone: LogOut },
   troca_senha:             { label: "Troca de Senha",     cor: "bg-blue-100 text-blue-800",          icone: Key },
-  adm_ver_empresa:         { label: "ADM · Visualizou",  cor: "bg-purple-100 text-purple-800",      icone: Eye },
-  adm_aprovar_empresa:     { label: "ADM · Aprovou",     cor: "bg-emerald-100 text-emerald-800",    icone: CheckCircle2 },
-  adm_rejeitar_empresa:    { label: "ADM · Rejeitou",    cor: "bg-orange-100 text-orange-800",      icone: XCircle },
-  adm_gerar_senha:         { label: "ADM · Gerou Senha", cor: "bg-amber-100 text-amber-800",        icone: Key },
+  adm_ver_empresa:         { label: "ADM Â· Visualizou",  cor: "bg-purple-100 text-purple-800",      icone: Eye },
+  adm_aprovar_empresa:     { label: "ADM Â· Aprovou",     cor: "bg-emerald-100 text-emerald-800",    icone: CheckCircle2 },
+  adm_rejeitar_empresa:    { label: "ADM Â· Rejeitou",    cor: "bg-orange-100 text-orange-800",      icone: XCircle },
+  adm_gerar_senha:         { label: "ADM Â· Gerou Senha", cor: "bg-amber-100 text-amber-800",        icone: Key },
   usuario_convidar:        { label: "Convite Enviado",   cor: "bg-sky-100 text-sky-800",            icone: UserPlus },
   usuario_ver_empresa:     { label: "Viu Empresa",       cor: "bg-violet-100 text-violet-800",      icone: Building2 },
   usuario_pesquisa_empresa:{ label: "Pesquisou",         cor: "bg-slate-100 text-slate-700",        icone: Search },
@@ -78,8 +80,15 @@ const BADGE_CONFIG: Record<
 // ---------------------------------------------------------------------------
 // Componente de badge
 // ---------------------------------------------------------------------------
-function BadgeEvento({ tipo }: { tipo: string }) {
-  const cfg = BADGE_CONFIG[tipo] || { label: tipo, cor: "bg-gray-100 text-gray-700", icone: Activity };
+function BadgeEvento({ tipo, detalhes }: { tipo: string; detalhes?: string | null }) {
+  const cfg = { ...(BADGE_CONFIG[tipo] || { label: tipo, cor: "bg-gray-100 text-gray-700", icone: Activity }) };
+  
+  if (tipo === "login_falha" && detalhes?.includes("e-mail nÃ£o cadastrado")) {
+    cfg.label = "E-mail NÃ£o Cadastrado";
+    cfg.cor = "bg-orange-100 text-orange-800";
+    cfg.icone = Ban;
+  }
+  
   const Icon = cfg.icone;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.cor}`}>
@@ -90,13 +99,27 @@ function BadgeEvento({ tipo }: { tipo: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Formatação de data/hora
+// FormataÃ§Ã£o de data/hora
 // ---------------------------------------------------------------------------
 function formatarDataHora(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
+}
+
+// ---------------------------------------------------------------------------
+// FormataÃ§Ã£o de Detalhes (Tradutor de logs antigos ou crus do Supabase)
+// ---------------------------------------------------------------------------
+function formatarDetalhes(detalhes?: string | null) {
+  if (!detalhes) return "";
+  const d = detalhes.toLowerCase();
+  
+  if (d.includes("invalid login credentials")) {
+    return "Senha incorreta";
+  }
+  
+  return detalhes;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +170,7 @@ function TabelaLogs({
               <th className="px-4 py-3 font-medium">Empresa</th>
               <th className="px-4 py-3 font-medium">Evento</th>
               <th className="px-4 py-3 font-medium max-w-[200px]">Detalhes</th>
-              <th className="px-4 py-3 font-medium text-right">Ação</th>
+              <th className="px-4 py-3 font-medium text-right">AÃ§Ã£o</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -160,14 +183,14 @@ function TabelaLogs({
                   {log.email}
                 </td>
                 <td className="px-4 py-3 text-gray-600 truncate max-w-[150px]">
-                  {log.nome_empresa || <span className="text-gray-300">—</span>}
+                  {log.nome_empresa || <span className="text-gray-300">â€”</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <BadgeEvento tipo={log.tipo_evento} />
+                  <BadgeEvento tipo={log.tipo_evento} detalhes={log.detalhes} />
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px]">
-                  <span className="truncate block" title={log.detalhes || ""}>
-                    {log.detalhes || <span className="text-gray-300">—</span>}
+                  <span className="truncate block" title={formatarDetalhes(log.detalhes)}>
+                    {formatarDetalhes(log.detalhes) || <span className="text-gray-300">â€”</span>}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -184,35 +207,35 @@ function TabelaLogs({
                       </DialogHeader>
                       <div className="space-y-6 py-2 max-h-[80vh] overflow-y-auto">
                         
-                        {/* Seção 1: Quem Fez a Ação */}
+                        {/* SeÃ§Ã£o 1: Quem Fez a AÃ§Ã£o */}
                         <div>
                           <h4 className="text-xs font-bold uppercase tracking-wider text-[#7030A0] mb-3 border-b border-gray-100 pb-1">
-                            1. Autor da Ação
+                            1. Autor da AÃ§Ã£o
                           </h4>
                           <div className="grid grid-cols-1 gap-3 text-sm bg-gray-50/50 p-3 rounded-md border border-gray-100">
                             <div>
-                              <span className="font-semibold text-gray-600 block">Usuário (E-mail)</span>
+                              <span className="font-semibold text-gray-600 block">UsuÃ¡rio (E-mail)</span>
                               <span className="text-gray-900">{log.email}</span>
                             </div>
                             {log.executor_nome && (
                               <div>
-                                <span className="font-semibold text-gray-600 block">Nome do Responsável</span>
+                                <span className="font-semibold text-gray-600 block">Nome do ResponsÃ¡vel</span>
                                 <span className="text-gray-900">{log.executor_nome}</span>
                               </div>
                             )}
                             {log.executor_empresa && (
                               <div>
-                                <span className="font-semibold text-gray-600 block">Vínculo / Empresa</span>
+                                <span className="font-semibold text-gray-600 block">VÃ­nculo / Empresa</span>
                                 <span className="text-gray-900">{log.executor_empresa}</span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Seção 2: O Que Foi Feito */}
+                        {/* SeÃ§Ã£o 2: O Que Foi Feito */}
                         <div>
                           <h4 className="text-xs font-bold uppercase tracking-wider text-[#7030A0] mb-3 border-b border-gray-100 pb-1">
-                            2. Detalhes da Ação
+                            2. Detalhes da AÃ§Ã£o
                           </h4>
                           <div className="grid grid-cols-1 gap-3 text-sm">
                             <div className="grid grid-cols-2 gap-4">
@@ -222,22 +245,22 @@ function TabelaLogs({
                               </div>
                               <div>
                                 <span className="font-semibold text-gray-600 block">Evento</span>
-                                <div className="mt-1"><BadgeEvento tipo={log.tipo_evento} /></div>
+                                <div className="mt-1"><BadgeEvento tipo={log.tipo_evento} detalhes={log.detalhes} /></div>
                               </div>
                             </div>
 
-                            {/* Mostra "Empresa Alvo" se existir nome_empresa (que geralmente indica quem sofreu a ação) */}
+                            {/* Mostra "Empresa Alvo" se existir nome_empresa (que geralmente indica quem sofreu a aÃ§Ã£o) */}
                             {log.nome_empresa && log.tipo_evento !== 'login_sucesso' && log.tipo_evento !== 'login_falha' && log.tipo_evento !== 'logout' && (
                               <div>
-                                <span className="font-semibold text-gray-600 block">Alvo da Ação (Empresa)</span>
+                                <span className="font-semibold text-gray-600 block">Alvo da AÃ§Ã£o (Empresa)</span>
                                 <span className="text-gray-900">{log.nome_empresa}</span>
                               </div>
                             )}
 
                             <div>
-                              <span className="font-semibold text-gray-600 block text-sm mb-1">Descrição do Evento</span>
+                              <span className="font-semibold text-gray-600 block text-sm mb-1">DescriÃ§Ã£o do Evento</span>
                               <div className="bg-white p-3 rounded-md text-sm text-gray-700 min-h-[60px] whitespace-pre-wrap border border-gray-200 shadow-sm">
-                                {log.detalhes || "Nenhum detalhe adicional fornecido."}
+                                {formatarDetalhes(log.detalhes) || "Nenhum detalhe adicional fornecido."}
                               </div>
                             </div>
                           </div>
@@ -252,7 +275,7 @@ function TabelaLogs({
           </tbody>
         </table>
       </div>
-      {/* Paginação */}
+      {/* PaginaÃ§Ã£o */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50 gap-3">
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 whitespace-nowrap">Mostrar:</span>
@@ -268,7 +291,7 @@ function TabelaLogs({
             </SelectContent>
           </Select>
           <span className="text-sm text-gray-500 ml-2">
-            Página <strong>{pagina}</strong> de <strong>{totalPaginas}</strong>
+            PÃ¡gina <strong>{pagina}</strong> de <strong>{totalPaginas}</strong>
           </span>
         </div>
         {totalPaginas > 1 && (
@@ -297,7 +320,7 @@ function TabelaLogs({
 }
 
 // ---------------------------------------------------------------------------
-// Hook para buscar logs com filtros e paginação
+// Hook para buscar logs com filtros e paginaÃ§Ã£o
 // ---------------------------------------------------------------------------
 const POR_PAGINA = 30;
 
@@ -366,7 +389,7 @@ function useLogs(filtros: FiltrosLogs) {
 }
 
 // ---------------------------------------------------------------------------
-// Hook para buscar logs de uma empresa específica via /api/ler-logs-empresa
+// Hook para buscar logs de uma empresa especÃ­fica via /api/ler-logs-empresa
 // ---------------------------------------------------------------------------
 interface FiltrosLogsEmpresa {
   nomeEmpresa?: string;
@@ -385,7 +408,7 @@ function useLogsEmpresa(filtros: FiltrosLogsEmpresa) {
   const totalPaginas = Math.max(1, Math.ceil(total / itensPorPagina));
 
   const buscar = useCallback(async (paginaAtual: number) => {
-    // Não busca se não tiver empresa informada
+    // NÃ£o busca se nÃ£o tiver empresa informada
     if (!filtros.nomeEmpresa && !filtros.empresaId) {
       setLogs([]);
       setTotal(0);
@@ -433,10 +456,170 @@ function useLogsEmpresa(filtros: FiltrosLogsEmpresa) {
 }
 
 // ---------------------------------------------------------------------------
+// Componente de UsuÃ¡rios Online
+// ---------------------------------------------------------------------------
+function AbaUsuariosOnline() {
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+
+  const carregarOnline = async () => {
+    setCarregando(true);
+    setErro("");
+    try {
+      const res = await fetch("/api/usuarios-online");
+      if (!res.ok) throw new Error("Erro ao buscar usuÃ¡rios online");
+      const data = await res.json();
+      
+      const agora = new Date().getTime();
+      
+      const processados = (data.usuarios || []).map((u: any) => {
+        const dataAcao = new Date(u.ultimaAtividade).getTime();
+        const minAtras = Math.floor((agora - dataAcao) / 60000);
+        const isOnline = minAtras <= 30 && u.ultimoEvento !== "logout" && u.ultimoEvento !== "login_falha";
+        
+        return {
+          ...u,
+          status: isOnline ? "online" : "offline",
+          minAtras,
+          dataOriginal: dataAcao
+        };
+      });
+
+      // Ordenar: Online no topo, em seguida por mais recente
+      processados.sort((a: any, b: any) => {
+        if (a.status === "online" && b.status !== "online") return -1;
+        if (a.status !== "online" && b.status === "online") return 1;
+        return b.dataOriginal - a.dataOriginal;
+      });
+
+      setUsuarios(processados);
+    } catch (err: any) {
+      setErro(err.message);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarOnline();
+    const interval = setInterval(carregarOnline, 60000); // Atualiza a cada 1 minuto
+    return () => clearInterval(interval);
+  }, []);
+
+  const onlineCount = usuarios.filter(u => u.status === "online").length;
+
+  const usuariosFiltrados = usuarios.filter(u => 
+    u.email.toLowerCase().includes(busca.toLowerCase()) || 
+    (u.empresa && u.empresa.toLowerCase().includes(busca.toLowerCase()))
+  );
+
+  return (
+    <div className="p-4 bg-gray-50/50">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+            Status dos UsuÃ¡rios ({onlineCount} online)
+          </h2>
+          <p className="text-sm text-gray-500">HistÃ³rico de atividade de todos os usuÃ¡rios da plataforma.</p>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Buscar por nome, e-mail ou empresa..."
+              className="pl-9 h-9 bg-white"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+          <Button onClick={carregarOnline} disabled={carregando} size="sm" variant="outline" className="flex items-center gap-2 shrink-0">
+            <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
+      </div>
+
+      {erro && (
+        <div className="p-3 mb-4 rounded-md bg-red-50 text-red-600 flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4" />
+          {erro}
+        </div>
+      )}
+
+      {carregando && usuarios.length === 0 ? (
+        <div className="flex justify-center items-center py-12 text-gray-400">
+          <RefreshCw className="w-8 h-8 animate-spin" />
+        </div>
+      ) : usuarios.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-white border border-dashed border-gray-200 rounded-lg">
+          <Radio className="w-12 h-12 text-gray-300 mb-3" />
+          <p>Nenhum usuÃ¡rio ativo.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50/80 text-gray-600 font-medium border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4">UsuÃ¡rio / Empresa</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Visto por Ãºltimo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {usuariosFiltrados.map((u, i) => {
+                  const dataAcao = new Date(u.ultimaAtividade);
+                  const minAtras = Math.floor((new Date().getTime() - dataAcao.getTime()) / 60000);
+                  
+                  return (
+                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">{u.email}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{u.empresa}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {u.status === "online" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            Online
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            Offline
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right text-gray-500">
+                        {u.status === "online" ? (
+                          "agora mesmo"
+                        ) : (
+                          <>
+                            <div>{dataAcao.toLocaleDateString('pt-BR')}</div>
+                            <div className="text-xs">{dataAcao.toLocaleTimeString('pt-BR')}</div>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 export default function LogsAdm() {
-  const [abaAtiva, setAbaAtiva] = useState<"geral" | "admin" | "empresa" | "usuario">("geral");
+  const [abaAtiva, setAbaAtiva] = useState<"geral" | "admin" | "empresa" | "usuario" | "online">("geral");
 
   // Filtros da aba Geral
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -452,14 +635,15 @@ export default function LogsAdm() {
   const [empresaSelecionada, setEmpresaSelecionada] = useState("");
   const [buscaEmpresa, setBuscaEmpresa] = useState("");
   const [buscaEmpresaAtiva, setBuscaEmpresaAtiva] = useState("");
-  // Subtab da aba Empresa: "sobre_empresa" = ações ADM | "usuarios_empresa" = ações dos usuários
+  const [showDropdownEmpresa, setShowDropdownEmpresa] = useState(false);
+  // Subtab da aba Empresa: "sobre_empresa" = aÃ§Ãµes ADM | "usuarios_empresa" = aÃ§Ãµes dos usuÃ¡rios
   const [subAbaEmpresa, setSubAbaEmpresa] = useState<"sobre_empresa" | "usuarios_empresa">("usuarios_empresa");
 
-  // Aba Usuário
+  // Aba UsuÃ¡rio
   const [emailUsuario, setEmailUsuario] = useState("");
   const [emailUsuarioBusca, setEmailUsuarioBusca] = useState("");
 
-  // Métricas rápidas
+  // MÃ©tricas rÃ¡pidas
   const [metricas, setMetricas] = useState({
     loginsHoje: 0,
     falhasHoje: 0,
@@ -467,16 +651,20 @@ export default function LogsAdm() {
     acoesAdm7d: 0,
   });
 
-  // Carregar lista de empresas para o filtro (tenta a tabela, mas também usa nome_empresa dos logs)
+  // Carregar lista de empresas para o filtro (tenta a tabela, mas tambÃ©m usa nome_empresa dos logs)
   useEffect(() => {
     supabase
       .from("empresas")
-      .select("id, nome, email")
-      .order("nome")
-      .then(({ data }) => setEmpresas(data || []));
+      .select("id, nome_fantasia, razao_social, cnpj, email")
+      .order("nome_fantasia")
+      .then(({ data, error }) => {
+        if (error) console.error("Erro ao buscar empresas:", error);
+        else console.log("Empresas carregadas:", data?.length);
+        setEmpresas(data || []);
+      });
   }, []);
 
-  // Carregar métricas
+  // Carregar mÃ©tricas
   useEffect(() => {
     async function carregarMetricas() {
       try {
@@ -491,7 +679,7 @@ export default function LogsAdm() {
           });
         }
       } catch (e) {
-        console.error("Erro ao carregar métricas:", e);
+        console.error("Erro ao carregar mÃ©tricas:", e);
       }
     }
     carregarMetricas();
@@ -510,14 +698,14 @@ export default function LogsAdm() {
     periodo: filtroAdminPeriodo,
   });
 
-  // Ações de ADM sobre a empresa (o que os admins fizeram com ela)
+  // AÃ§Ãµes de ADM sobre a empresa (o que os admins fizeram com ela)
   const logsEmpresaSobre = useLogsEmpresa({
     nomeEmpresa: buscaEmpresaAtiva || undefined,
     empresaId: empresaSelecionada || undefined,
     modo: "sobre_empresa",
   });
 
-  // Ações dos usuários vinculados à empresa (logins, pesquisas, etc.)
+  // AÃ§Ãµes dos usuÃ¡rios vinculados Ã  empresa (logins, pesquisas, etc.)
   const logsEmpresaUsuarios = useLogsEmpresa({
     nomeEmpresa: buscaEmpresaAtiva || undefined,
     empresaId: empresaSelecionada || undefined,
@@ -532,46 +720,63 @@ export default function LogsAdm() {
 
   const abas = [
     { id: "geral",   label: "Geral do Sistema",   icone: Activity },
-    { id: "admin",   label: "Ações de Admin",      icone: Shield },
+    { id: "admin",   label: "AÃ§Ãµes de Admin",      icone: Shield },
     { id: "empresa", label: "Por Empresa",         icone: Building2 },
-    { id: "usuario", label: "Por Usuário",         icone: Users },
+    { id: "usuario", label: "Por UsuÃ¡rio",         icone: Users },
+    { id: "online",  label: "Status Online",       icone: Radio },
   ] as const;
 
-  const empresasFiltradas = empresas.filter((e) =>
-    buscaEmpresa
-      ? (e.nome || e.razao_social || "").toLowerCase().includes(buscaEmpresa.toLowerCase()) ||
-        (e.email || "").toLowerCase().includes(buscaEmpresa.toLowerCase())
-      : true
-  );
+  const empresasFiltradas = empresas.filter((e) => {
+    if (!buscaEmpresa) return true;
+    const term = buscaEmpresa.toLowerCase();
+    return (
+      (e.nome_fantasia || "").toLowerCase().includes(term) ||
+      (e.razao_social || "").toLowerCase().includes(term) ||
+      (e.cnpj || "").toLowerCase().includes(term) ||
+      (e.email || "").toLowerCase().includes(term)
+    );
+  });
+
+  console.log("Render LogsAdm. buscaEmpresa:", buscaEmpresa, "showDropdown:", showDropdownEmpresa, "empresas total:", empresas.length, "filtradas:", empresasFiltradas.length);
+
+  const aplicarFiltroCard = (tipo: string, periodo: string) => {
+    setAbaAtiva("geral");
+    setFiltroTipo(tipo);
+    setFiltroPeriodo(periodo);
+  };
 
   return (
     <LayoutAdm>
       <div className="space-y-6">
-        {/* Cabeçalho */}
+        {/* CabeÃ§alho */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Logs de Auditoria</h1>
           <p className="text-gray-600 mt-1">
-            Trilha completa de acessos e ações para conformidade LGPD.
+            Trilha completa de acessos e aÃ§Ãµes para conformidade LGPD.
           </p>
         </div>
 
-        {/* Cards de métricas */}
+        {/* Cards de mÃ©tricas */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Logins hoje",       valor: metricas.loginsHoje,     cor: "text-green-600",  bg: "bg-green-50",  icone: LogIn },
-            { label: "Falhas hoje",       valor: metricas.falhasHoje,     cor: "text-red-600",    bg: "bg-red-50",    icone: XCircle },
-            { label: "Usuários ativos (7d)", valor: metricas.usuariosAtivos7d, cor: "text-blue-600", bg: "bg-blue-50", icone: Users },
-            { label: "Ações de ADM (7d)", valor: metricas.acoesAdm7d,    cor: "text-purple-600", bg: "bg-purple-50", icone: Shield },
-          ].map(({ label, valor, cor, bg, icone: Icon }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
+            { id: "logins", label: "Logins hoje",       valor: metricas.loginsHoje,     cor: "text-green-600",  bg: "bg-green-50",  icone: LogIn, action: () => aplicarFiltroCard("login_sucesso", "hoje") },
+            { id: "falhas", label: "Falhas hoje",       valor: metricas.falhasHoje,     cor: "text-red-600",    bg: "bg-red-50",    icone: XCircle, action: () => aplicarFiltroCard("login_falha", "hoje") },
+            { id: "ativos", label: "UsuÃ¡rios ativos (7d)", valor: metricas.usuariosAtivos7d, cor: "text-blue-600", bg: "bg-blue-50", icone: Users, action: () => aplicarFiltroCard("login_sucesso", "7d") },
+            { id: "adm",    label: "AÃ§Ãµes de ADM (7d)", valor: metricas.acoesAdm7d,    cor: "text-purple-600", bg: "bg-purple-50", icone: Shield, action: () => aplicarFiltroCard("adm_%", "7d") },
+          ].map(({ id, label, valor, cor, bg, icone: Icon, action }) => (
+            <button
+              key={id}
+              onClick={action}
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex items-center gap-4 text-left hover:border-[#7030A0]/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-[#7030A0]/20"
+            >
+              <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200`}>
                 <Icon className={`w-6 h-6 ${cor}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{valor}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 group-hover:text-[#7030A0] transition-colors">{valor}</p>
+                <p className="text-xs text-gray-500 mt-0.5 group-hover:text-gray-700 transition-colors">{label}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -595,7 +800,7 @@ export default function LogsAdm() {
             ))}
           </div>
 
-          {/* ── ABA GERAL ─────────────────────────────────────────────── */}
+          {/* â”€â”€ ABA GERAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {abaAtiva === "geral" && (
             <div>
               <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-center bg-gray-50">
@@ -617,8 +822,8 @@ export default function LogsAdm() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="hoje">Hoje</SelectItem>
-                    <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                    <SelectItem value="7d">Ãšltimos 7 dias</SelectItem>
+                    <SelectItem value="30d">Ãšltimos 30 dias</SelectItem>
                     <SelectItem value="todos">Todos os tempos</SelectItem>
                   </SelectContent>
                 </Select>
@@ -651,7 +856,7 @@ export default function LogsAdm() {
             </div>
           )}
 
-          {/* ── ABA AÇÕES DE ADMIN ─────────────────────────────────────── */}
+          {/* â”€â”€ ABA AÃ‡Ã•ES DE ADMIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {abaAtiva === "admin" && (
             <div>
               <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-center bg-gray-50">
@@ -662,8 +867,8 @@ export default function LogsAdm() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="hoje">Hoje</SelectItem>
-                    <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                    <SelectItem value="7d">Ãšltimos 7 dias</SelectItem>
+                    <SelectItem value="30d">Ãšltimos 30 dias</SelectItem>
                     <SelectItem value="todos">Todos os tempos</SelectItem>
                   </SelectContent>
                 </Select>
@@ -696,7 +901,7 @@ export default function LogsAdm() {
             </div>
           )}
 
-              {/* ── ABA POR EMPRESA ── */}
+              {/* â”€â”€ ABA POR EMPRESA â”€â”€ */}
               {abaAtiva === "empresa" && (
                 <div>
                   {/* Barra de busca da empresa */}
@@ -712,11 +917,51 @@ export default function LogsAdm() {
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input
-                          placeholder="Buscar por nome da empresa..."
+                          placeholder="Buscar por nome, razÃ£o social ou CNPJ..."
                           className="pl-9 h-9 bg-white"
                           value={buscaEmpresa}
-                          onChange={(e) => setBuscaEmpresa(e.target.value)}
+                          onChange={(e) => {
+                            setBuscaEmpresa(e.target.value);
+                            if (empresaSelecionada) setEmpresaSelecionada("");
+                          }}
+                          onFocus={() => setShowDropdownEmpresa(true)}
+                          onBlur={() => setTimeout(() => setShowDropdownEmpresa(false), 200)}
                         />
+                        {showDropdownEmpresa && buscaEmpresa && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 shadow-lg rounded-md z-50 max-h-60 overflow-y-auto">
+                            {empresasFiltradas.length > 0 ? (
+                              empresasFiltradas.map((emp) => (
+                                <div
+                                  key={emp.id}
+                                  className="px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    // A busca da API do backend favorece razao_social, entÃ£o preenchemos com ela.
+                                    setBuscaEmpresa(emp.razao_social || emp.nome_fantasia || "");
+                                    // Comentado para forÃ§ar o backend a continuar pesquisando pelo NOME flexÃ­vel como na versÃ£o online antiga
+                                    // setEmpresaSelecionada(emp.id);
+                                    setShowDropdownEmpresa(false);
+                                  }}
+                                >
+                                  <div className="text-sm font-medium text-gray-900">{emp.nome_fantasia || emp.razao_social}</div>
+                                  {(emp.razao_social || emp.cnpj) && (
+                                    <div className="text-xs text-gray-400 flex flex-wrap gap-x-2 mt-0.5">
+                                      {emp.razao_social && <span>{emp.razao_social}</span>}
+                                      {emp.razao_social && emp.cnpj && <span>â€¢</span>}
+                                      {emp.cnpj && <span>{emp.cnpj}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                                {empresas.length === 0 
+                                  ? "Nenhuma empresa cadastrada no sistema ou falha ao carregar." 
+                                  : "Nenhuma empresa encontrada com este termo."}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <Button type="submit" size="sm" style={{ backgroundColor: "#7030A0" }} className="text-white">
                         Buscar
@@ -726,7 +971,11 @@ export default function LogsAdm() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => { setBuscaEmpresa(""); setBuscaEmpresaAtiva(""); }}
+                          onClick={() => { 
+                            setBuscaEmpresa(""); 
+                            setBuscaEmpresaAtiva(""); 
+                            setEmpresaSelecionada("");
+                          }}
                         >
                           Limpar
                         </Button>
@@ -757,7 +1006,7 @@ export default function LogsAdm() {
                         }`}
                       >
                         <Users className="w-4 h-4" />
-                        Ações dos Usuários
+                        AÃ§Ãµes dos UsuÃ¡rios
                         {logsEmpresaUsuarios.total > 0 && (
                           <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
                             {logsEmpresaUsuarios.total}
@@ -773,7 +1022,7 @@ export default function LogsAdm() {
                         }`}
                       >
                         <Shield className="w-4 h-4" />
-                        Ações de ADM sobre a Empresa
+                        AÃ§Ãµes de ADM sobre a Empresa
                         {logsEmpresaSobre.total > 0 && (
                           <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
                             {logsEmpresaSobre.total}
@@ -783,7 +1032,7 @@ export default function LogsAdm() {
                     </div>
                   )}
 
-                  {/* Conteúdo da subtab */}
+                  {/* ConteÃºdo da subtab */}
                   {!buscaEmpresaAtiva ? (
                     <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
                       <Building2 className="w-10 h-10 text-gray-200" />
@@ -796,7 +1045,7 @@ export default function LogsAdm() {
                         <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex items-center gap-2">
                           <Users className="w-3.5 h-3.5 flex-shrink-0" />
                           <span>
-                            <strong>{logsEmpresaUsuarios.emailsVinculados.length}</strong> usuário(s) vinculado(s) encontrado(s):{" "}
+                            <strong>{logsEmpresaUsuarios.emailsVinculados.length}</strong> usuÃ¡rio(s) vinculado(s) encontrado(s):{" "}
                             {logsEmpresaUsuarios.emailsVinculados.join(", ")}
                           </span>
                         </div>
@@ -828,7 +1077,7 @@ export default function LogsAdm() {
               )}
 
 
-          {/* ── ABA POR USUÁRIO ────────────────────────────────────────── */}
+          {/* â”€â”€ ABA POR USUÃRIO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {abaAtiva === "usuario" && (
             <div>
               <div className="p-4 border-b border-gray-100 bg-gray-50">
@@ -843,7 +1092,7 @@ export default function LogsAdm() {
                   <div className="relative flex-1 min-w-[240px] max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <Input
-                      placeholder="Digite o e-mail do usuário..."
+                      placeholder="Digite o e-mail do usuÃ¡rio..."
                       className="pl-9 h-9 bg-white"
                       value={emailUsuario}
                       onChange={(e) => setEmailUsuario(e.target.value)}
@@ -880,7 +1129,7 @@ export default function LogsAdm() {
               {!emailUsuarioBusca ? (
                 <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
                   <Users className="w-10 h-10 text-gray-200" />
-                  <p>Digite um e-mail e clique em Buscar para ver o histórico do usuário.</p>
+                  <p>Digite um e-mail e clique em Buscar para ver o histÃ³rico do usuÃ¡rio.</p>
                 </div>
               ) : (
                 <TabelaLogs
@@ -895,6 +1144,11 @@ export default function LogsAdm() {
                 />
               )}
             </div>
+          )}
+
+          {/* â”€â”€ ABA USUÃRIOS ONLINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {abaAtiva === "online" && (
+            <AbaUsuariosOnline />
           )}
         </div>
       </div>

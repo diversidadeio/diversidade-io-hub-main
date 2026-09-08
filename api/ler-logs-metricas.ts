@@ -30,7 +30,7 @@ export default async function handler(req: any, res: any) {
         .gte("criado_em", hoje.toISOString()),
       supabaseAdmin
         .from("logs_acesso")
-        .select("*", { count: "exact", head: true })
+        .select("detalhes")
         .eq("tipo_evento", "login_falha")
         .gte("criado_em", hoje.toISOString()),
       supabaseAdmin
@@ -50,10 +50,14 @@ export default async function handler(req: any, res: any) {
       const uniqueEmails = new Set(usuariosAtivos.data.map((r: any) => r.email));
       usuariosUnicosCount = uniqueEmails.size;
     }
+    
+    const falhasValidas = (falhasHoje.data || []).filter((f: any) => 
+      !f.detalhes || !f.detalhes.includes("e-mail não cadastrado")
+    );
 
     return res.json({
       loginsHoje: loginsHoje.count || 0,
-      falhasHoje: falhasHoje.count || 0,
+      falhasHoje: falhasValidas.length,
       usuariosAtivos7d: usuariosUnicosCount,
       acoesAdm7d: acoesAdm.count || 0,
     });
