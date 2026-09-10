@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 import {
   Activity, AlertCircle,
   LogIn,
@@ -21,6 +22,13 @@ import {
   ArrowRight,
   Radio,
   Ban,
+  Sparkles,
+  UserCog,
+  UserMinus,
+  Trash2,
+  Megaphone,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,17 +72,39 @@ const BADGE_CONFIG: Record<
   string,
   { label: string; cor: string; icone: React.FC<any> }
 > = {
+  // ── Autenticação ──────────────────────────────────────────────────────
   login_sucesso:           { label: "Login",              cor: "bg-green-100 text-green-800",        icone: LogIn },
   login_falha:             { label: "Falha de Login",     cor: "bg-red-100 text-red-800",            icone: XCircle },
   logout:                  { label: "Logout",             cor: "bg-gray-100 text-gray-700",          icone: LogOut },
   troca_senha:             { label: "Troca de Senha",     cor: "bg-blue-100 text-blue-800",          icone: Key },
-  adm_ver_empresa:         { label: "ADM - Visualizou",  cor: "bg-purple-100 text-purple-800",      icone: Eye },
-  adm_aprovar_empresa:     { label: "ADM - Aprovou",     cor: "bg-emerald-100 text-emerald-800",    icone: CheckCircle2 },
-  adm_rejeitar_empresa:    { label: "ADM - Rejeitou",    cor: "bg-orange-100 text-orange-800",      icone: XCircle },
-  adm_gerar_senha:         { label: "ADM - Gerou Senha", cor: "bg-amber-100 text-amber-800",        icone: Key },
+
+  // ── Ações administrativas ─────────────────────────────────────────────
+  adm_ver_empresa:              { label: "ADM - Visualizou",       cor: "bg-purple-100 text-purple-800",  icone: Eye },
+  adm_aprovar_empresa:          { label: "ADM - Aprovou",          cor: "bg-emerald-100 text-emerald-800", icone: CheckCircle2 },
+  adm_rejeitar_empresa:         { label: "ADM - Rejeitou",         cor: "bg-orange-100 text-orange-800",  icone: XCircle },
+  adm_suspender_empresa:        { label: "ADM - Suspendeu",        cor: "bg-red-100 text-red-800",        icone: Ban },
+  adm_remover_suspensao_empresa:{ label: "ADM - Reativou",         cor: "bg-emerald-100 text-emerald-800", icone: CheckCircle2 },
+  adm_deletar_empresa:          { label: "ADM - Excluiu",          cor: "bg-red-100 text-red-800",        icone: Trash2 },
+  adm_gerar_senha:              { label: "ADM - Gerou Senha",      cor: "bg-amber-100 text-amber-800",    icone: Key },
+  adm_editar_usuario:           { label: "ADM - Editou Usuário",   cor: "bg-indigo-100 text-indigo-800",  icone: UserCog },
+  adm_atualizou_acesso_tipo:    { label: "ADM - Alterou Acesso",   cor: "bg-indigo-100 text-indigo-800",  icone: Shield },
+  adm_atualizou_cnpj_manual:    { label: "ADM - Atualizou CNPJ",   cor: "bg-cyan-100 text-cyan-800",      icone: RefreshCw },
+  adm_atualizou_cnae_manual:    { label: "ADM - Atualizou CNAE",   cor: "bg-cyan-100 text-cyan-800",      icone: RefreshCw },
+
+  // ── Ações do usuário / empresa ────────────────────────────────────────
   usuario_convidar:        { label: "Convite Enviado",   cor: "bg-sky-100 text-sky-800",            icone: UserPlus },
+  usuario_remover:         { label: "Removeu Usuário",   cor: "bg-rose-100 text-rose-800",          icone: UserMinus },
   usuario_ver_empresa:     { label: "Viu Empresa",       cor: "bg-violet-100 text-violet-800",      icone: Building2 },
   usuario_pesquisa_empresa:{ label: "Pesquisou",         cor: "bg-slate-100 text-slate-700",        icone: Search },
+
+  // ── Busca por IA e solicitações ───────────────────────────────────────
+  ia_busca_empresas:               { label: "Busca IA",          cor: "bg-fuchsia-100 text-fuchsia-800", icone: Sparkles },
+  solicitacao_busca_empreendedores:{ label: "Solicitou Busca",   cor: "bg-teal-100 text-teal-800",       icone: Search },
+
+  // ── Oportunidades (links públicos) ────────────────────────────────────
+  oportunidade_visualizada:   { label: "Oportunidade Vista",  cor: "bg-yellow-100 text-yellow-800",  icone: Megaphone },
+  oportunidade_interesse:     { label: "Quer Participar",     cor: "bg-lime-100 text-lime-800",      icone: ThumbsUp },
+  oportunidade_sem_interesse: { label: "Sem Interesse",       cor: "bg-stone-100 text-stone-700",    icone: ThumbsDown },
 };
 
 // ---------------------------------------------------------------------------
@@ -346,7 +376,7 @@ function useLogs(filtros: FiltrosLogs) {
     try {
       const response = await fetch("/api/ler-logs", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           tipoEvento: filtros.tipoEvento,
           emailBusca: filtros.emailBusca,
@@ -419,7 +449,7 @@ function useLogsEmpresa(filtros: FiltrosLogsEmpresa) {
     try {
       const response = await fetch("/api/ler-logs-empresa", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           nomeEmpresa: filtros.nomeEmpresa,
           empresaId: filtros.empresaId,
@@ -468,7 +498,7 @@ function AbaUsuariosOnline() {
     setCarregando(true);
     setErro("");
     try {
-      const res = await fetch("/api/usuarios-online");
+      const res = await fetch("/api/usuarios-online", { headers: await cabecalhosAutenticados() });
       if (!res.ok) throw new Error("Erro ao buscar usuários online");
       const data = await res.json();
       
@@ -668,7 +698,7 @@ export default function LogsAdm() {
   useEffect(() => {
     async function carregarMetricas() {
       try {
-        const res = await fetch("/api/ler-logs-metricas");
+        const res = await fetch("/api/ler-logs-metricas", { headers: await cabecalhosAutenticados() });
         if (res.ok) {
           const dados = await res.json();
           setMetricas({

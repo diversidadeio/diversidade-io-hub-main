@@ -1,12 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-
-let supabaseAdmin: any;
-if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
-  supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
-}
+﻿import { supabaseAdmin, exigirSessao, exigirAdm } from "./_auth";
 
 export default async function handler(req: any, res: any) {
   const { action } = req.query;
@@ -18,19 +10,25 @@ export default async function handler(req: any, res: any) {
   try {
     if (action === "ping") {
       if (req.method !== "POST") return res.status(405).json({ erro: "Método não permitido" });
-      const { email } = req.body;
-      if (!email) return res.status(400).json({ erro: "Email ausente" });
-      
+
+      // O e-mail vem do token, não do corpo: caso contrário qualquer pessoa
+      // poderia marcar outro usuário como "online".
+      const identidade = await exigirSessao(req, res);
+      if (!identidade) return;
+
       const { error } = await supabaseAdmin
         .from('user_presence')
-        .upsert({ email: email.toLowerCase(), last_seen: new Date().toISOString() });
-        
+        .upsert({ email: identidade.email.toLowerCase(), last_seen: new Date().toISOString() });
+
       if (error) throw error;
       return res.json({ ok: true });
     }
-    
+
     if (action === "online") {
       if (req.method !== "GET") return res.status(405).json({ erro: "Método não permitido" });
+
+      // Expõe e-mails e atividade de todos os usuários: somente administradores.
+      if (!(await exigirAdm(req, res))) return;
 
       const { data: logs, error } = await supabaseAdmin
         .from("logs_acesso")

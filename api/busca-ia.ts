@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import { exigirSessao, ipDaRequisicao, userAgentDaRequisicao } from "./_auth";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -20,18 +21,29 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { descricao, empresaId, isAdmin, adminEmail } = req.body;
+    const { descricao } = req.body;
 
     // Validações básicas
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5) {
       return res.status(400).json({ erro: "Descreva com mais detalhes o que você precisa (mínimo 5 caracteres)." });
     }
-    
+
+    // `isAdmin` e `empresaId` vêm do token, nunca do corpo da requisição.
+    // Antes, qualquer cliente podia enviar `isAdmin: true` e pular a checagem
+    // de empresa incentivadora logo abaixo, consumindo a API da OpenAI sem
+    // ter permissão. Os campos homônimos do body são ignorados de propósito.
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
+
+    const isAdmin = identidade.isAdm;
+    const empresaId = identidade.empresaId;
+
     if (!isAdmin && !empresaId) {
       return res.status(400).json({ erro: "Empresa não identificada." });
     }
 
-    let solicitanteEmail = adminEmail || "";
+    const solicitanteEmail = identidade.email;
+    let solicitanteEmpresa: string | null = null;
 
     // Verifica se a empresa solicitante é incentivadora (se não for admin)
     if (!isAdmin) {
@@ -44,7 +56,7 @@ export default async function handler(req: any, res: any) {
       if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
         return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
       }
-      solicitanteEmail = solicitante.email;
+      solicitanteEmpresa = solicitante.razao_social || null;
     }
 
     // ── Pré-filtragem por palavras-chave ──────────────────────────────────────
@@ -228,12 +240,18 @@ ${contextoEmpresas}`;
     // Registra log de auditoria e salva no histórico de buscas IA
     try {
       await Promise.all([
-        // Log de auditoria (logs_acesso)
-        supabaseAdmin.from("logs_acesso").insert({
-          empresa_id: isAdmin ? null : empresaId,
-          email: solicitanteEmail,
-          tipo_evento: "ia_busca_empresas",
-          detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
+        // Log de auditoria (logs_acesso) — via a mesma RPC usada por
+        // /api/registrar-log, para que IP e user-agent sejam preenchidos
+        // como em qualquer outro evento da auditoria.
+        supabaseAdmin.rpc("registrar_log_acesso", {
+          p_email: solicitanteEmail || "desconhecido",
+          p_tipo_evento: "ia_busca_empresas",
+          p_empresa_id: isAdmin ? null : empresaId,
+          p_nome_empresa: solicitanteEmpresa,
+          p_executor_adm_email: isAdmin ? solicitanteEmail || null : null,
+          p_ip_address: ipDaRequisicao(req),
+          p_user_agent: userAgentDaRequisicao(req),
+          p_detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
         }),
         // Histórico de buscas com resultados completos
         supabaseAdmin.from("historico_buscas_ia").insert({

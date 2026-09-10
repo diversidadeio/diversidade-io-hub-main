@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { exigirSessao } from "./_auth";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -17,12 +18,18 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ erro: "Configuração do banco de dados ausente." });
   }
 
-  const empresaId = req.query?.empresaId as string;
-  const adminEmail = req.query?.adminEmail as string;
-  const isAdmin = req.query?.isAdmin === 'true';
+  // Identidade vem do token, nunca da query string. Antes bastava passar
+  // ?empresaId=<id> para ler o histórico de buscas de qualquer empresa, ou
+  // ?isAdmin=true para ler o de qualquer administrador.
+  const identidade = await exigirSessao(req, res);
+  if (!identidade) return;
+
+  const isAdmin = identidade.isAdm;
+  const empresaId = identidade.empresaId;
+  const adminEmail = identidade.email;
 
   if (!isAdmin && !empresaId) {
-    return res.status(400).json({ erro: "empresaId ou adminEmail é obrigatório." });
+    return res.status(400).json({ erro: "Empresa não identificada." });
   }
 
   try {

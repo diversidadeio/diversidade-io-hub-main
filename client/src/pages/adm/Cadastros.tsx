@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "wouter";
 import {
@@ -789,7 +790,8 @@ export default function CadastrosAdm() {
         setHistoricoIA([]);
         return;
       }
-      const resp = await fetch(`/api/historico-buscas-ia?isAdmin=true&adminEmail=${encodeURIComponent(email)}`);
+      // Sem parâmetros: o servidor identifica o solicitante pelo token.
+      const resp = await fetch("/api/historico-buscas-ia", { headers: await cabecalhosAutenticados() });
       const dados = await resp.json();
       setHistoricoIA(dados.historico || []);
     } catch {
@@ -811,7 +813,7 @@ export default function CadastrosAdm() {
       const email = usuario?.email || "";
       const resposta = await fetch("/api/busca-ia", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           descricao: buscaIA.trim(),
           isAdmin: true,

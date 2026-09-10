@@ -18,6 +18,99 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// ---------------------------------------------------------------------------
+// Autenticação das rotas de auditoria e presença
+//
+// Espelha api/_auth.ts, que protege as mesmas rotas quando elas rodam como
+// Serverless Functions na Vercel. Em desenvolvimento o Vite roteia /api/*
+// para este router (ver vitePluginLocalApi em vite.config.ts), então as duas
+// implementações precisam andar juntas.
+// ---------------------------------------------------------------------------
+
+interface IdentidadeReq {
+  authUserId: string;
+  email: string;
+  empresaId: string | null;
+  tipoUsuario: string | null;
+  isAdm: boolean;
+}
+
+/** Identifica o chamador pelo access token do Supabase. null = não autenticado. */
+async function identificar(req: any): Promise<IdentidadeReq | null> {
+  const header: string = req.headers?.authorization || "";
+  if (!header.toLowerCase().startsWith("bearer ")) return null;
+  const token = header.slice(7).trim();
+  if (!token) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) return null;
+
+    const { data: perfil } = await supabaseAdmin.rpc("obter_sessao_usuario", {
+      p_auth_user_id: data.user.id,
+    });
+    const p: any = Array.isArray(perfil) ? perfil[0] : perfil;
+
+    return {
+      authUserId: data.user.id,
+      email: (p?.email || data.user.email || "").toLowerCase(),
+      empresaId: p?.empresa_id ?? null,
+      tipoUsuario: p?.tipo_usuario ?? null,
+      isAdm: p?.tipo_usuario === "adm",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Exige sessão válida; responde 401 e devolve null quando não houver. */
+async function exigirSessao(req: any, res: any): Promise<IdentidadeReq | null> {
+  const id = await identificar(req);
+  if (!id) {
+    res.status(401).json({ erro: "Não autenticado" });
+    return null;
+  }
+  return id;
+}
+
+/** Exige sessão válida de administrador; responde 401/403. */
+async function exigirAdm(req: any, res: any): Promise<IdentidadeReq | null> {
+  const id = await identificar(req);
+  if (!id) {
+    res.status(401).json({ erro: "Não autenticado" });
+    return null;
+  }
+  if (!id.isAdm) {
+    res.status(403).json({ erro: "Acesso restrito a administradores" });
+    return null;
+  }
+  return id;
+}
+
+/**
+ * Início do dia corrente no fuso de Brasília, como instante UTC.
+ * Em produção o processo roda com TZ=UTC, então `setHours(0,0,0,0)` marcaria
+ * 21h do dia anterior no horário brasileiro. O Brasil não adota mais horário
+ * de verão, portanto o offset é fixo em -03:00.
+ */
+function inicioDoDiaBrasilia(): Date {
+  const dia = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${dia}T00:00:00-03:00`);
+}
+
+/** Ver EVENTOS_ANONIMOS em api/registrar-log.ts. */
+const EVENTOS_ANONIMOS = new Set([
+  "login_falha",
+  "oportunidade_visualizada",
+  "oportunidade_interesse",
+  "oportunidade_sem_interesse",
+]);
+
 apiRouter.post("/recuperar-senha", async (req, res) => {
   try {
     const { email } = req.body;
@@ -619,6 +712,20 @@ apiRouter.post("/registrar-log", async (req, res) => {
       detalhes,
     } = req.body;
 
+    if (!tipo_evento) {
+      return res.status(400).json({ erro: "tipo_evento é obrigatório" });
+    }
+
+    const identidade = await identificar(req);
+
+    if (!identidade && !EVENTOS_ANONIMOS.has(tipo_evento)) {
+      return res.status(401).json({ erro: "Não autenticado" });
+    }
+
+    // Com sessão válida o autor é sempre a identidade do token, nunca o
+    // e-mail do corpo — que o cliente poderia forjar.
+    const emailAutor = identidade ? identidade.email : (email || "desconhecido");
+
     // Captura o IP real (considera proxies como Vercel/Nginx)
     const ip_address =
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
@@ -633,7 +740,7 @@ apiRouter.post("/registrar-log", async (req, res) => {
     const empresaIdParam = empresa_id || null;
 
     const { error } = await supabaseAdmin.rpc("registrar_log_acesso", {
-      p_email: email || "desconhecido",
+      p_email: emailAutor,
       p_tipo_evento: tipo_evento,
       p_empresa_id: empresaIdParam,
       p_nome_empresa: nome_empresa || null,
@@ -662,6 +769,7 @@ apiRouter.post("/registrar-log", async (req, res) => {
  */
 apiRouter.post("/ler-logs-empresa", async (req, res) => {
   try {
+    if (!(await exigirAdm(req, res))) return;
     const { empresaId, nomeEmpresa, modo = "sobre_empresa", page = 1, pageSize = 20 } = req.body;
     if (modo === "sobre_empresa") {
       let q = supabaseAdmin.from("logs_acesso").select("*", { count: "exact" }).like("tipo_evento", "adm_%");
@@ -709,12 +817,14 @@ apiRouter.post("/ler-logs-empresa", async (req, res) => {
 
 apiRouter.post("/ping", async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ erro: "Email ausente" });
-    
+    // O e-mail vem do token, não do corpo: caso contrário qualquer pessoa
+    // poderia marcar outro usuário como "online".
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
+
     const { error } = await supabaseAdmin
       .from('user_presence')
-      .upsert({ email: email.toLowerCase(), last_seen: new Date().toISOString() });
+      .upsert({ email: identidade.email.toLowerCase(), last_seen: new Date().toISOString() });
       
     if (error) throw error;
     return res.json({ ok: true });
@@ -725,6 +835,9 @@ apiRouter.post("/ping", async (req, res) => {
 
 apiRouter.get("/usuarios-online", async (req, res) => {
   try {
+    // Expõe e-mails e atividade de todos os usuários: somente administradores.
+    if (!(await exigirAdm(req, res))) return;
+
     const { data: logs, error } = await supabaseAdmin
       .from("logs_acesso")
       .select("*")
@@ -864,6 +977,9 @@ apiRouter.get("/usuarios-online", async (req, res) => {
 
 apiRouter.post("/ler-logs", async (req, res) => {
   try {
+    // Os logs expõem e-mails, IPs e user agents: leitura restrita a admins.
+    if (!(await exigirAdm(req, res))) return;
+
     const { tipoEvento, emailBusca, empresaId, nomeEmpresa, periodo, page = 1, pageSize = 30 } = req.body;
 
     let q = supabaseAdmin.from("logs_acesso").select("*", { count: "exact" });
@@ -892,8 +1008,7 @@ apiRouter.post("/ler-logs", async (req, res) => {
     if (periodo && periodo !== "todos") {
       const agora = new Date();
       if (periodo === "hoje") {
-        agora.setHours(0, 0, 0, 0);
-        q = q.gte("criado_em", agora.toISOString());
+        q = q.gte("criado_em", inicioDoDiaBrasilia().toISOString());
       } else if (periodo === "7d") {
         agora.setDate(agora.getDate() - 7);
         q = q.gte("criado_em", agora.toISOString());
@@ -955,8 +1070,9 @@ apiRouter.post("/ler-logs", async (req, res) => {
  */
 apiRouter.get("/ler-logs-metricas", async (req, res) => {
   try {
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    if (!(await exigirAdm(req, res))) return;
+
+    const hoje = inicioDoDiaBrasilia();
     const seteDias = new Date();
     seteDias.setDate(seteDias.getDate() - 7);
 
@@ -975,7 +1091,10 @@ apiRouter.get("/ler-logs-metricas", async (req, res) => {
         .from("logs_acesso")
         .select("email")
         .eq("tipo_evento", "login_sucesso")
-        .gte("criado_em", seteDias.toISOString()),
+        .gte("criado_em", seteDias.toISOString())
+        // limit explícito: o PostgREST devolve no máximo 1000 linhas por
+        // padrão, o que subestimaria a contagem de usuários únicos.
+        .limit(10000),
       supabaseAdmin
         .from("logs_acesso")
         .select("*", { count: "exact", head: true })
@@ -1257,18 +1376,28 @@ apiRouter.post("/adm/atualizar-usuario", async (req, res) => {
  */
 apiRouter.post("/busca-ia", async (req, res) => {
   try {
-    const { descricao, empresaId, isAdmin, adminEmail } = req.body;
+    const { descricao } = req.body;
 
     // Validações básicas
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 5) {
       return res.status(400).json({ erro: "Descreva com mais detalhes o que você precisa (mínimo 5 caracteres)." });
     }
-    
+
+    // `isAdmin` e `empresaId` vêm do token, nunca do corpo da requisição.
+    // Antes, qualquer cliente podia enviar `isAdmin: true` e pular a checagem
+    // de empresa incentivadora logo abaixo, consumindo a API da OpenAI sem
+    // ter permissão. Os campos homônimos do body são ignorados de propósito.
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
+
+    const isAdmin = identidade.isAdm;
+    const empresaId = identidade.empresaId;
+
     if (!isAdmin && !empresaId) {
       return res.status(400).json({ erro: "Empresa não identificada." });
     }
 
-    let solicitanteEmail = adminEmail || "";
+    const solicitanteEmail = identidade.email;
 
     // Verifica se a empresa solicitante é incentivadora (se não for admin)
     if (!isAdmin) {
@@ -1281,7 +1410,6 @@ apiRouter.post("/busca-ia", async (req, res) => {
       if (!solicitante?.acesso_tipo?.toUpperCase().includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
         return res.status(403).json({ erro: "Acesso não permitido para este tipo de empresa." });
       }
-      solicitanteEmail = solicitante.email;
     }
 
     // ── Pré-filtragem por palavras-chave ──────────────────────────────────────
@@ -1475,11 +1603,20 @@ ${contextoEmpresas}`;
     try {
       await Promise.all([
         // Log de auditoria (logs_acesso)
-        supabaseAdmin.from("logs_acesso").insert({
-          empresa_id: isAdmin ? null : empresaId,
-          email: solicitanteEmail,
-          tipo_evento: "ia_busca_empresas",
-          detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
+        // Via a mesma RPC usada por /registrar-log, para que IP e user-agent
+        // sejam preenchidos como em qualquer outro evento da auditoria.
+        supabaseAdmin.rpc("registrar_log_acesso", {
+          p_email: solicitanteEmail || "desconhecido",
+          p_tipo_evento: "ia_busca_empresas",
+          p_empresa_id: isAdmin ? null : empresaId,
+          p_nome_empresa: null,
+          p_executor_adm_email: isAdmin ? solicitanteEmail || null : null,
+          p_ip_address:
+            (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+            req.socket?.remoteAddress ||
+            null,
+          p_user_agent: (req.headers["user-agent"] as string) || null,
+          p_detalhes: `Busca: "${descricao.trim().slice(0, 200)}" | Resultados: ${resultadosEnriquecidos.length}`,
         }),
         // Histórico de buscas com resultados completos
         supabaseAdmin.from("historico_buscas_ia").insert({
@@ -1504,12 +1641,18 @@ ${contextoEmpresas}`;
 
 apiRouter.get("/historico-buscas-ia", async (req, res) => {
   try {
-    const empresaId = req.query?.empresaId as string;
-    const adminEmail = req.query?.adminEmail as string;
-    const isAdmin = req.query?.isAdmin === 'true';
+    // Identidade vem do token, nunca da query string. Antes bastava passar
+    // ?empresaId=<id> para ler o histórico de buscas de qualquer empresa, ou
+    // ?isAdmin=true para ler o de qualquer administrador.
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
+
+    const isAdmin = identidade.isAdm;
+    const empresaId = identidade.empresaId;
+    const adminEmail = identidade.email;
 
     if (!isAdmin && !empresaId) {
-      return res.status(400).json({ erro: "empresaId ou adminEmail é obrigatório." });
+      return res.status(400).json({ erro: "Empresa não identificada." });
     }
 
     // Verifica se a empresa solicitante é incentivadora (se não for admin)

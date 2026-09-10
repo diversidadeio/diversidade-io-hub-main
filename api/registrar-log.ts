@@ -1,12 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin, identificar, ipDaRequisicao, userAgentDaRequisicao } from "./_auth";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-
-let supabaseAdmin: any;
-if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
-  supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
-}
+/**
+ * Eventos que legitimamente acontecem sem sessão ativa:
+ *  - login_falha: por definição, ninguém está autenticado;
+ *  - oportunidade_*: a página de oportunidade é acessada por link público.
+ *
+ * Qualquer outro tipo exige token válido. Sem isso, qualquer pessoa poderia
+ * injetar eventos falsos (ex: "adm_deletar_empresa") na auditoria.
+ */
+const EVENTOS_ANONIMOS = new Set([
+  "login_falha",
+  "oportunidade_visualizada",
+  "oportunidade_interesse",
+  "oportunidade_sem_interesse",
+]);
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ erro: "Método não permitido" });
@@ -26,17 +33,31 @@ export default async function handler(req: any, res: any) {
       detalhes,
     } = req.body;
 
-    const ip_address =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket?.remoteAddress ||
-      null;
+    if (!tipo_evento) {
+      return res.status(400).json({ erro: "tipo_evento é obrigatório" });
+    }
 
-    const user_agent = (req.headers["user-agent"] as string) || null;
+    const identidade = await identificar(req);
+
+    if (!identidade && !EVENTOS_ANONIMOS.has(tipo_evento)) {
+      return res.status(401).json({ erro: "Não autenticado" });
+    }
+
+    // Com sessão válida, o autor do evento é sempre a identidade do token —
+    // nunca o e-mail enviado no corpo, que o cliente poderia forjar.
+    // Todos os call sites já registram quem executou a ação (o alvo vai em
+    // `detalhes`/`nome_empresa`), então isso não altera o significado dos logs.
+    const emailAutor = identidade
+      ? identidade.email
+      : (email || "desconhecido");
+
+    const ip_address = ipDaRequisicao(req);
+    const user_agent = userAgentDaRequisicao(req);
 
     const empresaIdParam = empresa_id || null;
 
     const { error } = await supabaseAdmin.rpc("registrar_log_acesso", {
-      p_email: email || "desconhecido",
+      p_email: emailAutor,
       p_tipo_evento: tipo_evento,
       p_empresa_id: empresaIdParam,
       p_nome_empresa: nome_empresa || null,

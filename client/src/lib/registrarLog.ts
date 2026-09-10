@@ -7,6 +7,7 @@
  *
  * Nunca lança exceção — logs nunca devem bloquear a interface do usuário.
  */
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 
 export interface DadosLog {
   /** Tipo do evento (ex: 'login_sucesso', 'adm_aprovar_empresa') */
@@ -25,9 +26,12 @@ export interface DadosLog {
 
 export async function registrarLog(dados: DadosLog): Promise<void> {
   try {
+    // O servidor usa o token para identificar o autor do evento. Sem sessão,
+    // só passam os eventos pré-login (login_falha e as páginas públicas de
+    // oportunidade) — ver EVENTOS_ANONIMOS em api/registrar-log.ts.
     await fetch('/api/registrar-log', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await cabecalhosAutenticados(),
       body: JSON.stringify(dados),
     });
   } catch {

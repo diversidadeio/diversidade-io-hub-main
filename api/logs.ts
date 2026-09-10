@@ -1,11 +1,20 @@
-﻿import { createClient } from "@supabase/supabase-js";
+﻿import { supabaseAdmin, exigirAdm } from "./_auth";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-
-let supabaseAdmin: any;
-if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
-  supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
+/**
+ * Início do dia corrente no fuso de Brasília, como instante UTC.
+ *
+ * A função roda na Vercel com TZ=UTC, então `setHours(0,0,0,0)` marcaria
+ * 21h do dia anterior no horário brasileiro. O Brasil não adota mais
+ * horário de verão, portanto o offset é fixo em -03:00.
+ */
+function inicioDoDiaBrasilia(): Date {
+  const dia = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${dia}T00:00:00-03:00`);
 }
 
 export default async function handler(req: any, res: any) {
@@ -15,12 +24,15 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ erro: "Configuração do Supabase ausente" });
   }
 
+  // Os logs de auditoria expõem e-mails, IPs e user agents de todos os
+  // usuários: leitura restrita a administradores autenticados.
+  if (!(await exigirAdm(req, res))) return;
+
   try {
     if (action === "metricas") {
       if (req.method !== "GET") return res.status(405).json({ erro: "Método não permitido" });
 
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
+      const hoje = inicioDoDiaBrasilia();
       const seteDias = new Date();
       seteDias.setDate(seteDias.getDate() - 7);
 
@@ -35,11 +47,14 @@ export default async function handler(req: any, res: any) {
           .select("detalhes")
           .eq("tipo_evento", "login_falha")
           .gte("criado_em", hoje.toISOString()),
+        // limit explícito: o PostgREST devolve no máximo 1000 linhas por
+        // padrão, o que subestimaria a contagem de usuários únicos.
         supabaseAdmin
           .from("logs_acesso")
           .select("email")
           .eq("tipo_evento", "login_sucesso")
-          .gte("criado_em", seteDias.toISOString()),
+          .gte("criado_em", seteDias.toISOString())
+          .limit(10000),
         supabaseAdmin
           .from("logs_acesso")
           .select("*", { count: "exact", head: true })
@@ -137,7 +152,7 @@ export default async function handler(req: any, res: any) {
 
       if (periodo && periodo !== "todos") {
         const agora = new Date();
-        if (periodo === "hoje") { agora.setHours(0, 0, 0, 0); q = q.gte("criado_em", agora.toISOString()); }
+        if (periodo === "hoje") { q = q.gte("criado_em", inicioDoDiaBrasilia().toISOString()); }
         else if (periodo === "7d") { agora.setDate(agora.getDate() - 7); q = q.gte("criado_em", agora.toISOString()); }
         else if (periodo === "30d") { agora.setDate(agora.getDate() - 30); q = q.gte("criado_em", agora.toISOString()); }
       }

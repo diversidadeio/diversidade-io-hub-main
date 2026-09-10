@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { registrarLog } from "@/lib/registrarLog";
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 
 /**
  * Dados do usuário autenticado na sessão.
@@ -118,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await fetch("/api/ping", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await cabecalhosAutenticados(),
           body: JSON.stringify({ email: usuario.email })
         });
       } catch (e) {

@@ -1,3 +1,14 @@
+-- ############################################################################
+-- ##  OBSOLETO - NAO EXECUTE ESTE ARQUIVO. Use 32_logs_acesso_esquema_atual.sql
+-- ##
+-- ##  Foi este script que definiu o formato hoje em producao (empresa_id UUID,
+-- ##  sem CHECK), mas ele comeca com `DROP TABLE logs_acesso CASCADE` e
+-- ##  APAGARIA TODA A AUDITORIA se rodado de novo. Alem disso, nao recria os
+-- ##  indices da migration 22 -- foi assim que a tabela ficou so com a PK.
+-- ##
+-- ##  Mantido apenas como registro historico.
+-- ############################################################################
+
 -- Este script recria a tabela logs_acesso e a função registrar_log_acesso
 -- com a tipagem correta para o seu banco de dados atual (onde empresa_id é UUID).
 

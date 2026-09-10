@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase, supabaseAnon } from "@/lib/supabase";
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 import { Link } from "wouter";
 import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, X, Plus, Trash2, FileUp, Send, CheckCircle2, Sparkles, ArrowLeft, Clock, History, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -190,7 +191,8 @@ export default function Pesquisas() {
     if (!empresaId) return;
     setCarregandoHistorico(true);
     try {
-      const resp = await fetch(`/api/historico-buscas-ia?empresaId=${empresaId}`);
+      // Sem parâmetros: o servidor identifica o solicitante pelo token.
+      const resp = await fetch("/api/historico-buscas-ia", { headers: await cabecalhosAutenticados() });
       const dados = await resp.json();
       setHistoricoIA(dados.historico || []);
     } catch {
@@ -211,7 +213,7 @@ export default function Pesquisas() {
     try {
       const resposta = await fetch("/api/busca-ia", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           descricao: buscaIA.trim(),
           empresaId: (usuario as any)?.empresaId,

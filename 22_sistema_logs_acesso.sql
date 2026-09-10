@@ -1,3 +1,15 @@
+-- ############################################################################
+-- ##  OBSOLETO - NAO EXECUTE ESTE ARQUIVO. Use 32_logs_acesso_esquema_atual.sql
+-- ##
+-- ##  Este script nao corresponde ao banco em producao:
+-- ##    - declara `empresa_id BIGINT`, mas a coluna real e UUID;
+-- ##    - impoe uma CHECK com 11 tipos de evento, enquanto a aplicacao ja
+-- ##      emite 24 (adm_deletar_empresa, ia_busca_empresas, etc). Rodar isto
+-- ##      num ambiente novo faria a auditoria rejeitar 13 tipos validos.
+-- ##
+-- ##  Mantido apenas como registro historico da migracao original.
+-- ############################################################################
+
 -- Migration 22: Sistema completo de logs de auditoria
 -- Execute este script no SQL Editor do Supabase
 -- Diversidade.io — 2026
