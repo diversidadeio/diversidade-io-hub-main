@@ -1,4 +1,4 @@
-import { supabaseAdmin, identificar, ipDaRequisicao, userAgentDaRequisicao } from "./_auth";
+import { supabaseAdmin, identificar, ipDaRequisicao, userAgentDaRequisicao } from "./_auth.js";
 
 /**
  * Eventos que legitimamente acontecem sem sessão ativa:

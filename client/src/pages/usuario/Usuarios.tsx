@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { supabase } from "@/lib/supabase";
+import { cabecalhosAutenticados } from "@/lib/authFetch";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, UserPlus, Trash2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,9 +68,7 @@ export default function Usuarios() {
       // Chama o endpoint do servidor que cria o usuário no Auth e envia o e-mail
       const resposta = await fetch('/api/usuarios?action=convidar', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           empresaId: (usuario as any)?.empresaId,
           nome: conviteNome,
@@ -126,7 +125,7 @@ export default function Usuarios() {
       // e também remove do Supabase Auth, revogando o acesso completamente
       const resposta = await fetch('/api/usuarios?action=remover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await cabecalhosAutenticados(),
         body: JSON.stringify({
           empresaUsuarioId: id,
           empresaId: (usuario as any)?.empresaId,

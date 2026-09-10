@@ -1,4 +1,4 @@
-﻿import { supabaseAdmin, exigirAdm } from "./_auth";
+﻿import { supabaseAdmin, exigirAdm } from "./_auth.js";
 
 /**
  * Início do dia corrente no fuso de Brasília, como instante UTC.

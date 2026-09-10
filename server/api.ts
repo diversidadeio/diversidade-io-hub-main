@@ -319,7 +319,16 @@ apiRouter.post("/migrar-senha", async (req, res) => {
  */
 apiRouter.post("/convidar-usuario", async (req, res) => {
   try {
-    const { empresaId, nome, email, papel, convidadoPorEmail } = req.body;
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
+
+    const { nome, email, papel, convidadoPorEmail } = req.body;
+    // empresaId vem do token: ninguém convida para a empresa de outro.
+    // Admin da plataforma pode indicar outra empresa explicitamente.
+    const empresaId = identidade.isAdm
+      ? (req.body?.empresaId || identidade.empresaId)
+      : identidade.empresaId;
+
     if (!empresaId || !nome || !email || !papel) {
       return res.status(400).json({ erro: "Dados incompletos." });
     }
@@ -1142,20 +1151,32 @@ apiRouter.post("/verificar-email", async (req, res) => {
 
 apiRouter.post("/remover-usuario", async (req, res) => {
   try {
-    const { empresaUsuarioId, empresaId, solicitanteEmail } = req.body;
+    const identidade = await exigirSessao(req, res);
+    if (!identidade) return;
 
-    if (!empresaUsuarioId || !empresaId || !solicitanteEmail) {
+    const { empresaUsuarioId } = req.body;
+    // Empresa e solicitante vêm do token. Antes, `solicitanteEmail` vinha do
+    // corpo: bastava informar o e-mail de um admin conhecido para passar.
+    const empresaId = identidade.isAdm
+      ? (req.body?.empresaId || identidade.empresaId)
+      : identidade.empresaId;
+    const solicitanteEmail = identidade.email;
+
+    if (!empresaUsuarioId || !empresaId) {
       return res.status(400).json({ erro: "Dados incompletos." });
     }
 
     // 1. Valida pelo email quem esta solicitando a remocao e se e admin.
-    const { data: solicitante, error: solicitanteError } = await supabaseAdmin
-      .from("empresa_usuarios")
-      .select("papel, auth_user_id")
-      .eq("email", solicitanteEmail)
-      .eq("empresa_id", empresaId)
-      .eq("status", "ativo")
-      .maybeSingle();
+    //    Admin da plataforma dispensa a checagem de papel na empresa.
+    const { data: solicitante, error: solicitanteError } = identidade.isAdm
+      ? { data: { papel: "admin", auth_user_id: identidade.authUserId }, error: null }
+      : await supabaseAdmin
+          .from("empresa_usuarios")
+          .select("papel, auth_user_id")
+          .eq("email", solicitanteEmail)
+          .eq("empresa_id", empresaId)
+          .eq("status", "ativo")
+          .maybeSingle();
 
     if (solicitanteError || !solicitante) {
       return res.status(403).json({ erro: "Usuario solicitante nao encontrado na empresa." });
@@ -1227,6 +1248,10 @@ apiRouter.post("/remover-usuario", async (req, res) => {
  */
 apiRouter.post("/adm/gerar-senha-usuario", async (req, res) => {
   try {
+    // Redefine a senha de qualquer conta e devolve a senha na resposta:
+    // restrito ao admin da plataforma.
+    if (!(await exigirAdm(req, res))) return;
+
     const { auth_user_id, email_fallback } = req.body;
     if (!auth_user_id) {
       return res.status(400).json({ erro: "auth_user_id é obrigatório." });
@@ -1280,6 +1305,10 @@ apiRouter.post("/adm/gerar-senha-usuario", async (req, res) => {
  */
 apiRouter.post("/adm/atualizar-usuario", async (req, res) => {
   try {
+    // Troca o e-mail de qualquer conta no Auth: restrito ao admin da
+    // plataforma, que é quem chama isto pelo modal da área administrativa.
+    if (!(await exigirAdm(req, res))) return;
+
     const {
       auth_user_id,
       empresa_usuario_id,

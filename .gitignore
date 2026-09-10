@@ -111,3 +111,6 @@ temp/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 .project-config.json
+
+# dir temporario do teste de resolucao ESM das funcoes em api/
+.tmp-esm-check/

@@ -1,6 +1,39 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
+/**
+ * Identifica o chamador pelo access token do Supabase.
+ * Retorna null quando não há token válido.
+ *
+ * Equivale ao helper de api/_auth.ts, replicado aqui porque este arquivo é
+ * .js: um import extensionless de um módulo .ts nem sempre resolve no build.
+ */
+async function identificar(req, supabaseAdmin) {
+  const header = req.headers?.authorization || "";
+  if (!header.toLowerCase().startsWith("bearer ")) return null;
+  const token = header.slice(7).trim();
+  if (!token) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) return null;
+
+    const { data: perfil } = await supabaseAdmin.rpc("obter_sessao_usuario", {
+      p_auth_user_id: data.user.id,
+    });
+    const p = Array.isArray(perfil) ? perfil[0] : perfil;
+
+    return {
+      authUserId: data.user.id,
+      email: (p?.email || data.user.email || "").toLowerCase(),
+      empresaId: p?.empresa_id ?? null,
+      isAdm: p?.tipo_usuario === "adm",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
@@ -15,9 +48,23 @@ export default async function handler(req, res) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Todas as ações deste endpoint operam com privilégio de admin do Supabase
+  // Auth (createUser, deleteUser, updateUserById). Sem sessão válida, nenhuma.
+  const identidade = await identificar(req, supabaseAdmin);
+  if (!identidade) {
+    return res.status(401).json({ erro: "Não autenticado." });
+  }
+
+  /** Empresa alvo: sempre a do token. Admin da plataforma pode indicar outra. */
+  const empresaAlvo = identidade.isAdm
+    ? (req.body?.empresaId || req.body?.empresa_id || identidade.empresaId)
+    : identidade.empresaId;
+
   if (action === "convidar") {
     try {
-      const { empresaId, nome, email, papel, convidadoPorEmail } = req.body;
+      const { nome, email, papel, convidadoPorEmail } = req.body;
+      // empresaId vem do token: ninguém convida para a empresa de outro.
+      const empresaId = empresaAlvo;
       if (!empresaId || !nome || !email || !papel) {
         return res.status(400).json({ erro: "Dados incompletos." });
       }
@@ -101,11 +148,17 @@ export default async function handler(req, res) {
 
   if (action === "remover") {
     try {
-      const { empresaUsuarioId, empresaId, solicitanteEmail } = req.body;
-      if (!empresaUsuarioId || !empresaId || !solicitanteEmail) return res.status(400).json({ erro: "Dados incompletos." });
+      const { empresaUsuarioId } = req.body;
+      // Empresa e solicitante vêm do token. Antes, `solicitanteEmail` vinha do
+      // corpo: bastava informar o e-mail de um admin conhecido para passar.
+      const empresaId = empresaAlvo;
+      const solicitanteEmail = identidade.email;
+      if (!empresaUsuarioId || !empresaId) return res.status(400).json({ erro: "Dados incompletos." });
 
-      const { data: solicitante } = await supabaseAdmin.from("empresa_usuarios").select("papel, auth_user_id").eq("email", solicitanteEmail).eq("empresa_id", empresaId).eq("status", "ativo").maybeSingle();
-      if (!solicitante || solicitante.papel !== "admin") return res.status(403).json({ erro: "Apenas administradores." });
+      if (!identidade.isAdm) {
+        const { data: solicitante } = await supabaseAdmin.from("empresa_usuarios").select("papel, auth_user_id").eq("email", solicitanteEmail).eq("empresa_id", empresaId).eq("status", "ativo").maybeSingle();
+        if (!solicitante || solicitante.papel !== "admin") return res.status(403).json({ erro: "Apenas administradores." });
+      }
 
       const { data: usuarioAlvo } = await supabaseAdmin.from("empresa_usuarios").select("auth_user_id, email, empresa_id").eq("id", empresaUsuarioId).maybeSingle();
       if (!usuarioAlvo || usuarioAlvo.empresa_id !== empresaId) return res.status(404).json({ erro: "Usuário inválido." });
@@ -125,6 +178,10 @@ export default async function handler(req, res) {
 
   if (action === "atualizar") {
     try {
+      // Troca o e-mail de qualquer conta no Auth: restrito ao admin da
+      // plataforma, que é quem chama isto pelo modal da área administrativa.
+      if (!identidade.isAdm) return res.status(403).json({ erro: "Acesso restrito a administradores." });
+
       const { auth_user_id, empresa_usuario_id, empresa_id, empresa_principal, email_atual, nome, email, telefone } = req.body;
       if (!auth_user_id || !empresa_id) return res.status(400).json({ erro: "auth_user_id e empresa_id obrigatórios." });
 
@@ -179,6 +236,10 @@ export default async function handler(req, res) {
 
   if (action === "gerar-senha") {
     try {
+      // Redefine a senha de qualquer conta e devolve a senha na resposta:
+      // restrito ao admin da plataforma.
+      if (!identidade.isAdm) return res.status(403).json({ erro: "Acesso restrito a administradores." });
+
       const { auth_user_id, email_fallback } = req.body;
       if (!auth_user_id) return res.status(400).json({ erro: "auth_user_id obrigatório." });
 

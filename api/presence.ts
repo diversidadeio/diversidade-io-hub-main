@@ -1,4 +1,4 @@
-﻿import { supabaseAdmin, exigirSessao, exigirAdm } from "./_auth";
+﻿import { supabaseAdmin, exigirSessao, exigirAdm } from "./_auth.js";
 
 export default async function handler(req: any, res: any) {
   const { action } = req.query;
