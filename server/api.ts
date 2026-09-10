@@ -824,6 +824,27 @@ apiRouter.post("/ler-logs-empresa", async (req, res) => {
   }
 });
 
+/**
+ * Relatório de auditoria por empresa — os dados que viram o PDF no cliente.
+ *
+ * Delega para o handler de `api/logs.ts` em vez de repetir a agregação aqui:
+ * as outras rotas deste router já convivem com uma cópia paralela da lógica, e
+ * um relatório que divergisse entre dev e produção seria pior que o desvio de
+ * estilo. `Object.create(req)` herda headers e body do request do Express e só
+ * sobrescreve `query`, que é por onde o handler recebe a ação.
+ */
+apiRouter.post("/relatorio-empresa", async (req, res) => {
+  try {
+    const { default: handlerLogs } = await import("../api/logs.js");
+    const reqComAcao = Object.create(req);
+    reqComAcao.query = { action: "relatorio" };
+    return await handlerLogs(reqComAcao, res);
+  } catch (err: any) {
+    console.error("Erro no endpoint /relatorio-empresa:", err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
 apiRouter.post("/ping", async (req, res) => {
   try {
     // O e-mail vem do token, não do corpo: caso contrário qualquer pessoa

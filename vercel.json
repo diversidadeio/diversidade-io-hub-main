@@ -28,6 +28,10 @@
       "destination": "/api/logs?action=metricas"
     },
     {
+      "source": "/api/relatorio-empresa",
+      "destination": "/api/logs?action=relatorio"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

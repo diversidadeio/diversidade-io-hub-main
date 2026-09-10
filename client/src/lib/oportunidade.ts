@@ -126,3 +126,37 @@ export function mensagemCompartilhamento(sol: ResumoOportunidade, link: string):
   partes.push(`\nVeja os detalhes e manifeste interesse: ${link}`);
   return partes.join("\n");
 }
+
+/** Membro de `empresa_usuarios` usado para identificar quem abriu a solicitação. */
+export interface MembroEmpresa {
+  id?: string | null;
+  auth_user_id?: string | null;
+  nome?: string | null;
+  email?: string | null;
+}
+
+export interface SolicitanteResolvido {
+  nome: string | null;
+  email: string | null;
+}
+
+/**
+ * Resolve quem abriu a solicitação a partir de `solicitacoes_busca.usuario_id`.
+ *
+ * Os dois modais que criam solicitações gravam o `auth_user_id` do membro, mas
+ * a busca também aceita o `id` da linha de `empresa_usuarios` por segurança com
+ * registros antigos. Devolve nulos quando não dá para identificar — o chamador
+ * nunca deve cair para `empresas.email`, que é só o contato do cadastro e não
+ * diz quem pediu a busca.
+ */
+export function resolverSolicitante(
+  usuarioId: string | null | undefined,
+  membros: MembroEmpresa[],
+): SolicitanteResolvido {
+  if (!usuarioId) return { nome: null, email: null };
+  const membro = (membros || []).find(
+    (m) => m.auth_user_id === usuarioId || m.id === usuarioId,
+  );
+  if (!membro) return { nome: null, email: null };
+  return { nome: membro.nome || null, email: membro.email || null };
+}

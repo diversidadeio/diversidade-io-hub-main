@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import {
   montarLinkOportunidade, copiarParaAreaDeTransferencia,
   mensagemCompartilhamento, infoPrazo, tituloOportunidade,
+  resolverSolicitante,
 } from "@/lib/oportunidade";
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
@@ -29,6 +30,8 @@ const SEXOS_DISPONIVEIS = ["Masculino", "Feminino", "Outro", "Prefiro não decla
 interface SolicitacaoBusca {
   id: string;
   empresa_id: string;
+  /** auth_user_id do membro que abriu a solicitação (ver resolverSolicitante). */
+  usuario_id?: string | null;
   cnaes: string[];
   cidade: string;
   modalidade: "online" | "presencial" | "ambos";
@@ -43,6 +46,10 @@ interface SolicitacaoBusca {
   email_empresa?: string;
   nome_responsavel?: string;
   telefone_principal?: string;
+  // quem de fato abriu a solicitação — não confundir com email_empresa, que é
+  // apenas o contato do cadastro da empresa
+  solicitante_nome?: string | null;
+  solicitante_email?: string | null;
   empresas_indicadas?: string[];
   responsavel_adm_ids?: string[];
   // campos da página compartilhável (/oportunidades/:id)
@@ -85,6 +92,14 @@ const ROTULOS_MODALIDADE: Record<string, string> = {
   presencial:  "📍 Presencial",
   ambos:       "✅ Online e Presencial",
 };
+
+/** Identificação de quem abriu a solicitação, com fallback explícito. */
+function rotuloSolicitante(sol: SolicitacaoBusca): string {
+  if (sol.solicitante_nome && sol.solicitante_email) {
+    return `${sol.solicitante_nome} · ${sol.solicitante_email}`;
+  }
+  return sol.solicitante_nome || sol.solicitante_email || "Solicitante não identificado";
+}
 
 const STATUS_DISPONIVEIS = ["pendente", "em_andamento", "concluido", "cancelado"] as const;
 
@@ -457,8 +472,22 @@ export default function SolicitacoesAdm() {
       const empresaMap: Record<string, any> = {};
       (empresasData || []).forEach((e: any) => { empresaMap[e.id] = e; });
 
+      // Quem abriu cada solicitação. `empresas.email` é só o contato do
+      // cadastro (normalmente o responsável) e costuma ser outra pessoa — o
+      // autor real está em solicitacoes_busca.usuario_id.
+      const { data: membrosData } = await supabase
+        .from("empresa_usuarios")
+        .select("id, nome, email, auth_user_id, empresa_id")
+        .in("empresa_id", empresaIds);
+
+      const membrosPorEmpresa: Record<string, any[]> = {};
+      (membrosData || []).forEach((m: any) => {
+        (membrosPorEmpresa[m.empresa_id] ||= []).push(m);
+      });
+
       const lista: SolicitacaoBusca[] = solData.map((s: any) => {
         const emp = empresaMap[s.empresa_id] || {};
+        const solicitante = resolverSolicitante(s.usuario_id, membrosPorEmpresa[s.empresa_id] || []);
         return {
           ...s,
           razao_social:       emp.razao_social || "—",
@@ -466,6 +495,8 @@ export default function SolicitacoesAdm() {
           email_empresa:      emp.email || "—",
           nome_responsavel:   emp.nome_responsavel || "—",
           telefone_principal: emp.telefone_principal || "—",
+          solicitante_nome:   solicitante.nome,
+          solicitante_email:  solicitante.email,
         };
       });
 
@@ -780,7 +811,12 @@ export default function SolicitacoesAdm() {
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-gray-900 truncate max-w-[220px]">{sol.razao_social}</p>
-                          <p className="text-xs text-gray-400 truncate max-w-[220px]">{sol.email_empresa}</p>
+                          <p
+                            className={`text-xs truncate max-w-[220px] ${sol.solicitante_nome || sol.solicitante_email ? "text-gray-500" : "text-gray-400 italic"}`}
+                            title={rotuloSolicitante(sol)}
+                          >
+                            Solicitado por: {sol.solicitante_nome || sol.solicitante_email || "não identificado"}
+                          </p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-semibold whitespace-nowrap">
                               {sol.cnaes.length} {sol.cnaes.length === 1 ? "CNAE" : "CNAEs"}
@@ -885,7 +921,9 @@ export default function SolicitacoesAdm() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 text-sm break-words">{sol.razao_social}</p>
-                        <p className="text-xs text-gray-400 break-all">{sol.email_empresa}</p>
+                        <p className={`text-xs break-all ${sol.solicitante_nome || sol.solicitante_email ? "text-gray-500" : "text-gray-400 italic"}`}>
+                          Solicitado por: {rotuloSolicitante(sol)}
+                        </p>
                       </div>
                       <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${statusInfo.cor}`}>
                         {statusInfo.icone}
@@ -993,9 +1031,27 @@ export default function SolicitacoesAdm() {
                       <p className="text-gray-800 font-medium">{selecionada.telefone_principal}</p>
                     </div>
                     <div className="col-span-2">
-                      <p className="text-gray-400 text-xs mb-0.5">E-mail</p>
-                      <p className="text-gray-800 font-medium">{selecionada.email_empresa}</p>
+                      <p className="text-gray-400 text-xs mb-0.5">E-mail da empresa</p>
+                      <p className="text-gray-800 font-medium break-all">{selecionada.email_empresa}</p>
                     </div>
+                  </div>
+                  <Separator />
+                  {/* Quem de fato abriu a solicitação — pode ser qualquer membro
+                      da empresa, não necessariamente o responsável do cadastro. */}
+                  <div className="text-sm">
+                    <p className="text-gray-400 text-xs mb-0.5">Solicitado por</p>
+                    {selecionada.solicitante_nome || selecionada.solicitante_email ? (
+                      <>
+                        <p className="text-gray-800 font-medium">
+                          {selecionada.solicitante_nome || selecionada.solicitante_email}
+                        </p>
+                        {selecionada.solicitante_nome && selecionada.solicitante_email && (
+                          <p className="text-gray-500 text-xs break-all">{selecionada.solicitante_email}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-gray-400 italic">Solicitante não identificado</p>
+                    )}
                   </div>
                 </div>
               </div>

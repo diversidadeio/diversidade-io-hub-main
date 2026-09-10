@@ -1,4 +1,12 @@
 ﻿import { supabaseAdmin, exigirAdm } from "./_auth.js";
+import {
+  agregarUsuarios,
+  janelaDoPeriodo,
+  montarLinhasSolicitacoes,
+  resumirPeriodo,
+  serieAcessos,
+  PERIODO_PADRAO,
+} from "./_relatorio.js";
 
 /**
  * Início do dia corrente no fuso de Brasília, como instante UTC.
@@ -15,6 +23,83 @@ function inicioDoDiaBrasilia(): Date {
     day: "2-digit",
   }).format(new Date());
   return new Date(`${dia}T00:00:00-03:00`);
+}
+
+const COLUNAS_EMPRESA =
+  "id, razao_social, nome_fantasia, cnpj, email, nome_responsavel, telefone_principal, " +
+  "status_aprovacao, situacao_cnpj, area_empresa, area_geografica, created_at";
+
+/**
+ * Empresa a partir do id ou do texto digitado na busca.
+ *
+ * Mantém a ordem de preferência da tela de Logs: procura primeiro em
+ * `razao_social` e só então em `nome_fantasia`.
+ */
+async function resolverEmpresa(empresaId?: string | null, nomeEmpresa?: string | null) {
+  if (empresaId) {
+    const { data } = await supabaseAdmin!
+      .from("empresas")
+      .select(COLUNAS_EMPRESA)
+      .eq("id", empresaId)
+      .single();
+    return data || null;
+  }
+
+  const termo = (nomeEmpresa || "").trim();
+  if (termo.length < 2) return null;
+
+  const { data: porRazao } = await supabaseAdmin!
+    .from("empresas")
+    .select(COLUNAS_EMPRESA)
+    .ilike("razao_social", "%" + termo + "%")
+    .limit(5);
+  if (porRazao && porRazao.length > 0) return porRazao[0];
+
+  const { data: porFantasia } = await supabaseAdmin!
+    .from("empresas")
+    .select(COLUNAS_EMPRESA)
+    .ilike("nome_fantasia", "%" + termo + "%")
+    .limit(5);
+  return porFantasia && porFantasia.length > 0 ? porFantasia[0] : null;
+}
+
+/**
+ * Todo mundo que responde pela empresa: os convidados de `empresa_usuarios`
+ * mais o responsável do cadastro (`empresas.email`).
+ *
+ * Os convidados entram primeiro de propósito — se o responsável também tiver
+ * linha em `empresa_usuarios`, é a dela que vale, porque só ela carrega o
+ * `auth_user_id` usado para creditar as solicitações de busca.
+ */
+async function membrosDaEmpresa(empresa: any) {
+  const { data: vinculados } = await supabaseAdmin!
+    .from("empresa_usuarios")
+    .select("id, auth_user_id, nome, email, papel, status")
+    .eq("empresa_id", empresa.id);
+
+  const membros: any[] = [];
+  const vistos = new Set<string>();
+
+  const adicionar = (membro: any) => {
+    const email = (membro.email || "").trim().toLowerCase();
+    if (!email || vistos.has(email)) return;
+    vistos.add(email);
+    membros.push({ ...membro, email });
+  };
+
+  (vinculados || []).forEach(adicionar);
+  if (empresa.email) {
+    adicionar({
+      id: null,
+      auth_user_id: null,
+      nome: empresa.nome_responsavel,
+      email: empresa.email,
+      papel: "responsavel",
+      status: "ativo",
+    });
+  }
+
+  return membros;
 }
 
 export default async function handler(req: any, res: any) {
@@ -101,29 +186,14 @@ export default async function handler(req: any, res: any) {
       }
 
       if (modo === "usuarios_empresa") {
-        let idResolvido: number | null = empresaId ?? null;
-
-        if (!idResolvido && nomeEmpresa && nomeEmpresa.trim().length > 1) {
-          const { data: empresasEncontradas } = await supabaseAdmin.from("empresas").select("id").ilike("razao_social", "%" + nomeEmpresa + "%").limit(5);
-          if (!empresasEncontradas || empresasEncontradas.length === 0) {
-            const { data: porFantasia } = await supabaseAdmin.from("empresas").select("id").ilike("nome_fantasia", "%" + nomeEmpresa + "%").limit(5);
-            if (!porFantasia || porFantasia.length === 0) return res.json({ logs: [], total: 0, empresasEncontradas: 0 });
-            idResolvido = porFantasia[0].id;
-          } else {
-            idResolvido = empresasEncontradas[0].id;
-          }
+        if (!empresaId && (!nomeEmpresa || nomeEmpresa.trim().length < 2)) {
+          return res.status(400).json({ erro: "Informe empresaId ou nomeEmpresa" });
         }
 
-        if (!idResolvido) return res.status(400).json({ erro: "Informe empresaId ou nomeEmpresa" });
+        const empresa = await resolverEmpresa(empresaId, nomeEmpresa);
+        if (!empresa) return res.json({ logs: [], total: 0, empresasEncontradas: 0 });
 
-        const emailsSet = new Set<string>();
-        const { data: empresaData } = await supabaseAdmin.from("empresas").select("email").eq("id", idResolvido).single();
-        if (empresaData?.email) emailsSet.add(empresaData.email.toLowerCase());
-
-        const { data: usuariosVinculados } = await supabaseAdmin.from("empresa_usuarios").select("email").eq("empresa_id", idResolvido);
-        if (usuariosVinculados) usuariosVinculados.forEach((u: any) => { if (u.email) emailsSet.add(u.email.toLowerCase()); });
-
-        const emails = Array.from(emailsSet);
+        const emails = (await membrosDaEmpresa(empresa)).map((m: any) => m.email);
         if (emails.length === 0) return res.json({ logs: [], total: 0, emails: [] });
 
         const de = (page - 1) * pageSize;
@@ -134,6 +204,85 @@ export default async function handler(req: any, res: any) {
         return res.json({ logs: data || [], total: count || 0, emailsVinculados: emails });
       }
       return res.status(400).json({ erro: "Modo desconhecido: " + modo });
+    }
+
+    if (action === "relatorio") {
+      if (req.method !== "POST") return res.status(405).json({ erro: "Método não permitido" });
+
+      const { empresaId, nomeEmpresa, periodo = PERIODO_PADRAO } = req.body;
+
+      const empresa = await resolverEmpresa(empresaId, nomeEmpresa);
+      if (!empresa) return res.status(404).json({ erro: "Empresa não encontrada" });
+
+      const membros = await membrosDaEmpresa(empresa);
+      const emails = membros.map((m: any) => m.email);
+      const inicio = janelaDoPeriodo(periodo);
+      const fim = new Date();
+
+      // Teto alto o bastante para a agregação refletir o período inteiro na
+      // prática, mas finito para a resposta não estourar o limite da função.
+      // Quando o total ultrapassa o teto, o PDF avisa que houve corte.
+      const TETO_EVENTOS = 5000;
+      const TETO_ACOES_ADM = 300;
+
+      let consultaEventos = supabaseAdmin
+        .from("logs_acesso")
+        .select("email, tipo_evento, criado_em, detalhes", { count: "exact" })
+        .not("tipo_evento", "like", "adm_%")
+        .order("criado_em", { ascending: false })
+        .limit(TETO_EVENTOS);
+      if (inicio) consultaEventos = consultaEventos.gte("criado_em", inicio.toISOString());
+
+      let consultaAcoesAdm = supabaseAdmin
+        .from("logs_acesso")
+        .select("tipo_evento, criado_em, detalhes, executor_adm_email", { count: "exact" })
+        .like("tipo_evento", "adm_%")
+        .eq("empresa_id", empresa.id)
+        .order("criado_em", { ascending: false })
+        .limit(TETO_ACOES_ADM);
+      if (inicio) consultaAcoesAdm = consultaAcoesAdm.gte("criado_em", inicio.toISOString());
+
+      let consultaSolicitacoes = supabaseAdmin
+        .from("solicitacoes_busca")
+        .select("usuario_id, criado_em, cnaes, cidade, modalidade, status")
+        .eq("empresa_id", empresa.id)
+        .order("criado_em", { ascending: false })
+        .limit(500);
+      if (inicio) consultaSolicitacoes = consultaSolicitacoes.gte("criado_em", inicio.toISOString());
+
+      const [eventosResp, acoesAdmResp, solicitacoesResp] = await Promise.all([
+        emails.length > 0
+          ? consultaEventos.in("email", emails)
+          : Promise.resolve({ data: [], count: 0, error: null } as any),
+        consultaAcoesAdm,
+        consultaSolicitacoes,
+      ]);
+
+      if (eventosResp.error) throw eventosResp.error;
+      if (acoesAdmResp.error) throw acoesAdmResp.error;
+      if (solicitacoesResp.error) throw solicitacoesResp.error;
+
+      const eventos = eventosResp.data || [];
+      const solicitacoes = solicitacoesResp.data || [];
+      const usuarios = agregarUsuarios(membros, eventos, solicitacoes);
+
+      return res.json({
+        empresa,
+        periodo: {
+          chave: periodo,
+          inicio: inicio ? inicio.toISOString() : null,
+          fim: fim.toISOString(),
+        },
+        resumo: resumirPeriodo(usuarios, solicitacoes),
+        usuarios,
+        serieAcessos: serieAcessos(eventos, inicio || new Date(empresa.created_at || fim), fim),
+        solicitacoes: montarLinhasSolicitacoes(solicitacoes, membros),
+        // O apêndice do PDF não precisa das 5000 linhas usadas na agregação.
+        eventos: eventos.slice(0, 500),
+        acoesAdm: acoesAdmResp.data || [],
+        totalEventos: eventosResp.count ?? eventos.length,
+        eventosTruncados: (eventosResp.count ?? 0) > eventos.length,
+      });
     }
 
     if (action === "geral") {

@@ -29,7 +29,10 @@ import {
   Megaphone,
   ThumbsUp,
   ThumbsDown,
+  FileText,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -668,6 +671,9 @@ export default function LogsAdm() {
   const [showDropdownEmpresa, setShowDropdownEmpresa] = useState(false);
   // Subtab da aba Empresa: "sobre_empresa" = ações ADM | "usuarios_empresa" = ações dos usuários
   const [subAbaEmpresa, setSubAbaEmpresa] = useState<"sobre_empresa" | "usuarios_empresa">("usuarios_empresa");
+  // Relatório em PDF da empresa buscada
+  const [periodoRelatorio, setPeriodoRelatorio] = useState("90d");
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
 
   // Aba Usuário
   const [emailUsuario, setEmailUsuario] = useState("");
@@ -768,6 +774,47 @@ export default function LogsAdm() {
   });
 
   console.log("Render LogsAdm. buscaEmpresa:", buscaEmpresa, "showDropdown:", showDropdownEmpresa, "empresas total:", empresas.length, "filtradas:", empresasFiltradas.length);
+
+  /**
+   * Baixa o relatório de auditoria da empresa buscada.
+   *
+   * O jsPDF entra por import dinâmico: são centenas de KB que só fazem sentido
+   * carregar quando alguém clica no botão, não em toda visita à tela de Logs.
+   */
+  const gerarRelatorio = async () => {
+    if (!buscaEmpresaAtiva && !empresaSelecionada) return;
+
+    setGerandoRelatorio(true);
+    try {
+      const resposta = await fetch("/api/relatorio-empresa", {
+        method: "POST",
+        headers: await cabecalhosAutenticados(),
+        body: JSON.stringify({
+          nomeEmpresa: buscaEmpresaAtiva,
+          empresaId: empresaSelecionada || undefined,
+          periodo: periodoRelatorio,
+        }),
+      });
+
+      if (!resposta.ok) {
+        const corpo = await resposta.json().catch(() => ({}));
+        throw new Error(corpo.erro || "Não foi possível gerar o relatório.");
+      }
+
+      const dados = await resposta.json();
+      const { gerarRelatorioEmpresaPdf } = await import("@/lib/relatorioEmpresaPdf");
+      await gerarRelatorioEmpresaPdf(dados, {
+        rotularEvento: (tipo: string) => BADGE_CONFIG[tipo]?.label || tipo,
+      });
+
+      toast.success("Relatório gerado. Verifique os downloads do navegador.");
+    } catch (err: any) {
+      console.error("Erro ao gerar relatório da empresa:", err);
+      toast.error(err?.message || "Falha ao gerar o relatório.");
+    } finally {
+      setGerandoRelatorio(false);
+    }
+  };
 
   const aplicarFiltroCard = (tipo: string, periodo: string) => {
     setAbaAtiva("geral");
@@ -1022,6 +1069,37 @@ export default function LogsAdm() {
                     >
                       <RefreshCw className="w-4 h-4" />
                     </Button>
+
+                    {/* Relatório em PDF: só faz sentido depois que há uma empresa buscada */}
+                    {buscaEmpresaAtiva && (
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Select value={periodoRelatorio} onValueChange={setPeriodoRelatorio}>
+                          <SelectTrigger className="h-9 w-[150px] bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                            <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                            <SelectItem value="12m">Últimos 12 meses</SelectItem>
+                            <SelectItem value="tudo">Todo o histórico</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          onClick={gerarRelatorio}
+                          disabled={gerandoRelatorio}
+                          style={{ backgroundColor: "#7030A0" }}
+                          className="text-white gap-2"
+                        >
+                          {gerandoRelatorio ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FileText className="w-4 h-4" />
+                          )}
+                          {gerandoRelatorio ? "Gerando..." : "Gerar Relatório PDF"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Subtabs */}
