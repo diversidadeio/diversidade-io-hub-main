@@ -798,6 +798,40 @@ apiRouter.get("/usuarios-online", async (req, res) => {
         }
       }
 
+  const emailsSemPerfil = emails.filter((e) => {
+          const u = mapUsuarios.get(e.toLowerCase());
+          return u && u.empresa === "---";
+        });
+
+        if (emailsSemPerfil.length > 0) {
+          const { data: convidados } = await supabaseAdmin
+            .from("empresa_usuarios")
+            .select("email, empresa_id")
+            .in("email", emailsSemPerfil);
+
+          if (convidados && convidados.length > 0) {
+            const empresaIds = [...new Set(convidados.map(c => c.empresa_id))];
+            const { data: empresasConvidados } = await supabaseAdmin
+              .from("empresas")
+              .select("id, razao_social, nome_fantasia")
+              .in("id", empresaIds);
+
+            const mapaEmpresas = new Map();
+            for (const emp of (empresasConvidados || [])) {
+              mapaEmpresas.set(emp.id, emp.razao_social || emp.nome_fantasia || "Empresa Vinculada");
+            }
+
+            for (const c of convidados) {
+              if (!c.email) continue;
+              const u = mapUsuarios.get(c.email.toLowerCase());
+              if (u) {
+                u.empresa = mapaEmpresas.get(c.empresa_id) || "Empresa";
+                u.isAdm = false;
+              }
+            }
+          }
+        }
+
       // Buscar presença silenciosa de quem está de janela aberta
       const { data: presencas } = await supabaseAdmin
         .from('user_presence')
@@ -2026,3 +2060,4 @@ apiRouter.get("/verificar-cnpjs-lote", async (req, res) => {
     res.end();
   }
 });
+
