@@ -1,6 +1,6 @@
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import {
   Loader2, AlertCircle, CheckCircle2, Clock, Eye, FileText,
   MapPin, Monitor, Users, ExternalLink, RefreshCw,
@@ -76,6 +76,8 @@ interface ParticipacaoOportunidade {
   email: string | null;
   telefone: string | null;
   cnpj: string | null;
+  razao_social?: string | null;
+  atividade_empresarial?: string | null;
   empresa_id: string | null;
   quer_participar: boolean;
   mensagem: string | null;
@@ -454,19 +456,27 @@ export default function SolicitacoesAdm() {
       const empresaIds = (parts || [])
         .map((p: any) => p.empresa_id)
         .filter(Boolean);
-      let cnpjMap: Record<string, string> = {};
+      let detalhesMap: Record<string, { cnpj: string; razao: string; cnae: string }> = {};
       if (empresaIds.length > 0) {
         const { data: emps } = await supabase
           .from("empresas")
-          .select("id, cnpj")
+          .select("id, cnpj, razao_social, atividade_empresarial")
           .in("id", empresaIds);
-        (emps || []).forEach((e: any) => { cnpjMap[e.id] = e.cnpj || "—"; });
+        (emps || []).forEach((e: any) => { 
+          detalhesMap[e.id] = {
+            cnpj: e.cnpj || "—",
+            razao: e.razao_social || "—",
+            cnae: e.atividade_empresarial || "—"
+          }; 
+        });
       }
 
       setMetricasInteressados(
         (parts || []).map((p: any) => ({
           ...p,
-          cnpj: p.empresa_id ? (cnpjMap[p.empresa_id] || null) : null,
+          cnpj: p.empresa_id ? (detalhesMap[p.empresa_id]?.cnpj || null) : null,
+          razao_social: p.empresa_id ? (detalhesMap[p.empresa_id]?.razao || null) : null,
+          atividade_empresarial: p.empresa_id ? (detalhesMap[p.empresa_id]?.cnae || null) : null,
         }))
       );
     } catch (err) {
@@ -759,6 +769,109 @@ export default function SolicitacoesAdm() {
     return matchStatus && matchResponsavel;
   });
 
+  const ExpandedInteressadosContent = () => (
+    <div className="p-4 bg-gray-50/50">
+      {carregandoInteressados ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="w-6 h-6 animate-spin text-[#7030A0]" />
+        </div>
+      ) : metricasInteressados.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-4 bg-white rounded-lg border border-gray-100">Não há interessados registrados para esta solicitação no momento.</p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500 font-medium px-1">
+            {metricasInteressados.filter((p) => p.quer_participar).length} interessado(s) ·{" "}
+            {metricasInteressados.filter((p) => !p.quer_participar).length} sem interesse
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            {metricasInteressados.map((part) => (
+              <div
+                key={part.id}
+                className={`rounded-lg border p-4 ${
+                  part.quer_participar ? "bg-green-50/50 border-green-100" : "bg-white border-gray-100"
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-gray-900 break-words">
+                      {part.razao_social || part.nome || "—"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                      {part.cnpj && <p className="font-mono text-gray-500">CNPJ: {part.cnpj}</p>}
+                      <p>Contato: {part.nome || "—"}</p>
+                      <p className="break-all">{part.email || "—"}</p>
+                      {part.telefone && <p>{part.telefone}</p>}
+                    </div>
+                    {part.atividade_empresarial && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-1.5">CNAEs vinculados:</p>
+                        <ul className="text-xs text-gray-500 space-y-1">
+                          {part.atividade_empresarial.split(',').map((cnae, i) => {
+                            const cnaeLimpo = cnae.trim();
+                            if (!cnaeLimpo) return null;
+                            return (
+                              <li key={i} className="flex items-start gap-1.5">
+                                <span className="text-gray-300 mt-[1px]">•</span>
+                                <span>{cnaeLimpo}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        part.quer_participar ? "bg-green-600 text-white" : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {part.quer_participar ? <ThumbsUp className="w-3.5 h-3.5" /> : <ThumbsDown className="w-3.5 h-3.5" />}
+                      {part.quer_participar ? "Quer participar" : "Não tem interesse"}
+                    </span>
+                    {part.empresa_id && (
+                      <a
+                        href={`/adm/cadastros/${part.empresa_id}?from=solicitacoes-busca`}
+                        onClick={() => {
+                          if (solicitacaoInteressados?.id) {
+                            sessionStorage.setItem("solicitacaoAbertaInteressados", solicitacaoInteressados.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#7030A0]/30 bg-[#7030A0]/5 text-[#7030A0] text-xs font-semibold hover:bg-[#7030A0]/10 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Ver detalhes da empresa
+                      </a>
+                    )}
+                  </div>
+                </div>
+                {part.mensagem && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Mensagem enviada:</p>
+                    <p className="text-sm text-gray-700 bg-white/60 border border-gray-100/50 rounded-md p-3 whitespace-pre-wrap break-words">
+                      {part.mensagem}
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100/50">
+                  <p className="text-[11px] text-gray-400">
+                    Respondido em {new Date(part.criado_em).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <LayoutAdm>
       <div className="space-y-6">
@@ -875,128 +988,140 @@ export default function SolicitacoesAdm() {
                     const prazo = infoPrazo(sol.prazo_final);
                     const sla = getSlaInfo(sol.criado_em, sol.status);
                     const resumo = resumoPorSolicitacao[sol.id];
+                    const isExpanded = solicitacaoInteressados?.id === sol.id;
                     return (
-                      <tr key={sol.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-5 py-4 text-gray-500 whitespace-nowrap">
-                          {new Date(sol.criado_em).toLocaleDateString("pt-BR")}
-                          <div className="text-xs text-gray-400">
-                            {new Date(sol.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          </div>
-                          {sol.numero && (
-                            <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-[10px] font-bold tracking-wide">
-                              #{sol.numero}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-gray-900 truncate max-w-[220px]">{sol.razao_social}</p>
-                          <p
-                            className={`text-xs truncate max-w-[220px] ${sol.solicitante_nome || sol.solicitante_email ? "text-gray-500" : "text-gray-400 italic"}`}
-                            title={rotuloSolicitante(sol)}
-                          >
-                            Solicitado por: {sol.solicitante_nome || sol.solicitante_email || "não identificado"}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-semibold whitespace-nowrap">
-                              {sol.cnaes.length} {sol.cnaes.length === 1 ? "CNAE" : "CNAEs"}
-                            </span>
-                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                              {ROTULOS_MODALIDADE[sol.modalidade]}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          {prazo ? (
-                            <>
-                              <p className="text-xs font-medium text-gray-700">{prazo.data}</p>
-                              <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
-                                {prazo.texto}
+                      <Fragment key={sol.id}>
+                        <tr className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-5 py-4 text-gray-500 whitespace-nowrap">
+                            {new Date(sol.criado_em).toLocaleDateString("pt-BR")}
+                            <div className="text-xs text-gray-400">
+                              {new Date(sol.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                            {sol.numero && (
+                              <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-[10px] font-bold tracking-wide">
+                                #{sol.numero}
                               </span>
-                            </>
-                          ) : sla ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${sla.cor}`}>
-                              {sla.texto}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1 text-xs text-gray-600">
-                            <span className="inline-flex items-center gap-1.5">
-                              <Eye className="w-3.5 h-3.5 text-gray-400" />
-                              {resumo ? resumo.cliques : 0} {resumo && resumo.cliques === 1 ? "clique" : "cliques"}
-                            </span>
-                            <span className={`inline-flex items-center gap-1.5 font-semibold ${resumo && resumo.interessados > 0 ? "text-green-700" : "text-gray-400"}`}>
-                              <ThumbsUp className="w-3.5 h-3.5" />
-                              {resumo ? resumo.interessados : 0} interessados
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.cor}`}>
-                            {statusInfo.icone}
-                            {statusInfo.label}
-                          </span>
-                          {sol.compartilhavel === false ? (
-                            <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                              <EyeOff className="w-3 h-3" /> link desativado
-                            </span>
-                          ) : prazo?.encerrado ? (
-                            <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                              <EyeOff className="w-3 h-3" /> link encerrado pelo prazo
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => copiarLink(sol)}
-                              className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
-                              title="Copiar link compartilhável"
+                            )}
+                          </td>
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-gray-900 truncate max-w-[220px]">{sol.razao_social}</p>
+                            <p
+                              className={`text-xs truncate max-w-[220px] ${sol.solicitante_nome || sol.solicitante_email ? "text-gray-500" : "text-gray-400 italic"}`}
+                              title={rotuloSolicitante(sol)}
                             >
-                              {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
-                              {idCopiado === sol.id ? "Copiado" : "Link"}
-                            </Button>
-                            {(resumoPorSolicitacao[sol.id]?.interessados ?? 0) > 0 && (
+                              Solicitado por: {sol.solicitante_nome || sol.solicitante_email || "não identificado"}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-semibold whitespace-nowrap">
+                                {sol.cnaes.length} {sol.cnaes.length === 1 ? "CNAE" : "CNAEs"}
+                              </span>
+                              <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                {ROTULOS_MODALIDADE[sol.modalidade]}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{sol.cidade}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            {prazo ? (
+                              <>
+                                <p className="text-xs font-medium text-gray-700">{prazo.data}</p>
+                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${prazo.cor}`}>
+                                  {prazo.texto}
+                                </span>
+                              </>
+                            ) : sla ? (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${sla.cor}`}>
+                                {sla.texto}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1 text-xs text-gray-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <Eye className="w-3.5 h-3.5 text-gray-400" />
+                                {resumo ? resumo.cliques : 0} {resumo && resumo.cliques === 1 ? "clique" : "cliques"}
+                              </span>
+                              <span className={`inline-flex items-center gap-1.5 font-semibold ${resumo && resumo.interessados > 0 ? "text-green-700" : "text-gray-400"}`}>
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                {resumo ? resumo.interessados : 0} interessados
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.cor}`}>
+                              {statusInfo.icone}
+                              {statusInfo.label}
+                            </span>
+                            {sol.compartilhavel === false ? (
+                              <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                                <EyeOff className="w-3 h-3" /> link desativado
+                              </span>
+                            ) : prazo?.encerrado ? (
+                              <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                                <EyeOff className="w-3 h-3" /> link encerrado pelo prazo
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-5 py-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copiarLink(sol)}
+                                className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+                                title="Copiar link compartilhável"
+                              >
+                                {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
+                                {idCopiado === sol.id ? "Copiado" : "Link"}
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  setSolicitacaoInteressados(sol);
-                                  carregarInteressados(sol.id);
+                                  if (isExpanded) {
+                                    setSolicitacaoInteressados(null);
+                                  } else {
+                                    setSolicitacaoInteressados(sol);
+                                    carregarInteressados(sol.id);
+                                  }
                                 }}
-                                className="border-green-200 text-green-700 hover:bg-green-50 flex items-center gap-1.5"
+                                className={`border-green-200 hover:bg-green-50 flex items-center gap-1.5 ${isExpanded ? 'bg-green-50 text-green-800' : 'text-green-700'}`}
                                 title="Ver interessados"
                               >
                                 <ThumbsUp className="w-3.5 h-3.5" />
-                                Ver interessados
+                                {isExpanded ? "Fechar" : "Ver interessados"}
                               </Button>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelecionada(sol)}
-                              className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              Detalhes
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSolicitacaoParaDeletar(sol)}
-                              className="border-red-200 text-red-600 hover:bg-red-50 flex items-center p-2"
-                              title="Excluir solicitação"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelecionada(sol)}
+                                className="border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                Detalhes
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSolicitacaoParaDeletar(sol)}
+                                className="border-red-200 text-red-600 hover:bg-red-50 flex items-center p-2"
+                                title="Excluir solicitação"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-gray-50/50 border-b border-gray-100">
+                            <td colSpan={7} className="p-0 border-t border-green-100/50">
+                              <ExpandedInteressadosContent />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -1075,20 +1200,24 @@ export default function SolicitacoesAdm() {
                         {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
                         {idCopiado === sol.id ? "Copiado" : "Copiar link"}
                       </Button>
-                      {(resumoPorSolicitacao[sol.id]?.interessados ?? 0) > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (solicitacaoInteressados?.id === sol.id) {
+                            setSolicitacaoInteressados(null);
+                          } else {
                             setSolicitacaoInteressados(sol);
                             carregarInteressados(sol.id);
-                          }}
-                          className="flex-1 border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1.5"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          Ver interessados
-                        </Button>
-                      )}
+                          }
+                        }}
+                        className={`flex-1 border-green-200 hover:bg-green-50 flex items-center justify-center gap-1.5 ${
+                          solicitacaoInteressados?.id === sol.id ? "bg-green-50 text-green-800" : "text-green-700"
+                        }`}
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        {solicitacaoInteressados?.id === sol.id ? "Fechar" : "Ver interessados"}
+                      </Button>
                       <Button
                         size="sm"
                         onClick={() => setSelecionada(sol)}
@@ -1098,6 +1227,11 @@ export default function SolicitacoesAdm() {
                         Detalhes
                       </Button>
                     </div>
+                    {solicitacaoInteressados?.id === sol.id && (
+                      <div className="mt-3 -mx-4 -mb-4 border-t border-gray-100 overflow-hidden rounded-b-2xl">
+                        <ExpandedInteressadosContent />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1750,98 +1884,7 @@ export default function SolicitacoesAdm() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal de Interessados ─────────────────────────────────────────────── */}
-      <Dialog open={!!solicitacaoInteressados} onOpenChange={(open) => !open && setSolicitacaoInteressados(null)}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-900">
-              <ThumbsUp className="w-5 h-5 text-green-600" />
-              Interessados
-              {solicitacaoInteressados?.numero && (
-                <span className="ml-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-xs font-bold tracking-wide">
-                  #{solicitacaoInteressados.numero}
-                </span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
 
-          {solicitacaoInteressados && (
-            <div className="space-y-4 py-1">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Solicitação de</p>
-                <p className="font-semibold text-gray-900 text-sm">{solicitacaoInteressados.razao_social}</p>
-                <p className="text-xs text-gray-400">{solicitacaoInteressados.cidade} · {ROTULOS_MODALIDADE[solicitacaoInteressados.modalidade]}</p>
-              </div>
-
-              <Separator />
-
-              {carregandoInteressados ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#7030A0]" />
-                </div>
-              ) : metricasInteressados.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">Nenhuma resposta registrada ainda.</p>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-gray-500 font-medium">
-                    {metricasInteressados.filter(p => p.quer_participar).length} interessado(s) · {metricasInteressados.filter(p => !p.quer_participar).length} sem interesse
-                  </p>
-                  {metricasInteressados.map((part) => (
-                    <div
-                      key={part.id}
-                      className={`rounded-lg border p-3 ${part.quer_participar ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"}`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 break-words">{part.nome || "—"}</p>
-                          <p className="text-xs text-gray-500 break-all">{part.email || "—"}</p>
-                          {part.telefone && <p className="text-xs text-gray-500">{part.telefone}</p>}
-                          {part.cnpj && <p className="text-xs text-gray-400 font-mono">CNPJ: {part.cnpj}</p>}
-                        </div>
-                        <span
-                          className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            part.quer_participar ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
-                          }`}
-                        >
-                          {part.quer_participar ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
-                          {part.quer_participar ? "Quer participar" : "Sem interesse"}
-                        </span>
-                      </div>
-                      {part.mensagem && (
-                        <p className="mt-2 text-xs text-gray-700 bg-white border border-gray-100 rounded-md p-2 whitespace-pre-wrap break-words">
-                          {part.mensagem}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-[10px] text-gray-400">
-                          {new Date(part.criado_em).toLocaleString("pt-BR", {
-                            day: "2-digit", month: "2-digit", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                        {part.empresa_id && (
-                          <a
-                            href={`/adm/cadastros/${part.empresa_id}?from=solicitacoes-busca`}
-                            onClick={() => {
-                              if (solicitacaoInteressados?.id) {
-                                sessionStorage.setItem('solicitacaoAbertaInteressados', solicitacaoInteressados.id);
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[#7030A0]/30 bg-[#7030A0]/5 text-[#7030A0] text-[11px] font-semibold hover:bg-[#7030A0]/10 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Ver empresa
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* ── Modal de Filtros ───────────────────────────────────────────────────── */}
 
