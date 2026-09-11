@@ -56,6 +56,8 @@ interface SolicitacaoBusca {
   titulo?: string | null;
   prazo_final?: string | null;
   compartilhavel?: boolean;
+  /** Identificador sequencial ex: 001/2026 */
+  numero?: string | null;
 }
 
 /** Quem abriu o link compartilhado. */
@@ -73,6 +75,7 @@ interface ParticipacaoOportunidade {
   nome: string | null;
   email: string | null;
   telefone: string | null;
+  cnpj: string | null;
   empresa_id: string | null;
   quer_participar: boolean;
   mensagem: string | null;
@@ -182,6 +185,11 @@ export default function SolicitacoesAdm() {
   const [tituloEdit, setTituloEdit] = useState("");
   const [prazoEdit, setPrazoEdit] = useState("");
   const [salvandoDetalhes, setSalvandoDetalhes] = useState(false);
+
+  // Modal de interessados (direto, sem abrir detalhes)
+  const [solicitacaoInteressados, setSolicitacaoInteressados] = useState<SolicitacaoBusca | null>(null);
+  const [metricasInteressados, setMetricasInteressados] = useState<ParticipacaoOportunidade[]>([]);
+  const [carregandoInteressados, setCarregandoInteressados] = useState(false);
 
   useEffect(() => {
     carregarSolicitacoes();
@@ -405,12 +413,67 @@ export default function SolicitacoesAdm() {
           .eq("solicitacao_id", solicitacaoId)
           .order("criado_em", { ascending: false }),
       ]);
-      setMetricas({ visualizacoes: views || [], participacoes: parts || [] });
+
+      // Busca CNPJs das empresas participantes
+      const empresaIds = (parts || [])
+        .map((p: any) => p.empresa_id)
+        .filter(Boolean);
+      let cnpjMap: Record<string, string> = {};
+      if (empresaIds.length > 0) {
+        const { data: emps } = await supabase
+          .from("empresas")
+          .select("id, cnpj")
+          .in("id", empresaIds);
+        (emps || []).forEach((e: any) => { cnpjMap[e.id] = e.cnpj || "—"; });
+      }
+
+      const participacoesComCnpj: ParticipacaoOportunidade[] = (parts || []).map((p: any) => ({
+        ...p,
+        cnpj: p.empresa_id ? (cnpjMap[p.empresa_id] || null) : null,
+      }));
+
+      setMetricas({ visualizacoes: views || [], participacoes: participacoesComCnpj });
     } catch (err) {
       console.error("Erro ao carregar métricas da oportunidade:", err);
       setMetricas({ visualizacoes: [], participacoes: [] });
     } finally {
       setCarregandoMetricas(false);
+    }
+  }
+
+  /** Carrega apenas as participações para o modal direto de interessados. */
+  async function carregarInteressados(solicitacaoId: string) {
+    setCarregandoInteressados(true);
+    try {
+      const { data: parts } = await supabase
+        .from("solicitacao_participacoes")
+        .select("id, nome, email, telefone, empresa_id, quer_participar, mensagem, criado_em")
+        .eq("solicitacao_id", solicitacaoId)
+        .order("criado_em", { ascending: false });
+
+      const empresaIds = (parts || [])
+        .map((p: any) => p.empresa_id)
+        .filter(Boolean);
+      let cnpjMap: Record<string, string> = {};
+      if (empresaIds.length > 0) {
+        const { data: emps } = await supabase
+          .from("empresas")
+          .select("id, cnpj")
+          .in("id", empresaIds);
+        (emps || []).forEach((e: any) => { cnpjMap[e.id] = e.cnpj || "—"; });
+      }
+
+      setMetricasInteressados(
+        (parts || []).map((p: any) => ({
+          ...p,
+          cnpj: p.empresa_id ? (cnpjMap[p.empresa_id] || null) : null,
+        }))
+      );
+    } catch (err) {
+      console.error("Erro ao carregar interessados:", err);
+      setMetricasInteressados([]);
+    } finally {
+      setCarregandoInteressados(false);
     }
   }
 
@@ -502,6 +565,17 @@ export default function SolicitacoesAdm() {
 
       setSolicitacoes(lista);
       carregarResumoMetricas(lista.map((s) => s.id));
+
+      // Restaura modal de interessados se houver ID salvo no sessionStorage
+      const savedInteressadosId = sessionStorage.getItem('solicitacaoAbertaInteressados');
+      if (savedInteressadosId) {
+        const solParaAbrir = lista.find(s => s.id === savedInteressadosId);
+        if (solParaAbrir) {
+          setSolicitacaoInteressados(solParaAbrir);
+          carregarInteressados(solParaAbrir.id);
+        }
+        sessionStorage.removeItem('solicitacaoAbertaInteressados');
+      }
     } catch (err: any) {
       console.error("Erro ao carregar solicitações de busca:", err);
       toast.error("Erro ao carregar solicitações.");
@@ -808,6 +882,11 @@ export default function SolicitacoesAdm() {
                           <div className="text-xs text-gray-400">
                             {new Date(sol.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                           </div>
+                          {sol.numero && (
+                            <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-[10px] font-bold tracking-wide">
+                              #{sol.numero}
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-gray-900 truncate max-w-[220px]">{sol.razao_social}</p>
@@ -882,6 +961,21 @@ export default function SolicitacoesAdm() {
                               {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
                               {idCopiado === sol.id ? "Copiado" : "Link"}
                             </Button>
+                            {(resumoPorSolicitacao[sol.id]?.interessados ?? 0) > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSolicitacaoInteressados(sol);
+                                  carregarInteressados(sol.id);
+                                }}
+                                className="border-green-200 text-green-700 hover:bg-green-50 flex items-center gap-1.5"
+                                title="Ver interessados"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                Ver interessados
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -920,7 +1014,14 @@ export default function SolicitacoesAdm() {
                   <div key={sol.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm break-words">{sol.razao_social}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900 text-sm break-words">{sol.razao_social}</p>
+                          {sol.numero && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-[10px] font-bold tracking-wide flex-shrink-0">
+                              #{sol.numero}
+                            </span>
+                          )}
+                        </div>
                         <p className={`text-xs break-all ${sol.solicitante_nome || sol.solicitante_email ? "text-gray-500" : "text-gray-400 italic"}`}>
                           Solicitado por: {rotuloSolicitante(sol)}
                         </p>
@@ -974,6 +1075,20 @@ export default function SolicitacoesAdm() {
                         {idCopiado === sol.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
                         {idCopiado === sol.id ? "Copiado" : "Copiar link"}
                       </Button>
+                      {(resumoPorSolicitacao[sol.id]?.interessados ?? 0) > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSolicitacaoInteressados(sol);
+                            carregarInteressados(sol.id);
+                          }}
+                          className="flex-1 border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1.5"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          Ver interessados
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         onClick={() => setSelecionada(sol)}
@@ -998,6 +1113,11 @@ export default function SolicitacoesAdm() {
             <DialogTitle className="flex items-center gap-2 text-gray-900">
               <FileText className="w-5 h-5 text-[#7030A0]" />
               Detalhes da Solicitação
+              {selecionada?.numero && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-xs font-bold tracking-wide">
+                  #{selecionada.numero}
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -1445,6 +1565,7 @@ export default function SolicitacoesAdm() {
                                 <p className="text-sm font-semibold text-gray-900 break-words">{part.nome || "—"}</p>
                                 <p className="text-xs text-gray-500 break-all">{part.email || "—"}</p>
                                 {part.telefone && <p className="text-xs text-gray-500">{part.telefone}</p>}
+                                {part.cnpj && <p className="text-xs text-gray-400 font-mono">CNPJ: {part.cnpj}</p>}
                               </div>
                               <span
                                 className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1629,7 +1750,101 @@ export default function SolicitacoesAdm() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Modal de Interessados ─────────────────────────────────────────────── */}
+      <Dialog open={!!solicitacaoInteressados} onOpenChange={(open) => !open && setSolicitacaoInteressados(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <ThumbsUp className="w-5 h-5 text-green-600" />
+              Interessados
+              {solicitacaoInteressados?.numero && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-[#7030A0]/10 text-[#7030A0] border border-[#7030A0]/20 text-xs font-bold tracking-wide">
+                  #{solicitacaoInteressados.numero}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {solicitacaoInteressados && (
+            <div className="space-y-4 py-1">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Solicitação de</p>
+                <p className="font-semibold text-gray-900 text-sm">{solicitacaoInteressados.razao_social}</p>
+                <p className="text-xs text-gray-400">{solicitacaoInteressados.cidade} · {ROTULOS_MODALIDADE[solicitacaoInteressados.modalidade]}</p>
+              </div>
+
+              <Separator />
+
+              {carregandoInteressados ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#7030A0]" />
+                </div>
+              ) : metricasInteressados.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhuma resposta registrada ainda.</p>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-500 font-medium">
+                    {metricasInteressados.filter(p => p.quer_participar).length} interessado(s) · {metricasInteressados.filter(p => !p.quer_participar).length} sem interesse
+                  </p>
+                  {metricasInteressados.map((part) => (
+                    <div
+                      key={part.id}
+                      className={`rounded-lg border p-3 ${part.quer_participar ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 break-words">{part.nome || "—"}</p>
+                          <p className="text-xs text-gray-500 break-all">{part.email || "—"}</p>
+                          {part.telefone && <p className="text-xs text-gray-500">{part.telefone}</p>}
+                          {part.cnpj && <p className="text-xs text-gray-400 font-mono">CNPJ: {part.cnpj}</p>}
+                        </div>
+                        <span
+                          className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            part.quer_participar ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {part.quer_participar ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
+                          {part.quer_participar ? "Quer participar" : "Sem interesse"}
+                        </span>
+                      </div>
+                      {part.mensagem && (
+                        <p className="mt-2 text-xs text-gray-700 bg-white border border-gray-100 rounded-md p-2 whitespace-pre-wrap break-words">
+                          {part.mensagem}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-[10px] text-gray-400">
+                          {new Date(part.criado_em).toLocaleString("pt-BR", {
+                            day: "2-digit", month: "2-digit", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                        {part.empresa_id && (
+                          <a
+                            href={`/adm/cadastros/${part.empresa_id}?from=solicitacoes-busca`}
+                            onClick={() => {
+                              if (solicitacaoInteressados?.id) {
+                                sessionStorage.setItem('solicitacaoAbertaInteressados', solicitacaoInteressados.id);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[#7030A0]/30 bg-[#7030A0]/5 text-[#7030A0] text-[11px] font-semibold hover:bg-[#7030A0]/10 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver empresa
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Modal de Filtros ───────────────────────────────────────────────────── */}
+
       <Dialog open={modalFiltroAberto} onOpenChange={setModalFiltroAberto}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>

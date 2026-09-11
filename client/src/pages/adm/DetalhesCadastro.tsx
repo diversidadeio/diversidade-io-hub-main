@@ -235,6 +235,10 @@ export default function DetalhesCadastroAdm() {
   const id = params?.id;
   const { usuario } = useAuth();
 
+  // Detecta se veio do modal de interessados para adaptar o "Voltar"
+  const fromInteressados = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("from") === "solicitacoes-busca";
+
   const [carregando, setCarregando] = useState(true);
   const [deletando, setDeletando] = useState(false);
   const [empresa, setEmpresa] = useState<any>(null);
@@ -660,11 +664,20 @@ export default function DetalhesCadastroAdm() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <Link href="/adm/cadastros">
-              <a className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-2 transition-colors">
-                <ArrowLeft className="w-4 h-4" /> Voltar para lista
-              </a>
-            </Link>
+            {fromInteressados ? (
+              <button
+                onClick={() => window.history.back()}
+                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-2 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" /> Voltar para interessados
+              </button>
+            ) : (
+              <Link href="/adm/cadastros">
+                <a className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-2 transition-colors">
+                  <ArrowLeft className="w-4 h-4" /> Voltar para lista
+                </a>
+              </Link>
+            )}
             <div className="flex items-center gap-3 mt-2">
               {/* Badge de status */}
               {empresa.status_aprovacao === 'pendente' && (
