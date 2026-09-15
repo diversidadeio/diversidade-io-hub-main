@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { registrarLog } from "@/lib/registrarLog";
-import { Edit2 } from "lucide-react";
+import { Edit2, Upload, Save } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import ModalUsuariosEmpresa from "@/components/adm/ModalUsuariosEmpresa";
 
 // ─── Lógica de completude (espelho do Cadastros.tsx) ────────────────────────
@@ -446,6 +448,166 @@ export default function DetalhesCadastroAdm() {
     }
   };
 
+  // ─── Edição administrativa de campos (texto e anexos) ──────────────────────
+
+  interface CampoTextoEdicao {
+    campo: string;
+    label: string;
+    multiline?: boolean;
+  }
+
+  interface CampoArquivoEdicao {
+    campo: string;
+    label: string;
+    pasta: string;
+    tipo: "image" | "link";
+    accept: string;
+  }
+
+  const [edicaoTexto, setEdicaoTexto] = useState<CampoTextoEdicao | null>(null);
+  const [valorEdicaoTexto, setValorEdicaoTexto] = useState("");
+  const [salvandoTexto, setSalvandoTexto] = useState(false);
+
+  const [edicaoArquivo, setEdicaoArquivo] = useState<CampoArquivoEdicao | null>(null);
+  const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
+  const [salvandoArquivo, setSalvandoArquivo] = useState(false);
+  const [removendoArquivo, setRemovendoArquivo] = useState(false);
+
+  const abrirEdicaoTexto = (campo: string, label: string, multiline = false) => {
+    setEdicaoTexto({ campo, label, multiline });
+    setValorEdicaoTexto(empresa?.[campo] ?? "");
+  };
+
+  const handleSalvarTexto = async () => {
+    if (!empresa?.id || !edicaoTexto) return;
+    const { campo, label } = edicaoTexto;
+    const novoValor = valorEdicaoTexto.trim();
+    const valorAnterior = empresa[campo] ?? "";
+
+    setSalvandoTexto(true);
+    try {
+      const { error } = await supabase
+        .from("empresas")
+        .update({ [campo]: novoValor || null })
+        .eq("id", empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({ ...prev, [campo]: novoValor || null }));
+      toast.success(`${label} atualizado com sucesso!`);
+
+      registrarLog({
+        tipo_evento: "adm_editou_campo_empresa",
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || "admin",
+        detalhes: `Alterou o campo "${label}" de "${valorAnterior || "(vazio)"}" para "${novoValor || "(vazio)"}"`,
+      });
+
+      setEdicaoTexto(null);
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setSalvandoTexto(false);
+    }
+  };
+
+  const abrirEdicaoArquivo = (config: CampoArquivoEdicao) => {
+    setEdicaoArquivo(config);
+    setArquivoSelecionado(null);
+  };
+
+  const uploadArquivoEmpresa = async (file: File, pasta: string) => {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `empresas/${empresa.id}/${pasta}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("documentos")
+      .upload(filePath, file);
+
+    if (uploadError) throw new Error(`Erro ao enviar ${file.name}: ${uploadError.message}`);
+
+    const { data: publicUrlData } = supabase.storage
+      .from("documentos")
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
+  const handleSalvarArquivo = async () => {
+    if (!empresa?.id || !edicaoArquivo || !arquivoSelecionado) return;
+    const { campo, label, pasta } = edicaoArquivo;
+
+    if (arquivoSelecionado.size > 10 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Limite de 10 MB.");
+      return;
+    }
+
+    setSalvandoArquivo(true);
+    try {
+      const novaUrl = await uploadArquivoEmpresa(arquivoSelecionado, pasta);
+
+      const { error } = await supabase
+        .from("empresas")
+        .update({ [campo]: novaUrl })
+        .eq("id", empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({ ...prev, [campo]: novaUrl }));
+      toast.success(`${label} atualizado com sucesso!`);
+
+      registrarLog({
+        tipo_evento: "adm_atualizou_arquivo_empresa",
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || "admin",
+        detalhes: `Enviou um novo arquivo para "${label}" (${arquivoSelecionado.name})`,
+      });
+
+      setEdicaoArquivo(null);
+      setArquivoSelecionado(null);
+    } catch (err: any) {
+      toast.error("Erro ao enviar arquivo: " + err.message);
+    } finally {
+      setSalvandoArquivo(false);
+    }
+  };
+
+  const handleRemoverArquivo = async () => {
+    if (!empresa?.id || !edicaoArquivo) return;
+    const { campo, label } = edicaoArquivo;
+
+    setRemovendoArquivo(true);
+    try {
+      const { error } = await supabase
+        .from("empresas")
+        .update({ [campo]: null })
+        .eq("id", empresa.id);
+
+      if (error) throw error;
+
+      setEmpresa((prev: any) => ({ ...prev, [campo]: null }));
+      toast.success(`${label} removido.`);
+
+      registrarLog({
+        tipo_evento: "adm_removeu_arquivo_empresa",
+        empresa_id: empresa.id,
+        nome_empresa: empresa.razao_social || empresa.nome_fantasia || empresa.email,
+        email: usuario?.email || "admin",
+        detalhes: `Removeu o arquivo do campo "${label}"`,
+      });
+
+      setEdicaoArquivo(null);
+      setArquivoSelecionado(null);
+    } catch (err: any) {
+      toast.error("Erro ao remover: " + err.message);
+    } finally {
+      setRemovendoArquivo(false);
+    }
+  };
+
   useEffect(() => {
     async function carregar() {
       if (!id) return;
@@ -628,36 +790,90 @@ export default function DetalhesCadastroAdm() {
     );
   };
 
-  const renderField = (label: string, value: any, type: 'text' | 'link' | 'image' = 'text') => {
+  const renderValor = (label: string, value: any, type: 'text' | 'link' | 'image' = 'text') => {
     const isPng = typeof value === 'string' && value.toLowerCase().includes('.png');
     const isFoto = label === "Foto do Responsável";
     const boxSize = isFoto ? "w-24 h-24" : "w-48 h-48";
     const objectFit = isFoto ? "object-cover" : "object-contain";
-    
-    return (
-      <div className="mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-        {type === 'link' && value ? (
-          <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-medium">
-            Ver anexo <ExternalLink className="w-3 h-3" />
-          </a>
-        ) : type === 'image' && value ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <div className={`block ${boxSize} border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white`}>
-                <img src={value} alt={label} className={`w-full h-full ${objectFit} ${isPng ? 'p-1' : ''}`} />
-              </div>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl border-none shadow-none flex justify-center items-center overflow-hidden bg-transparent">
-              <img src={value} alt={label} className={`max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl ${isPng ? 'bg-white p-4' : ''}`} />
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <p className="text-gray-900 text-sm">{value || <span className="text-gray-400 italic">Não informado</span>}</p>
+
+    if (type === 'link' && value) {
+      return (
+        <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-medium">
+          Ver anexo <ExternalLink className="w-3 h-3" />
+        </a>
+      );
+    }
+
+    if (type === 'image' && value) {
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <div className={`block ${boxSize} border rounded-lg overflow-hidden hover:opacity-80 transition-opacity shadow-sm cursor-pointer bg-white`}>
+              <img src={value} alt={label} className={`w-full h-full ${objectFit} ${isPng ? 'p-1' : ''}`} />
+            </div>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-3xl border-none shadow-none flex justify-center items-center overflow-hidden bg-transparent">
+            <img src={value} alt={label} className={`max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl ${isPng ? 'bg-white p-4' : ''}`} />
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    return <p className="text-gray-900 text-sm whitespace-pre-line">{value || <span className="text-gray-400 italic">Não informado</span>}</p>;
+  };
+
+  const renderField = (label: string, value: any, type: 'text' | 'link' | 'image' = 'text') => (
+    <div className="mb-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      {renderValor(label, value, type)}
+    </div>
+  );
+
+  const renderBotaoEditar = (titulo: string, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors border border-transparent hover:border-blue-200 bg-gray-50"
+      title={titulo}
+    >
+      <Edit2 className="w-3.5 h-3.5" />
+    </button>
+  );
+
+  // Campo de texto editável pelo admin (abre o diálogo de edição)
+  const renderFieldEditavel = (
+    label: string,
+    campo: string,
+    value: any,
+    opcoes?: { multiline?: boolean },
+  ) => (
+    <div className="mb-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">{renderValor(label, value)}</div>
+        {renderBotaoEditar(`Editar ${label}`, () => abrirEdicaoTexto(campo, label, opcoes?.multiline))}
+      </div>
+    </div>
+  );
+
+  // Anexo (imagem ou documento) que o admin pode substituir/remover
+  const renderAnexoEditavel = (
+    label: string,
+    campo: string,
+    value: any,
+    cfg: { tipo: 'image' | 'link'; pasta: string; accept: string },
+  ) => (
+    <div className="mb-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">{renderValor(label, value, cfg.tipo)}</div>
+        {renderBotaoEditar(
+          value ? `Substituir ${label}` : `Enviar ${label}`,
+          () => abrirEdicaoArquivo({ campo, label, pasta: cfg.pasta, tipo: cfg.tipo, accept: cfg.accept }),
         )}
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <LayoutAdm>
@@ -754,24 +970,27 @@ export default function DetalhesCadastroAdm() {
           {/* Sessão 1: Informações de Acesso e Responsável */}
           {renderSectionTitle(User, "Informações do Responsável")}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {renderField("Nome do Responsável", empresa.nome_responsavel)}
+            {renderFieldEditavel("Nome do Responsável", "nome_responsavel", empresa.nome_responsavel)}
             {renderField("E-mail (Login)", empresa.email)}
-            {renderField("Telefone Principal", empresa.telefone_principal)}
-            {renderField("Telefone Opcional", empresa.telefone_opcional)}
-            {renderField("Foto do Responsável", empresa.foto_responsavel_url, 'image')}
+            {renderFieldEditavel("Telefone Principal", "telefone_principal", empresa.telefone_principal)}
+            {renderFieldEditavel("Telefone Opcional", "telefone_opcional", empresa.telefone_opcional)}
+            {renderAnexoEditavel("Foto do Responsável", "foto_responsavel_url", empresa.foto_responsavel_url, { tipo: 'image', pasta: 'responsavel', accept: 'image/*' })}
           </div>
 
           {/* Sessão 2: Dados da Empresa */}
           {renderSectionTitle(Building2, "Dados da Empresa")}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {renderField("Razão Social", empresa.razao_social)}
-            {renderField("Nome Fantasia", empresa.nome_fantasia)}
+            {renderFieldEditavel("Razão Social", "razao_social", empresa.razao_social)}
+            {renderFieldEditavel("Nome Fantasia", "nome_fantasia", empresa.nome_fantasia)}
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNPJ</p>
               <div className="flex flex-col gap-1 items-start">
-                <p className="text-gray-900 text-sm">
-                  {empresa.cnpj || <span className="text-gray-400 italic">Não informado</span>}
-                </p>
+                <div className="flex items-start gap-2">
+                  <p className="text-gray-900 text-sm">
+                    {empresa.cnpj || <span className="text-gray-400 italic">Não informado</span>}
+                  </p>
+                  {renderBotaoEditar("Editar CNPJ", () => abrirEdicaoTexto("cnpj", "CNPJ"))}
+                </div>
                 {empresa.cnpj && (
                   <div className="flex items-start gap-2 mt-2">
                     <BadgeSituacaoCNPJ 
@@ -814,7 +1033,7 @@ export default function DetalhesCadastroAdm() {
                 </div>
               </div>
             </div>
-            {renderField("Área de Atuação", empresa.area_empresa)}
+            {renderFieldEditavel("Área de Atuação", "area_empresa", empresa.area_empresa)}
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">CNAEs</p>
               <div className="flex flex-col gap-1 items-start">
@@ -853,13 +1072,13 @@ export default function DetalhesCadastroAdm() {
                 )}
               </div>
             </div>
-            {renderField("Área Geográfica", empresa.area_geografica)}
-            {renderField("Logo da Empresa", empresa.logo_empresa_url, 'image')}
-            {renderField("Cartão CNPJ", empresa.cartao_cnpj_url, 'link')}
-            {renderField("Ficha da Junta Comercial", empresa.ficha_junta_url, 'link')}
+            {renderFieldEditavel("Área Geográfica", "area_geografica", empresa.area_geografica)}
+            {renderAnexoEditavel("Logo da Empresa", "logo_empresa_url", empresa.logo_empresa_url, { tipo: 'image', pasta: 'logo', accept: 'image/*' })}
+            {renderAnexoEditavel("Cartão CNPJ", "cartao_cnpj_url", empresa.cartao_cnpj_url, { tipo: 'link', pasta: 'documentos', accept: '.pdf,image/*' })}
+            {renderAnexoEditavel("Ficha da Junta Comercial", "ficha_junta_url", empresa.ficha_junta_url, { tipo: 'link', pasta: 'documentos', accept: '.pdf,image/*' })}
           </div>
           <div className="mt-4">
-            {renderField("Sobre a Empresa", empresa.sobre_empresa)}
+            {renderFieldEditavel("Sobre a Empresa", "sobre_empresa", empresa.sobre_empresa, { multiline: true })}
           </div>
 
           {/* Sessão 3: Financeiro */}
@@ -1330,6 +1549,170 @@ export default function DetalhesCadastroAdm() {
             >
               Fechar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de edição de campo de texto (admin) */}
+      <Dialog open={!!edicaoTexto} onOpenChange={(aberto) => { if (!aberto && !salvandoTexto) setEdicaoTexto(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#7030A0]">
+              <Edit2 className="w-5 h-5" /> Editar {edicaoTexto?.label}
+            </DialogTitle>
+            <DialogDescription>
+              A alteração é feita em nome da empresa e fica registrada nos logs de acesso.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            {edicaoTexto?.multiline ? (
+              <Textarea
+                value={valorEdicaoTexto}
+                onChange={(e) => setValorEdicaoTexto(e.target.value)}
+                rows={6}
+                placeholder={`Digite ${edicaoTexto?.label}`}
+              />
+            ) : (
+              <Input
+                value={valorEdicaoTexto}
+                onChange={(e) => setValorEdicaoTexto(e.target.value)}
+                placeholder={`Digite ${edicaoTexto?.label}`}
+              />
+            )}
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setEdicaoTexto(null)} disabled={salvandoTexto}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#7030A0] hover:bg-[#5b2783] text-white"
+              onClick={handleSalvarTexto}
+              disabled={salvandoTexto}
+            >
+              {salvandoTexto ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" /> Salvar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de upload/substituição de anexo (admin) */}
+      <Dialog
+        open={!!edicaoArquivo}
+        onOpenChange={(aberto) => {
+          if (!aberto && !salvandoArquivo && !removendoArquivo) {
+            setEdicaoArquivo(null);
+            setArquivoSelecionado(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#7030A0]">
+              <Upload className="w-5 h-5" /> {edicaoArquivo?.label}
+            </DialogTitle>
+            <DialogDescription>
+              Envie um novo arquivo em nome da empresa. O arquivo atual será substituído. Limite de 10 MB.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-4">
+            {edicaoArquivo && empresa?.[edicaoArquivo.campo] && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Arquivo atual</p>
+                {edicaoArquivo.tipo === "image" ? (
+                  <div className="w-32 h-32 border rounded-lg overflow-hidden bg-white">
+                    <img src={empresa[edicaoArquivo.campo]} alt={edicaoArquivo.label} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <a
+                    href={empresa[edicaoArquivo.campo]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium text-sm"
+                  >
+                    Ver anexo <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Novo arquivo</p>
+              <label
+                htmlFor="arquivo-admin"
+                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:border-[#7030A0] hover:bg-purple-50/40 transition-colors text-center"
+              >
+                <Upload className="w-6 h-6 text-[#7030A0]" />
+                <span className="text-sm text-gray-600">
+                  {arquivoSelecionado ? arquivoSelecionado.name : "Clique para selecionar o arquivo"}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {edicaoArquivo?.accept === "image/*" ? "Imagens (JPG, PNG)" : "PDF ou imagem"}
+                </span>
+              </label>
+              <input
+                id="arquivo-admin"
+                type="file"
+                className="hidden"
+                accept={edicaoArquivo?.accept}
+                onChange={(e) => setArquivoSelecionado(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-between gap-2">
+            {edicaoArquivo && empresa?.[edicaoArquivo.campo] ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={handleRemoverArquivo}
+                disabled={salvandoArquivo || removendoArquivo}
+              >
+                {removendoArquivo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Remover arquivo
+              </Button>
+            ) : (
+              <span />
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setEdicaoArquivo(null); setArquivoSelecionado(null); }}
+                disabled={salvandoArquivo || removendoArquivo}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="bg-[#7030A0] hover:bg-[#5b2783] text-white"
+                onClick={handleSalvarArquivo}
+                disabled={!arquivoSelecionado || salvandoArquivo || removendoArquivo}
+              >
+                {salvandoArquivo ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" /> Salvar arquivo
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
