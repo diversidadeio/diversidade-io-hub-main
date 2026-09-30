@@ -160,7 +160,7 @@ export default async function handler(req: any, res: any) {
         partes.push(`ID:${e.id}`);
         partes.push(`${e.razao_social || ""}${e.nome_fantasia ? ` (${e.nome_fantasia})` : ""}`);
         partes.push(`Atividade/Área: ${e.atividade_empresarial || e.area_empresa || "N/A"}`);
-        partes.push(`Sobre: ${e.sobre_empresa ? e.sobre_empresa.slice(0, 150) : "N/A"}`);
+        partes.push(`Sobre: ${e.sobre_empresa ? e.sobre_empresa.slice(0, 400) : "N/A"}`);
         partes.push(`Região: ${e.area_geografica || "N/A"}`);
         return partes.join(" | ");
       })
