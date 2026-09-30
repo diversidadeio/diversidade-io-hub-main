@@ -1404,7 +1404,10 @@ export default function MeuCadastro() {
               <div className="space-y-2 pt-2">
                 <Label htmlFor="sobre" className="text-gray-700 font-medium">Sobre a Empresa</Label>
                 <p className="text-xs text-gray-500 mb-2">Descreva em um parágrafo o que a sua empresa faz, o diferencial dela e onde atua.</p>
-                <Textarea id="sobre" required value={sobreEmpresa} onChange={(e) => setSobreEmpresa(e.target.value)} placeholder="Escreva sobre sua empresa aqui..." className="min-h-[120px] bg-gray-50 focus:bg-white resize-y" />
+                <div className="relative">
+                  <Textarea id="sobre" maxLength={1000} required value={sobreEmpresa} onChange={(e) => setSobreEmpresa(e.target.value)} placeholder="Escreva sobre sua empresa aqui..." className="min-h-[120px] bg-gray-50 focus:bg-white resize-y" />
+                  <div className="text-xs text-gray-500 mt-1 text-right">{sobreEmpresa?.length || 0}/1000 caracteres</div>
+                </div>
               </div>
             </section>
 
