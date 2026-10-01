@@ -71,6 +71,7 @@ interface FiltrosState {
   portes: string[];
   tiposAcesso: string[];
   semLogo: boolean;
+  semFotoResponsavel: boolean;
   semDocumentos: boolean;
   semSocios: boolean;
   semCeps: boolean;
@@ -78,6 +79,21 @@ interface FiltrosState {
   dataFim: string;
   ordenacao: OrdenacaoFiltro;
   situacaoCnpj: SituacaoCNPJFiltro;
+  faltaRazaoSocial: boolean;
+  faltaCnpj: boolean;
+  faltaResponsavel: boolean;
+  faltaTelefone: boolean;
+  faltaArea: boolean;
+  faltaSobre: boolean;
+  socioFaltaNome: boolean;
+  socioFaltaCpf: boolean;
+  socioFaltaEmail: boolean;
+  socioFaltaCep: boolean;
+  socioFaltaNascimento: boolean;
+  socioFaltaNacionalidade: boolean;
+  socioFaltaRaca: boolean;
+  socioFaltaPartPercentual: boolean;
+  socioFaltaPartValor: boolean;
 }
 
 const FILTROS_PADRAO: FiltrosState = {
@@ -87,6 +103,7 @@ const FILTROS_PADRAO: FiltrosState = {
   portes: [],
   tiposAcesso: [],
   semLogo: false,
+  semFotoResponsavel: false,
   semDocumentos: false,
   semSocios: false,
   semCeps: false,
@@ -94,9 +111,65 @@ const FILTROS_PADRAO: FiltrosState = {
   dataFim: "",
   ordenacao: "recentes",
   situacaoCnpj: "todos",
+  faltaRazaoSocial: false,
+  faltaCnpj: false,
+  faltaResponsavel: false,
+  faltaTelefone: false,
+  faltaArea: false,
+  faltaSobre: false,
+  socioFaltaNome: false,
+  socioFaltaCpf: false,
+  socioFaltaEmail: false,
+  socioFaltaCep: false,
+  socioFaltaNascimento: false,
+  socioFaltaNacionalidade: false,
+  socioFaltaRaca: false,
+  socioFaltaPartPercentual: false,
+  socioFaltaPartValor: false,
 };
 
 const PORTES_DISPONIVEIS = ["MEI", "ME", "MICRO", "EPP", "Média Empresa", "Grande Empresa"];
+const FILTROS_DADOS_FALTANTES = [
+  {
+    titulo: "Gerais",
+    itens: [
+      { key: "semLogo", label: "Sem Logo da Empresa" },
+      { key: "semFotoResponsavel", label: "Sem Foto do Responsável" },
+      { key: "semDocumentos", label: "Sem documentos (Cartão CNPJ / Ficha da Junta Comercial)" },
+      { key: "semCeps", label: "Sem CEPs de impacto" },
+    ],
+  },
+  {
+    titulo: "Dados da Empresa Faltantes",
+    itens: [
+      { key: "faltaRazaoSocial", label: "Sem Razão Social" },
+      { key: "faltaCnpj", label: "Sem CNPJ" },
+      { key: "faltaResponsavel", label: "Sem Nome do Responsável" },
+      { key: "faltaTelefone", label: "Sem Telefone Principal" },
+      { key: "faltaArea", label: "Sem Área de Atuação" },
+      { key: "faltaSobre", label: 'Sem "Sobre a Empresa"' },
+    ],
+  },
+  {
+    titulo: "Quadro Societário Faltante",
+    itens: [
+      { key: "semSocios", label: "Sem nenhum Sócio cadastrado" },
+      { key: "socioFaltaNome", label: "Sócio sem Nome" },
+      { key: "socioFaltaCpf", label: "Sócio sem CPF" },
+      { key: "socioFaltaEmail", label: "Sócio sem E-mail" },
+      { key: "socioFaltaCep", label: "Sócio sem CEP" },
+      { key: "socioFaltaNascimento", label: "Sócio sem Data de Nascimento" },
+      { key: "socioFaltaNacionalidade", label: "Sócio sem Nacionalidade" },
+      { key: "socioFaltaRaca", label: "Sócio sem Raça" },
+      { key: "socioFaltaPartPercentual", label: "Sócio sem Participação %" },
+      { key: "socioFaltaPartValor", label: "Sócio sem Participação R$" },
+    ],
+  },
+] as const;
+
+function campoFaltante(valor: unknown): boolean {
+  return valor == null || String(valor).trim() === "";
+}
 const TIPOS_ACESSO_DISPONIVEIS = ["EMPRESA OU INICIATIVA INCENTIVADORA", "FORNECEDOR INCLUSIVO", "EMPREENDIMENTO DIVERSO"];
 
 const CAMPOS_OBRIGATORIOS = [
@@ -123,7 +196,7 @@ const CAMPOS_SOCIO_OBRIGATORIOS = [
 
 //  Helpers 
 
-/** Retorna true se todos os 10 campos obrigatórios do sócio estão preenchidos */
+/** Retorna true se todos os campos obrigatórios do sócio estão preenchidos */
 function socioCompleto(socio: any): boolean {
   return CAMPOS_SOCIO_OBRIGATORIOS.every(
     (campo) => socio[campo] != null && String(socio[campo]).trim() !== ""
@@ -911,7 +984,8 @@ export default function CadastrosAdm() {
             emp.acesso_tipo.includes(tipo)
           ));
 
-      const matchSemLogo = !filtrosAtivos.semLogo || !emp.logo_empresa_url;
+      const matchSemLogo = !filtrosAtivos.semLogo || campoFaltante(emp.logo_empresa_url);
+      const matchSemFotoResponsavel = !filtrosAtivos.semFotoResponsavel || campoFaltante(emp.foto_responsavel_url);
 
       const matchSemDoc =
         !filtrosAtivos.semDocumentos ||
@@ -932,6 +1006,7 @@ export default function CadastrosAdm() {
         new Date(emp.created_at) <=
           new Date(filtrosAtivos.dataFim + "T23:59:59");
 
+
       const matchSituacaoCnpj = (() => {
         if (filtrosAtivos.situacaoCnpj === "todos") return true;
         const sit = situacoesCnpj[emp.id]?.situacao;
@@ -939,6 +1014,27 @@ export default function CadastrosAdm() {
         if (filtrosAtivos.situacaoCnpj === "irregular") return sit && sit !== "ATIVA";
         return sit === filtrosAtivos.situacaoCnpj;
       })();
+
+      const matchFaltaRazaoSocial = !filtrosAtivos.faltaRazaoSocial || campoFaltante(emp.razao_social);
+      const matchFaltaCnpj = !filtrosAtivos.faltaCnpj || campoFaltante(emp.cnpj);
+      const matchFaltaResponsavel = !filtrosAtivos.faltaResponsavel || campoFaltante(emp.nome_responsavel);
+      const matchFaltaTelefone = !filtrosAtivos.faltaTelefone || campoFaltante(emp.telefone_principal);
+      const matchFaltaArea = !filtrosAtivos.faltaArea || campoFaltante(emp.area_empresa);
+      const matchFaltaSobre = !filtrosAtivos.faltaSobre || campoFaltante(emp.sobre_empresa);
+
+      const temSocioComFalha = (campoVerificacao: string) =>
+        listaSocios.some((s: any) => campoFaltante(s[campoVerificacao]));
+
+      const matchSocioFaltaNome = !filtrosAtivos.socioFaltaNome || temSocioComFalha("nome");
+      const matchSocioFaltaCpf = !filtrosAtivos.socioFaltaCpf || temSocioComFalha("cpf");
+      const matchSocioFaltaEmail = !filtrosAtivos.socioFaltaEmail || temSocioComFalha("email");
+      const matchSocioFaltaCep = !filtrosAtivos.socioFaltaCep || temSocioComFalha("cep");
+      const matchSocioFaltaNascimento = !filtrosAtivos.socioFaltaNascimento || temSocioComFalha("data_nascimento");
+      const matchSocioFaltaNacionalidade = !filtrosAtivos.socioFaltaNacionalidade || temSocioComFalha("nacionalidade");
+      const matchSocioFaltaRaca = !filtrosAtivos.socioFaltaRaca || temSocioComFalha("raca");
+      const matchSocioFaltaPartPercentual = !filtrosAtivos.socioFaltaPartPercentual || temSocioComFalha("participacao_percentual");
+      const matchSocioFaltaPartValor = !filtrosAtivos.socioFaltaPartValor || temSocioComFalha("participacao_valor");
+
 
       return (
         matchBusca &&
@@ -948,12 +1044,28 @@ export default function CadastrosAdm() {
         matchPorte &&
         matchTipoAcesso &&
         matchSemLogo &&
+        matchSemFotoResponsavel &&
         matchSemDoc &&
         matchSemSocios &&
         matchSemCeps &&
         matchDataInicio &&
         matchDataFim &&
-        matchSituacaoCnpj
+        matchSituacaoCnpj &&
+        matchFaltaRazaoSocial &&
+        matchFaltaCnpj &&
+        matchFaltaResponsavel &&
+        matchFaltaTelefone &&
+        matchFaltaArea &&
+        matchFaltaSobre &&
+        matchSocioFaltaNome &&
+        matchSocioFaltaCpf &&
+        matchSocioFaltaEmail &&
+        matchSocioFaltaCep &&
+        matchSocioFaltaNascimento &&
+        matchSocioFaltaNacionalidade &&
+        matchSocioFaltaRaca &&
+        matchSocioFaltaPartPercentual &&
+        matchSocioFaltaPartValor
       );
     });
 
@@ -1108,14 +1220,13 @@ export default function CadastrosAdm() {
     if (filtrosAtivos.completude !== "todos") count++;
     if (filtrosAtivos.portes.length > 0) count++;
     if (filtrosAtivos.tiposAcesso.length > 0) count++;
-    if (filtrosAtivos.semLogo) count++;
-    if (filtrosAtivos.semDocumentos) count++;
-    if (filtrosAtivos.semSocios) count++;
-    if (filtrosAtivos.semCeps) count++;
     if (filtrosAtivos.dataInicio) count++;
     if (filtrosAtivos.dataFim) count++;
     if (filtrosAtivos.ordenacao !== "recentes") count++;
     if (filtrosAtivos.situacaoCnpj !== "todos") count++;
+    for (const grupo of FILTROS_DADOS_FALTANTES) {
+      count += grupo.itens.filter(({ key }) => filtrosAtivos[key]).length;
+    }
     return count;
   }, [filtrosAtivos]);
 
@@ -1162,10 +1273,6 @@ export default function CadastrosAdm() {
     tagsFiltros.push({ label: `Porte: ${filtrosAtivos.portes.join(", ")}`, chave: "portes" });
   if (filtrosAtivos.tiposAcesso.length > 0)
     tagsFiltros.push({ label: `Tipo: ${filtrosAtivos.tiposAcesso.join(", ")}`, chave: "tiposAcesso" });
-  if (filtrosAtivos.semLogo) tagsFiltros.push({ label: "Sem logo", chave: "semLogo" });
-  if (filtrosAtivos.semDocumentos) tagsFiltros.push({ label: "Sem documentos", chave: "semDocumentos" });
-  if (filtrosAtivos.semSocios) tagsFiltros.push({ label: "Sem sócios", chave: "semSocios" });
-  if (filtrosAtivos.semCeps) tagsFiltros.push({ label: "Sem CEPs de impacto", chave: "semCeps" });
   if (filtrosAtivos.dataInicio) tagsFiltros.push({ label: `A partir de ${filtrosAtivos.dataInicio}`, chave: "dataInicio" });
   if (filtrosAtivos.dataFim) tagsFiltros.push({ label: `Até ${filtrosAtivos.dataFim}`, chave: "dataFim" });
   if (filtrosAtivos.ordenacao !== "recentes") {
@@ -1181,6 +1288,11 @@ export default function CadastrosAdm() {
       nao_verificado: "CNPJ: Não verificado",
     };
     tagsFiltros.push({ label: labelsCnpj[filtrosAtivos.situacaoCnpj] || `CNPJ: ${filtrosAtivos.situacaoCnpj}`, chave: "situacaoCnpj" });
+  }
+  for (const grupo of FILTROS_DADOS_FALTANTES) {
+    for (const { key, label } of grupo.itens) {
+      if (filtrosAtivos[key]) tagsFiltros.push({ label, chave: key });
+    }
   }
 
   //  Ações do modal 
@@ -1931,25 +2043,29 @@ export default function CadastrosAdm() {
             {/* Dados faltantes */}
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">Dados Faltantes</p>
-              <div className="space-y-2.5">
-                {[
-                  { key: "semLogo", label: "Sem logo da empresa" },
-                  { key: "semDocumentos", label: "Sem documentos (CNPJ / Junta)" },
-                  { key: "semSocios", label: "Sem sócios cadastrados" },
-                  { key: "semCeps", label: "Sem CEPs de impacto" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <Checkbox
-                      id={key}
-                      checked={filtrosTemp[key as keyof FiltrosState] as boolean}
-                      onCheckedChange={(checked) =>
-                        setFiltrosTemp((p) => ({ ...p, [key]: checked === true }))
-                      }
-                    />
-                    <Label htmlFor={key} className="text-sm cursor-pointer">
-                      {label}
-                    </Label>
-                  </div>
+              <p className="text-xs text-gray-500 mb-3">
+                A lista mostrará empresas que atendem a todos os filtros selecionados.
+                Nos campos de sócios, basta que algum sócio tenha o dado faltante.
+              </p>
+              <div className="space-y-4">
+                {FILTROS_DADOS_FALTANTES.map(({ titulo, itens }) => (
+                  <fieldset key={titulo} className="space-y-2.5">
+                    <legend className="text-xs font-semibold text-gray-600 mb-2">{titulo}</legend>
+                    {itens.map(({ key, label }) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <Checkbox
+                          id={key}
+                          checked={filtrosTemp[key]}
+                          onCheckedChange={(checked) =>
+                            setFiltrosTemp((p) => ({ ...p, [key]: checked === true }))
+                          }
+                        />
+                        <Label htmlFor={key} className="text-sm cursor-pointer">
+                          {label}
+                        </Label>
+                      </div>
+                    ))}
+                  </fieldset>
                 ))}
               </div>
             </div>
