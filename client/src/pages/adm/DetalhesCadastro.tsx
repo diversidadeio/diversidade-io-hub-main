@@ -243,6 +243,7 @@ export default function DetalhesCadastroAdm() {
 
   const [carregando, setCarregando] = useState(true);
   const [deletando, setDeletando] = useState(false);
+  const [gerandoFicha, setGerandoFicha] = useState(false);
   const [empresa, setEmpresa] = useState<any>(null);
   const [socios, setSocios] = useState<any[]>([]);
   const [ceps, setCeps] = useState<any[]>([]);
@@ -919,7 +920,27 @@ export default function DetalhesCadastroAdm() {
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={async () => {
+                setGerandoFicha(true);
+                try {
+                  const { gerarFichaCadastroPdf } = await import("@/lib/fichaCadastroPdf");
+                  gerarFichaCadastroPdf(empresa, socios, ceps);
+                  toast.success("Ficha PDF emitida com sucesso!");
+                } catch (error) {
+                  console.error("Erro ao emitir ficha PDF:", error);
+                  toast.error("Não foi possível emitir a ficha PDF. Tente novamente.");
+                } finally {
+                  setGerandoFicha(false);
+                }
+              }}
+              disabled={gerandoFicha}
+              className="flex items-center gap-2 bg-[#7030A0] hover:bg-[#5b2783] text-white shadow-md rounded-xl h-11 px-6"
+            >
+              {gerandoFicha ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              {gerandoFicha ? "Emitindo PDF..." : "Emitir ficha PDF"}
+            </Button>
             {empresa.status_aprovacao === 'pendente' && (
               <Button
                 onClick={handleAprovar}
