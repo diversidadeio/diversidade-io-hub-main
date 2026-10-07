@@ -674,8 +674,8 @@ export default function CadastroGratuito() {
             faltando.push({ id: idBase, label: `Sócio ${idx + 1}: E-mail`, secao: secaoSocio });
           if (!socio.dataNascimento)
             faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Data de Nascimento`, secao: secaoSocio });
-          if (!socio.cep)
-            faltando.push({ id: idBase, label: `Sócio ${idx + 1}: CEP`, secao: secaoSocio });
+          if (!socio.cep || !socio.cepValido)
+            faltando.push({ id: `cep-socio-${idx}`, label: `Sócio ${idx + 1}: CEP`, secao: secaoSocio });
           if (!socio.nacionalidade)
             faltando.push({ id: idBase, label: `Sócio ${idx + 1}: Nacionalidade`, secao: secaoSocio });
           if (!socio.etariedade)
@@ -717,7 +717,7 @@ export default function CadastroGratuito() {
         faltando.push({ id: "impactadasColab", label: "Impactadas pelo salário do Colaboradore(a)s", secao: "4. Pessoas Impactadas" });
 
       gestoresDiretosData.forEach((g, idx) => {
-        if (!g.codigoPostal) faltando.push({ id: `cp-gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "4. Localização" });
+        if (!g.codigoPostal || !g.cepValido) faltando.push({ id: `cp-gestor-direto-${idx}`, label: `CEP Gestor ${idx + 1}`, secao: "4. Localização" });
       });
 
       const recortesValidar = [
@@ -733,16 +733,16 @@ export default function CadastroGratuito() {
         if (item.colaboradores === "") faltando.push({ id: `recorte-${recorte.idx}-colaboradores`, label: `${recorte.key} - Colaboradores`, secao: "5. Recortes de Diversidade" });
       });
       colaboradoresDiretosData.forEach((c, idx) => {
-        if (!c.codigoPostal) faltando.push({ id: `cp-colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "4. Localização" });
+        if (!c.codigoPostal || !c.cepValido) faltando.push({ id: `cp-colab-direto-${idx}`, label: `CEP Colaborador ${idx + 1}`, secao: "4. Localização" });
       });
       sociosImpactadosData.forEach((s, idx) => {
-        if (!s.codigoPostal) faltando.push({ id: `cp-socios-impactados-${idx}`, label: `CEP do impactado pelo sócio ${idx + 1}`, secao: "4. Pessoas Impactadas" });
+        if (!s.codigoPostal || !s.cepValido) faltando.push({ id: `cp-socios-impactados-${idx}`, label: `CEP do impactado pelo sócio ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
       gestoresData.forEach((g, idx) => {
-        if (!g.codigoPostal) faltando.push({ id: `cp-gestores-${idx}`, label: `CEP do impactado pelo gestor ${idx + 1}`, secao: "4. Pessoas Impactadas" });
+        if (!g.codigoPostal || !g.cepValido) faltando.push({ id: `cp-gestores-${idx}`, label: `CEP do impactado pelo gestor ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
       colaboradoresData.forEach((c, idx) => {
-        if (!c.codigoPostal) faltando.push({ id: `cp-colab-${idx}`, label: `CEP do impactado pelo colaborador ${idx + 1}`, secao: "4. Pessoas Impactadas" });
+        if (!c.codigoPostal || !c.cepValido) faltando.push({ id: `cp-colab-${idx}`, label: `CEP do impactado pelo colaborador ${idx + 1}`, secao: "4. Pessoas Impactadas" });
       });
 
       if (autorizaCompartilhamento !== "Sim")
@@ -761,7 +761,7 @@ export default function CadastroGratuito() {
       cnpjValido, cartaoCnpjFile, fichaJuntaFile, razaoSocial, nomeFantasia,
       acessoTipo, areaEmpresa, areaGeografica, sobreEmpresa,
       formasPagamento, formasRecebimento, emiteNotaFiscal, temContaPJ,
-      eSocio, temNegrosSocios, numeroSocios, sociosData, autorizaCompartilhamento,
+      mostrarCompleto, eSocio, temNegrosSocios, numeroSocios, sociosData, autorizaCompartilhamento,
       gestoresDiretosData, colaboradoresDiretosData, sociosImpactadosData, gestoresData, colaboradoresData,
       diversidadeGlobal, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores
     ]
@@ -775,7 +775,7 @@ export default function CadastroGratuito() {
 
     const faltantes = calcularCamposFaltando();
     if (faltantes.length > 0) {
-      setSenhaErro("Existem campos obrigatórios não preenchidos. Verifique as marcações em vermelho.");
+      setSenhaErro("Existem campos obrigatórios pendentes ou CEPs ainda não validados. Toque ou clique nos itens do painel para conferir cada campo.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -1583,8 +1583,8 @@ export default function CadastroGratuito() {
                                 />
                               </div>
                               <div className="space-y-2 md:col-span-2">
-                                <Label className="text-gray-700 font-medium">CEP</Label>
-                                <Input value={socio.cep} onChange={(e) => handleCepSocioChange(idx, e.target.value)} placeholder="00000-000" maxLength={9} />
+                                <Label htmlFor={`cep-socio-${idx}`} className="text-gray-700 font-medium">CEP <span className="text-red-500">*</span></Label>
+                                <Input id={`cep-socio-${idx}`} value={socio.cep} onChange={(e) => handleCepSocioChange(idx, e.target.value)} placeholder="00000-000" maxLength={9} />
                                 {socio.cepEndereco && (
                                   <p className={`text-xs mt-1 ${socio.cepValido ? 'text-gray-500' : 'text-red-500 font-semibold'}`}>
                                     {socio.cepEndereco}
