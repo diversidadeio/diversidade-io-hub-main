@@ -1,3 +1,4 @@
+import { formatarParticipacaoMonetaria, filtrarPercentual, filtrarIdade } from "@/lib/camposNumericosSocio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -5,11 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Upload, CheckCircle2, User, Building2, Wallet, Users, FileText, LogOut, Loader2, Sparkles, Info } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { CamposFaltandoPanel, type CampoFaltando } from "@/components/CamposFaltandoPanel";
+import { quantidadeParaTexto, lerQuantidadeSalva } from "@/lib/quantidadesCadastro";
 import logoImage from "@/assets/logo.png";
 import { DrumDatePicker } from "@/components/ui/drum-date-picker";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +24,7 @@ import { LayoutUsuario } from "@/components/LayoutUsuario";
 import { InfoJuntaComercial } from "@/components/InfoJuntaComercial";
 import { InfoNomeFantasia } from "@/components/InfoNomeFantasia";
 interface SocioData {
+  id?: string;
   foto: File | null;
   fotoUrl?: string | null;
   fonteImagem: string;
@@ -150,7 +154,11 @@ export default function MeuCadastro() {
   // 4. Sócios e Impacto
   const [numeroSocios, setNumeroSocios] = useState<number | "">("");
   const [sociosData, setSociosData] = useState<SocioData[]>([]);
+  const [socioAberto, setSocioAberto] = useState<number | null>(null);
+  const [salvandoSocio, setSalvandoSocio] = useState(false);
+  const [erroSocio, setErroSocio] = useState("");
   // Gestores e colaboradores diretos (CEP da pessoa em si)
+  const [tentouSalvar, setTentouSalvar] = useState(false);
   const [numGestoresDiretos, setNumGestoresDiretos] = useState<number | "">("");
   const [gestoresDiretosData, setGestoresDiretosData] = useState<ImpactadaData[]>([]);
   const [numColaboradoresDiretos, setNumColaboradoresDiretos] = useState<number | "">("");
@@ -176,6 +184,36 @@ export default function MeuCadastro() {
     "Dependentes financeiros (não entram no Score RIS)": { socios: "", gestores: "", colaboradores: "" }
   });
 
+  const [cadastroConfirmado, setCadastroConfirmado] = useState<string | null>(null);
+  // Compara somente dados editáveis: validações e totais calculados não são alterações.
+  const cadastroAtual = JSON.stringify({
+    nomeResponsavel, telefonePrincipal, telefoneOpcional, email, fotoResponsavelFile,
+    razaoSocial, nomeFantasia, cnpj, acessoTipo, acessoTipoOutro,
+    logoEmpresaFile, cartaoCnpjFile, fichaJuntaFile, areaEmpresa, atividadeEmpresarial,
+    areaGeografica, areaGeograficaOutro, sobreEmpresa, emiteNotaFiscal, temContaPJ,
+    formasPagamento, formasRecebimento, numeroSocios,
+    socios: sociosData.map(({ id, cepValido, cepEndereco, ...dados }) => dados),
+    numGestoresDiretos, numColaboradoresDiretos,
+    numeroImpactadasGestores, numeroImpactadasSocios, numeroImpactadasColaboradores,
+    ceps: [gestoresDiretosData, colaboradoresDiretosData, gestoresData, sociosImpactadosData, colaboradoresData]
+      .map(lista => lista.map(({ pais, codigoPostal }) => ({ pais, codigoPostal }))),
+    eSocio, temNegrosSocios, autorizaCompartilhamento,
+    recortes: Object.fromEntries(Object.entries(diversidadeGlobal)
+      .filter(([key]) => key !== "Total de Pessoas" && !key.startsWith("Dependentes financeiros"))),
+  }, (_key, valor) => valor instanceof File
+    ? { nome: valor.name, tamanho: valor.size, alteradoEm: valor.lastModified, tipo: valor.type }
+    : valor);
+
+  useEffect(() => {
+    if (carregandoDados) {
+      setCadastroConfirmado(null);
+    } else {
+      setCadastroConfirmado(prev => prev ?? cadastroAtual);
+    }
+  }, [carregandoDados, cadastroAtual]);
+
+  const alteracoesPendentes = cadastroConfirmado !== null && cadastroAtual !== cadastroConfirmado;
+
   const handleCepsBlur = async () => {
     if (!usuario?.empresaId) return;
 
@@ -191,7 +229,8 @@ export default function MeuCadastro() {
     }
 
     try {
-      await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
+      const { error: erroExclusaoCeps } = await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
+      if (erroExclusaoCeps) throw erroExclusaoCeps;
       const cepsToInsert: any[] = [];
       
       gestoresDiretosData.forEach((g) => { if (g.codigoPostal && g.cepValido) cepsToInsert.push({ empresa_id: usuario!.empresaId, tipo: "GESTOR_DIRETO", cep: g.codigoPostal, endereco_validado: g.cepEndereco }); });
@@ -203,7 +242,7 @@ export default function MeuCadastro() {
       if (cepsToInsert.length > 0) {
         const { error: erroCeps } = await supabase.from("ceps_impactados").insert(cepsToInsert);
         if (erroCeps) throw erroCeps;
-        setSalvoComSucesso(true);
+        toast.success("CEPs salvos. Para salvar as quantidades e o restante do cadastro, clique em Salvar Alterações.");
       }
     } catch (err) {
       console.error("Erro ao auto-salvar CEPs no blur:", err);
@@ -318,7 +357,19 @@ export default function MeuCadastro() {
           if (data["Pessoas Negras"] || typeof data["Mulheres"]?.socios === "boolean") {
             // Mantém o estado default (vazio)
           } else {
-            setDiversidadeGlobal(data);
+            setDiversidadeGlobal(prev => Object.fromEntries(
+              Object.keys(prev).map(key => [key, Object.fromEntries(
+                ["socios", "gestores", "colaboradores"].map(grupo => [grupo, quantidadeParaTexto(data[key]?.[grupo])])
+              )])
+            ) as typeof prev);
+            const totais = data["Total de Pessoas"];
+            const dependentes = data["Dependentes financeiros (não entram no Score RIS)"] ?? data["Dependentes financeiros"];
+            setNumeroSocios(lerQuantidadeSalva(totais?.socios));
+            setNumGestoresDiretos(lerQuantidadeSalva(totais?.gestores));
+            setNumColaboradoresDiretos(lerQuantidadeSalva(totais?.colaboradores));
+            setNumeroImpactadasSocios(lerQuantidadeSalva(dependentes?.socios));
+            setNumeroImpactadasGestores(lerQuantidadeSalva(dependentes?.gestores));
+            setNumeroImpactadasColaboradores(lerQuantidadeSalva(dependentes?.colaboradores));
           }
         }
 
@@ -331,6 +382,7 @@ export default function MeuCadastro() {
         if (socios && socios.length > 0) {
           setNumeroSocios(socios.length);
           const sociosMapeados: SocioData[] = socios.map((s: any) => ({
+            id: s.id,
             foto: null,
             fotoUrl: s.foto_url ?? null,
             fonteImagem: s.fonte_imagem ?? "",
@@ -527,6 +579,9 @@ export default function MeuCadastro() {
   };
 
   const updateSocio = (index: number, field: keyof SocioData, value: any) => {
+    if (field === "participacaoValor") value = formatarParticipacaoMonetaria(String(value), sociosData[index].participacaoValor);
+    if (field === "participacaoPercentual") value = filtrarPercentual(String(value), sociosData[index].participacaoPercentual);
+    if (field === "etariedade") value = filtrarIdade(String(value), sociosData[index].etariedade);
     const newData = [...sociosData];
     newData[index] = { ...newData[index], [field]: value };
     
@@ -735,22 +790,23 @@ export default function MeuCadastro() {
   const handleRecebimentoToggle = (forma: string) =>
     setFormasRecebimento((prev) => prev.includes(forma) ? prev.filter((f) => f !== forma) : [...prev, forma]);
 
-  // Auto-preencher 'Total de Pessoas' e 'Dependentes' baseado nos valores já inseridos acima
+  // Preserva os totais carregados antes de sincronizar a tabela.
   useEffect(() => {
+    if (carregandoDados) return;
     setDiversidadeGlobal(prev => ({
       ...prev,
       "Total de Pessoas": {
-        socios: numeroSocios ? String(numeroSocios) : "",
-        gestores: numGestoresDiretos ? String(numGestoresDiretos) : "",
-        colaboradores: numColaboradoresDiretos ? String(numColaboradoresDiretos) : ""
+        socios: quantidadeParaTexto(numeroSocios),
+        gestores: quantidadeParaTexto(numGestoresDiretos),
+        colaboradores: quantidadeParaTexto(numColaboradoresDiretos)
       },
       "Dependentes financeiros (não entram no Score RIS)": {
-        socios: numeroImpactadasSocios ? String(numeroImpactadasSocios) : "",
-        gestores: numeroImpactadasGestores ? String(numeroImpactadasGestores) : "",
-        colaboradores: numeroImpactadasColaboradores ? String(numeroImpactadasColaboradores) : ""
+        socios: quantidadeParaTexto(numeroImpactadasSocios),
+        gestores: quantidadeParaTexto(numeroImpactadasGestores),
+        colaboradores: quantidadeParaTexto(numeroImpactadasColaboradores)
       }
     }));
-  }, [numeroSocios, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores]);
+  }, [carregandoDados, numeroSocios, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores]);
 
   const handleDiversidadeQtdChange = (categoria: string, grupo: 'socios' | 'gestores' | 'colaboradores', valor: string) => {
     if (valor !== "" && !/^\d+$/.test(valor)) return;
@@ -769,7 +825,8 @@ export default function MeuCadastro() {
         .from("empresas")
         .update({ diversidade_global: dadosParaSalvar })
         .eq("id", usuario!.empresaId);
-      if (!error) setSalvoComSucesso(true);
+      if (error) throw error;
+      toast.success("Recortes de diversidade salvos. Para salvar o restante do cadastro, clique em Salvar Alterações.");
     } catch (err) {
       console.error("Erro ao salvar recortes:", err);
     }
@@ -833,56 +890,120 @@ export default function MeuCadastro() {
     }
   };
 
+  // O painel e o salvamento usam a mesma lista de pendências.
+  const calcularPendencias = (): CampoFaltando[] => {
+    const campos: CampoFaltando[] = [];
+    if (!cnpjValido) campos.push({ id: "cnpj", label: "CNPJ válido", secao: "2. Dados da Empresa" });
+    if (!mostrarCompleto) return campos;
+
+    const quantidades: [string, string, number | ""][] = [
+      ["numGestoresDiretos", "Quantidade de gestores", numGestoresDiretos],
+      ["numColaboradoresDiretos", "Quantidade de colaboradores", numColaboradoresDiretos],
+      ["impactadasSocios", "Pessoas impactadas pelo salário dos sócios", numeroImpactadasSocios],
+      ["impactadasGestores", "Pessoas impactadas pelo salário dos gestores", numeroImpactadasGestores],
+      ["impactadasColab", "Pessoas impactadas pelo salário dos colaboradores", numeroImpactadasColaboradores],
+    ];
+    if (!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA")) {
+      quantidades.unshift(["numeroSocios", "Número de sócios", numeroSocios]);
+      sociosData.forEach((socio, idx) => {
+        if (socio.cep && !socio.cepValido) campos.push({
+          id: `cep-socio-${idx}`, label: `Sócio ${idx + 1}: CEP não validado`, secao: "4. Sócios e Impacto",
+        });
+      });
+    }
+    quantidades.forEach(([id, label, valor]) => {
+      if (valor === "") campos.push({ id, label: `${label} (informe 0 se não houver)`, secao: "4. Sócios e Impacto" });
+    });
+    const grupos: [ImpactadaData[], string, string][] = [
+      [gestoresDiretosData, "cp-gestor-direto", "Gestor"],
+      [colaboradoresDiretosData, "cp-colab-direto", "Colaborador"],
+      [sociosImpactadosData, "cp-socios-impactados", "Impactado pelo sócio"],
+      [gestoresData, "cp-gestores", "Impactado pelo gestor"],
+      [colaboradoresData, "cp-colab", "Impactado pelo colaborador"],
+    ];
+    grupos.forEach(([lista, prefixo, label]) => lista.forEach((pessoa, idx) => {
+      if (!pessoa.codigoPostal || !pessoa.cepValido) campos.push({
+        id: `${prefixo}-${idx}`, label: `${label} ${idx + 1}: CEP / código postal pendente`, secao: "4. Localização e Pessoas Impactadas",
+      });
+    }));
+    const recortes = ["Pessoas Negras (pretas e pardas)", "Mulheres", "Pessoas com Deficiência (PCD)", "Pessoas 60+"] as const;
+    recortes.forEach((recorte, idx) => {
+      (["socios", "gestores", "colaboradores"] as const).forEach(grupo => {
+        if (!diversidadeGlobal[recorte]?.[grupo]) campos.push({
+          id: `recorte-${idx + 1}-${grupo}`, label: `${recorte} — ${grupo}`, secao: "5. Recortes de Diversidade",
+        });
+      });
+    });
+    return campos;
+  };
+
+  const salvarInformacoesSocio = async (index: number) => {
+    if (!usuario?.empresaId || !isAdmin || salvando || salvandoSocio) return;
+    const socio = sociosData[index];
+    setErroSocio("");
+    if (!socio.nome.trim() || !socio.cpf || !socio.email) {
+      setErroSocio("Preencha o nome, o CPF e o e-mail do sócio antes de salvar.");
+      return;
+    }
+    if (socio.cep && !socio.cepValido) {
+      setErroSocio("Confira o CEP e aguarde a validação antes de salvar.");
+      return;
+    }
+    setSalvandoSocio(true);
+    try {
+      let fotoUrl = socio.fotoUrl;
+      if (socio.foto) {
+        const extensao = socio.foto.name.split(".").pop();
+        const caminho = `empresas/${usuario.empresaId}/socios/${crypto.randomUUID()}.${extensao}`;
+        const { error } = await supabase.storage.from("documentos").upload(caminho, socio.foto);
+        if (error) throw error;
+        fotoUrl = supabase.storage.from("documentos").getPublicUrl(caminho).data.publicUrl;
+      }
+      const dados = {
+        empresa_id: usuario.empresaId, foto_url: fotoUrl, fonte_imagem: socio.fonteImagem,
+        nome: socio.nome, cpf: socio.cpf, participacao_valor: socio.participacaoValor,
+        participacao_percentual: socio.participacaoPercentual, email: socio.email,
+        data_nascimento: socio.dataNascimento, cep: socio.cep, cep_endereco: socio.cepEndereco,
+        nacionalidade: socio.nacionalidade, etariedade: socio.etariedade, raca: socio.raca,
+        sexo: socio.sexo === "Outro" ? `Outro: ${socio.sexoOutro}` : socio.sexo,
+        genero: socio.genero, deficiencia: socio.deficiencia,
+      };
+      const consulta = socio.id
+        ? supabase.from("socios").update(dados).eq("id", socio.id).eq("empresa_id", usuario.empresaId)
+        : supabase.from("socios").insert(dados);
+      const { data, error } = await consulta.select("id").single();
+      if (error) throw error;
+      const atualizado = { ...socio, id: data.id, foto: null, fotoUrl };
+      setSociosData(prev => prev.map((item, idx) => idx === index ? atualizado : item));
+      // Confirma somente este sócio; outras alterações continuam pendentes.
+      setCadastroConfirmado(prev => {
+        if (!prev) return prev;
+        const confirmado = JSON.parse(prev);
+        const { id, cepValido, cepEndereco, ...campos } = atualizado;
+        confirmado.socios[index] = campos;
+        return JSON.stringify(confirmado);
+      });
+      setSocioAberto(null);
+      toast.success(`Informações do Sócio ${index + 1} salvas com sucesso!`);
+    } catch (err: any) {
+      setErroSocio(`Não foi possível salvar as informações: ${err.message}`);
+    } finally {
+      setSalvandoSocio(false);
+    }
+  };
+
   // ── Salvar alterações ──
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (salvandoSocio || salvando) return;
     setSenhaErro("");
     setSalvoComSucesso(false);
 
-    const todosCepsSociosValidos = sociosData.every((s) => !s.cep || s.cepValido);
-    const todosCepsSociosImpactadosValidos = sociosImpactadosData.every((s) => !s.codigoPostal || s.cepValido);
-    const todosCepsGestoresValidos = gestoresData.every((g) => !g.codigoPostal || g.cepValido);
-    const todosCepsColaboradoresValidos = colaboradoresData.every((c) => !c.codigoPostal || c.cepValido);
-    const todosCepsGestoresDiretosValidos = gestoresDiretosData.every((g) => !g.codigoPostal || g.cepValido);
-    const todosCepsColaboradoresDiretosValidos = colaboradoresDiretosData.every((c) => !c.codigoPostal || c.cepValido);
-
-    if (!todosCepsSociosValidos || !todosCepsSociosImpactadosValidos || !todosCepsGestoresValidos || !todosCepsColaboradoresValidos || !todosCepsGestoresDiretosValidos || !todosCepsColaboradoresDiretosValidos) {
-      setSenhaErro("Por favor, preencha corretamente todos os CEPs informados antes de continuar.");
+    setTentouSalvar(true);
+    if (calcularPendencias().length > 0) {
+      setSenhaErro("Existem campos pendentes. Clique nos itens do painel para conferir e corrigir. Nas quantidades, informe 0 quando não houver pessoas.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
-    }
-
-    if (!cnpjValido) {
-      setSenhaErro("Por favor, certifique-se de que o CNPJ está correto.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    if (mostrarCompleto) {
-      const recortesValidar = [
-        { key: "Pessoas Negras (pretas e pardas)" },
-        { key: "Mulheres" },
-        { key: "Pessoas com Deficiência (PCD)" },
-        { key: "Pessoas 60+" }
-      ];
-      const temRecorteVazio = recortesValidar.some((recorte) => {
-        const item = diversidadeGlobal[recorte.key as keyof typeof diversidadeGlobal];
-        return item.socios === "" || item.gestores === "" || item.colaboradores === "";
-      });
-
-      if (
-        (!acessoTipo.includes("EMPRESA OU INICIATIVA INCENTIVADORA") && numeroSocios === "") ||
-        numGestoresDiretos === "" ||
-        numColaboradoresDiretos === "" ||
-        numeroImpactadasSocios === "" ||
-        numeroImpactadasGestores === "" ||
-        numeroImpactadasColaboradores === "" ||
-        temRecorteVazio
-      ) {
-        setSenhaErro("Por favor, preencha todos os campos de quantidade e a tabela de recortes (mesmo que seja com 0).");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
     }
 
     setSalvando(true);
@@ -952,7 +1073,8 @@ export default function MeuCadastro() {
       if (erroUpdate) throw erroUpdate;
 
       // Recria sócios (delete + insert para simplificar)
-      await supabase.from("socios").delete().eq("empresa_id", usuario!.empresaId);
+      const { error: erroExclusaoSocios } = await supabase.from("socios").delete().eq("empresa_id", usuario!.empresaId);
+      if (erroExclusaoSocios) throw erroExclusaoSocios;
       if (sociosData.length > 0) {
         const sociosToInsert = await Promise.all(sociosData.map(async (s) => {
           let newFotoUrl = s.fotoUrl;
@@ -961,6 +1083,7 @@ export default function MeuCadastro() {
           }
 
           return {
+            id: s.id ?? crypto.randomUUID(),
             empresa_id: usuario!.empresaId,
             foto_url: newFotoUrl,
             nome: s.nome,
@@ -982,10 +1105,12 @@ export default function MeuCadastro() {
         }));
         const { error: erroSocios } = await supabase.from("socios").insert(sociosToInsert);
         if (erroSocios) throw erroSocios;
+        setSociosData(prev => prev.map((socio, idx) => ({ ...socio, id: sociosToInsert[idx]?.id ?? socio.id })));
       }
 
       // Recria CEPs (delete + insert)
-      await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
+      const { error: erroExclusaoCeps } = await supabase.from("ceps_impactados").delete().eq("empresa_id", usuario!.empresaId);
+      if (erroExclusaoCeps) throw erroExclusaoCeps;
       const cepsToInsert: any[] = [];
 
       // CEPs dos gestores e colaboradores diretos (a própria pessoa)
@@ -1011,6 +1136,7 @@ export default function MeuCadastro() {
         if (erroCeps) throw erroCeps;
       }
 
+      setCadastroConfirmado(cadastroAtual);
       setSalvoComSucesso(true);
     } catch (err: any) {
       console.error("Erro ao salvar:", err);
@@ -1157,7 +1283,7 @@ export default function MeuCadastro() {
             </div>
           )}
 
-          <form onSubmit={handleFormSubmit} className="p-8 md:p-12 space-y-12">
+          <form id="form-editar-cadastro" onSubmit={handleFormSubmit} className="p-8 md:p-12 space-y-12">
 
             {/* 1. Informações de Acesso e Responsável */}
             <section className="space-y-6">
@@ -1534,9 +1660,13 @@ export default function MeuCadastro() {
                 {sociosData.length > 0 && (
                   <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4">
                     {sociosData.map((socio, idx) => (
-                      <Dialog key={idx}>
+                      <Dialog key={idx} open={socioAberto === idx} onOpenChange={aberto => {
+                        if (salvandoSocio) return;
+                        setErroSocio("");
+                        setSocioAberto(aberto ? idx : null);
+                      }}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" className="h-16 flex flex-col items-center justify-center border-2 border-dashed hover:border-[#7030A0] hover:bg-purple-50 transition-colors">
+                          <Button type="button" variant="outline" className="h-16 flex flex-col items-center justify-center border-2 border-dashed hover:border-[#7030A0] hover:bg-purple-50 transition-colors">
                             <span className="font-semibold text-[#0F3A7D]">Sócio {idx + 1}</span>
                             <span className="text-xs text-gray-500">{socio.nome ? "Preenchido" : "Preencher informações"}</span>
                           </Button>
@@ -1546,7 +1676,7 @@ export default function MeuCadastro() {
                             <DialogTitle className="text-2xl font-bold text-[#7030A0]">Informações do Sócio {idx + 1}</DialogTitle>
                           </DialogHeader>
 
-                          <div className="space-y-6 pt-4 pb-8">
+                          <fieldset disabled={salvandoSocio || salvando} className={`space-y-6 pt-4 pb-8 ${salvandoSocio ? "pointer-events-none opacity-70" : ""}`}>
                             <div className="space-y-4">
                               <Label className="text-gray-700 font-medium">Foto do Sócio</Label>
                               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer group bg-white">
@@ -1598,13 +1728,13 @@ export default function MeuCadastro() {
                                 <Label className="text-gray-700 font-medium">Valor da Participação</Label>
                                 <div className="relative">
                                   <span className="absolute left-3 top-2.5 text-gray-500">R$</span>
-                                  <Input className="pl-9" value={socio.participacaoValor} onChange={(e) => updateSocio(idx, "participacaoValor", e.target.value)} placeholder="0,00" />
+                                  <Input inputMode="numeric" className="pl-9" value={socio.participacaoValor} onChange={(e) => updateSocio(idx, "participacaoValor", e.target.value)} placeholder="0,00" />
                                 </div>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-gray-700 font-medium">Percentual da Empresa</Label>
                                 <div className="relative">
-                                  <Input className="pr-8" value={socio.participacaoPercentual} onChange={(e) => updateSocio(idx, "participacaoPercentual", e.target.value)} placeholder="0" />
+                                  <Input inputMode="decimal" className="pr-8" value={socio.participacaoPercentual} onChange={(e) => updateSocio(idx, "participacaoPercentual", e.target.value)} placeholder="0" />
                                   <span className="absolute right-3 top-2.5 text-gray-500">%</span>
                                 </div>
                               </div>
@@ -1620,8 +1750,8 @@ export default function MeuCadastro() {
                                 />
                               </div>
                               <div className="space-y-2 md:col-span-2">
-                                <Label className="text-gray-700 font-medium">CEP</Label>
-                                <Input value={socio.cep} onChange={(e) => handleCepSocioChange(idx, e.target.value)} placeholder="00000-000" maxLength={9} />
+                                <Label htmlFor={`cep-socio-${idx}`} className="text-gray-700 font-medium">CEP</Label>
+                                <Input id={`cep-socio-${idx}`} value={socio.cep} onChange={(e) => handleCepSocioChange(idx, e.target.value)} placeholder="00000-000" maxLength={9} />
                                 {socio.cepEndereco && (
                                   <p className={`text-xs mt-1 ${socio.cepValido ? "text-gray-500" : "text-red-500 font-semibold"}`}>{socio.cepEndereco}</p>
                                 )}
@@ -1667,7 +1797,7 @@ export default function MeuCadastro() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Idade</Label>
-                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, "etariedade", e.target.value)} placeholder="Sua idade" />
+                                  <Input inputMode="numeric" pattern="[0-9]*" value={socio.etariedade} onChange={(e) => updateSocio(idx, "etariedade", e.target.value)} placeholder="Sua idade" />
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium flex items-center gap-1">
@@ -1733,18 +1863,17 @@ export default function MeuCadastro() {
                               </div>
                             </div>
                             <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
-                              <DialogClose asChild>
                                 <Button 
+                                  type="button"
                                   className="bg-[#7030A0] hover:bg-[#5a2680] text-white"
-                                  onClick={(e) => {
-                                    handleFormSubmit({ preventDefault: () => {} } as React.FormEvent);
-                                  }}
+                                  onClick={() => salvarInformacoesSocio(idx)}
+                                  disabled={salvandoSocio || salvando}
                                 >
-                                  Confirmar Informações
+                                  {salvandoSocio ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar Informações do Sócio"}
                                 </Button>
-                              </DialogClose>
                             </div>
-                          </div>
+                          </fieldset>
+                          {erroSocio && <p role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{erroSocio}</p>}
                         </DialogContent>
                       </Dialog>
                     ))}
@@ -2148,8 +2277,9 @@ export default function MeuCadastro() {
               </p>
               {isAdmin && (
                 <Button
+                  id="salvar-alteracoes"
                   type="submit"
-                  disabled={salvando}
+                  disabled={salvando || salvandoSocio}
                   className="w-full sm:w-auto h-14 px-12 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                   style={{ backgroundColor: "#7030A0" }}
                 >
@@ -2252,6 +2382,11 @@ export default function MeuCadastro() {
           </div>
         </div>
       </div>
+      {(tentouSalvar || alteracoesPendentes) && <CamposFaltandoPanel
+        campos={calcularPendencias()}
+        salvarPendente={alteracoesPendentes ? "form-editar-cadastro" : undefined}
+        salvando={salvando || salvandoSocio}
+      />}
     </LayoutUsuario>
   );
 }

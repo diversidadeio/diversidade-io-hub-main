@@ -1,3 +1,5 @@
+import { formatarParticipacaoMonetaria, filtrarPercentual, filtrarIdade } from "@/lib/camposNumericosSocio";
+import { quantidadeParaTexto } from "@/lib/quantidadesCadastro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,6 +200,9 @@ export default function CadastroGratuito() {
   };
 
   const updateSocio = (index: number, field: keyof SocioData, value: any) => {
+    if (field === "participacaoValor") value = formatarParticipacaoMonetaria(String(value), sociosData[index].participacaoValor);
+    if (field === "participacaoPercentual") value = filtrarPercentual(String(value), sociosData[index].participacaoPercentual);
+    if (field === "etariedade") value = filtrarIdade(String(value), sociosData[index].etariedade);
     const newData = [...sociosData];
     newData[index] = { ...newData[index], [field]: value };
     
@@ -567,14 +572,14 @@ export default function CadastroGratuito() {
     setDiversidadeGlobal(prev => ({
       ...prev,
       "Total de Pessoas": {
-        socios: numeroSocios ? String(numeroSocios) : "",
-        gestores: numGestoresDiretos ? String(numGestoresDiretos) : "",
-        colaboradores: numColaboradoresDiretos ? String(numColaboradoresDiretos) : ""
+        socios: quantidadeParaTexto(numeroSocios),
+        gestores: quantidadeParaTexto(numGestoresDiretos),
+        colaboradores: quantidadeParaTexto(numColaboradoresDiretos)
       },
       "Dependentes financeiros": {
-        socios: numeroImpactadasSocios ? String(numeroImpactadasSocios) : "",
-        gestores: numeroImpactadasGestores ? String(numeroImpactadasGestores) : "",
-        colaboradores: numeroImpactadasColaboradores ? String(numeroImpactadasColaboradores) : ""
+        socios: quantidadeParaTexto(numeroImpactadasSocios),
+        gestores: quantidadeParaTexto(numeroImpactadasGestores),
+        colaboradores: quantidadeParaTexto(numeroImpactadasColaboradores)
       }
     }));
   }, [numeroSocios, numGestoresDiretos, numColaboradoresDiretos, numeroImpactadasSocios, numeroImpactadasGestores, numeroImpactadasColaboradores]);
@@ -1561,13 +1566,13 @@ export default function CadastroGratuito() {
                                 <Label className="text-gray-700 font-medium">Valor da Participação</Label>
                                 <div className="relative">
                                   <span className="absolute left-3 top-2.5 text-gray-500">R$</span>
-                                  <Input className="pl-9" value={socio.participacaoValor} onChange={(e) => updateSocio(idx, 'participacaoValor', e.target.value)} placeholder="0,00" />
+                                  <Input inputMode="numeric" className="pl-9" value={socio.participacaoValor} onChange={(e) => updateSocio(idx, 'participacaoValor', e.target.value)} placeholder="0,00" />
                                 </div>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-gray-700 font-medium">Percentual da Empresa</Label>
                                 <div className="relative">
-                                  <Input className="pr-8" value={socio.participacaoPercentual} onChange={(e) => updateSocio(idx, 'participacaoPercentual', e.target.value)} placeholder="0" />
+                                  <Input inputMode="decimal" className="pr-8" value={socio.participacaoPercentual} onChange={(e) => updateSocio(idx, 'participacaoPercentual', e.target.value)} placeholder="0" />
                                   <span className="absolute right-3 top-2.5 text-gray-500">%</span>
                                 </div>
                               </div>
@@ -1632,7 +1637,7 @@ export default function CadastroGratuito() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium">Idade</Label>
-                                  <Input value={socio.etariedade} onChange={(e) => updateSocio(idx, 'etariedade', e.target.value)} placeholder="Sua idade" />
+                                  <Input inputMode="numeric" pattern="[0-9]*" value={socio.etariedade} onChange={(e) => updateSocio(idx, 'etariedade', e.target.value)} placeholder="Sua idade" />
                                 </div>
                                 <div className="space-y-2">
                                   <Label className="text-gray-700 font-medium flex items-center gap-1">

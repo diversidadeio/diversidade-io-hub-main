@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AlertTriangle, CheckCircle2, ChevronUp, ChevronDown, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronUp, ChevronDown, X, Loader2 } from "lucide-react";
 
 export interface CampoFaltando {
   /** id do elemento HTML no formulário — usado para scrollIntoView */
@@ -13,6 +13,9 @@ export interface CampoFaltando {
 interface CamposFaltandoPanelProps {
   /** Lista de campos que ainda estão sem preenchimento */
   campos: CampoFaltando[];
+  /** ID do formulário que confirma as alterações do cadastro. */
+  salvarPendente?: string;
+  salvando?: boolean;
 }
 
 /**
@@ -35,6 +38,7 @@ function irParaCampo(id: string) {
   if (!el) return;
 
   el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.focus({ preventScroll: true });
 
   // Destaque laranja pulsante por 2 segundos
   el.classList.add("campo-destaque-ativo");
@@ -49,7 +53,7 @@ function irParaCampo(id: string) {
  * - Desktop: painel fixo no canto inferior direito (280px de largura)
  * - Mobile: barra recolhível ancorada na parte inferior da tela (largura total)
  */
-export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
+export function CamposFaltandoPanel({ campos, salvarPendente, salvando = false }: CamposFaltandoPanelProps) {
   const [aberto, setAberto] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -68,6 +72,21 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
 
   const tudo_ok = campos.length === 0;
   const grupos = agruparPorSecao(campos);
+  const cor = tudo_ok ? (salvarPendente ? "#7030A0" : "#22c55e") : "#ef4444";
+  const clicarCabecalho = () => {
+    setAberto(v => !v);
+  };
+  const lembreteSalvar = salvarPendente && tudo_ok && (
+    <div role="status" style={{ padding: "12px 14px", background: "#faf5ff", color: "#581c87" }}>
+      <p style={{ fontSize: "13px", marginBottom: "8px" }}>
+        Você alterou seu cadastro. Clique abaixo para salvar e confirmar as alterações.
+      </p>
+      <button type="submit" form={salvarPendente} disabled={salvando}
+        style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "#7030A0", color: "white", fontWeight: 700, opacity: salvando ? 0.7 : 1, cursor: salvando ? "wait" : "pointer" }}>
+        {salvando ? <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}><Loader2 size={16} className="animate-spin" />Salvando...</span> : "Salvar Alterações"}
+      </button>
+    </div>
+  );
 
   /* ── Desktop ─────────────────────────────────────────────── */
   if (!isMobile) {
@@ -96,7 +115,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
             zIndex: 50,
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(112, 48, 160, 0.18)",
-            border: tudo_ok ? "2px solid #22c55e" : "2px solid #ef4444",
+            border: `2px solid ${cor}`,
             overflow: "hidden",
             transition: "all 0.3s ease",
             background: "#ffffff",
@@ -105,14 +124,14 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
           {/* Cabeçalho clicável */}
           <button
             type="button"
-            onClick={() => setAberto((v) => !v)}
+            onClick={clicarCabecalho}
             style={{
               width: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               padding: "10px 14px",
-              background: tudo_ok
+              background: salvarPendente && tudo_ok ? "#7030A0" : tudo_ok
                 ? "linear-gradient(135deg, #16a34a, #22c55e)"
                 : "linear-gradient(135deg, #ef4444, #dc2626)",
               color: "#fff",
@@ -122,13 +141,13 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "13px" }}>
-              {tudo_ok ? (
+              {tudo_ok && !salvarPendente ? (
                 <CheckCircle2 size={16} />
               ) : (
                 <AlertTriangle size={16} />
               )}
               {tudo_ok
-                ? "✅ Tudo preenchido!"
+                ? (salvarPendente ? "Alterações pendentes" : "✅ Tudo preenchido!")
                 : "Clique para corrigir"}
             </span>
             {aberto ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
@@ -137,7 +156,8 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
           {/* Corpo expansível */}
           {aberto && (
             <div style={{ maxHeight: "420px", overflowY: "auto", padding: "8px 0" }}>
-              {tudo_ok ? (
+              {lembreteSalvar}
+              {tudo_ok && !salvarPendente ? (
                 <p style={{ padding: "12px 14px", fontSize: "13px", color: "#16a34a", textAlign: "center" }}>
                   Todos os campos obrigatórios foram preenchidos. Você pode enviar o formulário! 🎉
                 </p>
@@ -223,7 +243,7 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
           bottom: 0,
           zIndex: 50,
           background: "#ffffff",
-          borderTop: tudo_ok ? "3px solid #22c55e" : "3px solid #ef4444",
+          borderTop: `3px solid ${cor}`,
           boxShadow: "0 -4px 24px rgba(112,48,160,0.15)",
           transition: "all 0.3s ease",
         }}
@@ -231,14 +251,14 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
         {/* Tarja de cabeçalho — sempre visível */}
         <button
           type="button"
-          onClick={() => setAberto((v) => !v)}
+          onClick={clicarCabecalho}
           style={{
             width: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             padding: "10px 16px",
-            background: tudo_ok
+            background: salvarPendente && tudo_ok ? "#7030A0" : tudo_ok
               ? "linear-gradient(135deg, #16a34a, #22c55e)"
               : "linear-gradient(135deg, #ef4444, #dc2626)",
             color: "#fff",
@@ -248,13 +268,13 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "13px" }}>
-            {tudo_ok ? (
+            {tudo_ok && !salvarPendente ? (
               <CheckCircle2 size={16} />
             ) : (
               <AlertTriangle size={16} />
             )}
             {tudo_ok
-              ? "✅ Tudo preenchido!"
+              ? (salvarPendente ? "Alterações pendentes" : "✅ Tudo preenchido!")
               : "Toque para corrigir"}
           </span>
           {aberto ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
@@ -263,7 +283,8 @@ export function CamposFaltandoPanel({ campos }: CamposFaltandoPanelProps) {
         {/* Corpo — expande para cima quando aberto */}
         {aberto && (
           <div style={{ maxHeight: "40vh", overflowY: "auto", padding: "8px 0" }}>
-            {tudo_ok ? (
+            {lembreteSalvar}
+            {tudo_ok && !salvarPendente ? (
               <p style={{ padding: "12px 16px", fontSize: "13px", color: "#16a34a", textAlign: "center" }}>
                 Todos os campos obrigatórios foram preenchidos. 🎉
               </p>
