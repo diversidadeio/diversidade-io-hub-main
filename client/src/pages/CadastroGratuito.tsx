@@ -1,3 +1,4 @@
+import { consultarCnpj, ErroConsultaCnpj, validarDigitosCnpj } from "@/lib/consultaCnpj";
 import { formatarParticipacaoMonetaria, filtrarPercentual, filtrarIdade } from "@/lib/camposNumericosSocio";
 import { quantidadeParaTexto } from "@/lib/quantidadesCadastro";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ export default function CadastroGratuito() {
   const [cnpjValido, setCnpjValido] = useState(false);
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjErro, setCnpjErro] = useState("");
+  const [cnpjPodeTentar, setCnpjPodeTentar] = useState(false);
   const [acessoTipo, setAcessoTipo] = useState<string[]>([]);
   const mostrarCompleto = acessoTipo.length === 0 || acessoTipo.includes("EMPREENDIMENTO DIVERSO") || acessoTipo.includes("FORNECEDOR INCLUSIVO");
 
@@ -472,8 +474,14 @@ export default function CadastroGratuito() {
     }
   };
 
-  const buscarDadosCnpj = async (cnpjNumeros: string, cnpjFormatado: string) => {
-    if (cnpjNumeros.length !== 14) return;
+  const buscarDadosCnpj = async (cnpjNumeros: string, cnpjFormatado: string, preservarPreenchimento = false) => {
+    if (buscandoCnpj || cnpjNumeros.length !== 14) return;
+    setCnpjPodeTentar(false);
+    setCnpjValido(false);
+    if (!validarDigitosCnpj(cnpjNumeros)) {
+      setCnpjErro("CNPJ com dígitos inválidos. Confira o número informado.");
+      return;
+    }
     setBuscandoCnpj(true);
     setCnpjErro("");
     try {
@@ -488,25 +496,12 @@ export default function CadastroGratuito() {
         throw new Error("CNPJ_JA_CADASTRADO");
       }
 
-      // Bypass manual temporário para o CNPJ recém-criado
-      if (cnpjNumeros === "68742946000167") {
-        setCnpjValido(true);
-        setRazaoSocial("LUCAS DOS SANTOS ALMEIDA");
-        setNomeFantasia("LUCAS DOS SANTOS ALMEIDA");
-        setBuscandoCnpj(false);
-        return;
-      }
-
-      // 2. Busca os dados na Receita (BrasilAPI)
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjNumeros}`);
-      if (!response.ok) throw new Error("CNPJ não encontrado");
-      const data = await response.json();
-      
+      const data = await consultarCnpj(cnpjNumeros);
       setCnpjValido(true);
-      if (data.razao_social) setRazaoSocial(data.razao_social);
-      if (data.nome_fantasia) setNomeFantasia(data.nome_fantasia);
+      if (data.razao_social) setRazaoSocial(prev => preservarPreenchimento && prev ? prev : data.razao_social);
+      if (data.nome_fantasia) setNomeFantasia(prev => preservarPreenchimento && prev ? prev : data.nome_fantasia!);
       
-      const cnaes = [];
+      const cnaes: string[] = [];
       if (data.cnae_fiscal && data.cnae_fiscal_descricao) {
         cnaes.push(`${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}`);
       } else if (data.cnae_fiscal) {
@@ -522,10 +517,10 @@ export default function CadastroGratuito() {
         });
       }
       if (cnaes.length > 0) {
-        setAtividadeEmpresarial(cnaes.join(", "));
+        setAtividadeEmpresarial(prev => preservarPreenchimento && prev ? prev : cnaes.join(", "));
       }
       
-      if (data.qsa && Array.isArray(data.qsa)) {
+      if ((!preservarPreenchimento || sociosData.length === 0) && data.qsa && Array.isArray(data.qsa)) {
         const sociosQsa = data.qsa;
         if (sociosQsa.length > 0) {
           setNumeroSocios(sociosQsa.length);
@@ -542,7 +537,14 @@ export default function CadastroGratuito() {
       if (error.message === "CNPJ_JA_CADASTRADO") {
         setCnpjErro("Este CNPJ já está cadastrado no sistema. Por favor, faça login.");
       } else {
-        setCnpjErro("CNPJ inválido ou não encontrado. Validar este campo é obrigatório.");
+        setCnpjPodeTentar(!(error instanceof ErroConsultaCnpj) || error.motivo !== "INVALIDO");
+        if (error instanceof ErroConsultaCnpj && error.motivo === "INVALIDO") {
+          setCnpjErro("CNPJ com dígitos inválidos. Confira o número informado.");
+        } else if (error instanceof ErroConsultaCnpj && error.motivo === "NAO_ENCONTRADO") {
+          setCnpjErro("CNPJ não encontrado nas fontes consultadas. Confira o número ou tente novamente.");
+        } else {
+          setCnpjErro("Não foi possível consultar seu CNPJ no momento. Seus dados foram mantidos. Tente novamente.");
+        }
       }
     } finally {
       setBuscandoCnpj(false);
@@ -552,6 +554,8 @@ export default function CadastroGratuito() {
   const handleCnpjChange = (val: string) => {
     const formatted = formatCnpj(val);
     setCnpj(formatted);
+    setCnpjErro("");
+    setCnpjPodeTentar(false);
     setCnpjValido(false);
     const numeros = formatted.replace(/\D/g, '');
     if (numeros.length === 14) {
@@ -1141,7 +1145,11 @@ export default function CadastroGratuito() {
                     <Input id="cnpj" required value={cnpj} onChange={e=>handleCnpjChange(e.target.value)} placeholder="00.000.000/0000-00" maxLength={18} className={`h-12 bg-gray-50 focus:bg-white ${buscandoCnpj ? 'opacity-70' : ''}`} disabled={buscandoCnpj} />
                     {buscandoCnpj && <span className="absolute right-3 top-3 text-xs text-purple-600 font-medium">Buscando...</span>}
                   </div>
-                  {cnpjErro && <p className="text-xs text-red-500 font-semibold">{cnpjErro}</p>}
+                  {cnpjErro && <p role="alert" className="text-xs text-red-500 font-semibold">{cnpjErro}</p>}
+                  {cnpjPodeTentar && <Button type="button" variant="outline" disabled={buscandoCnpj}
+                    onClick={() => buscarDadosCnpj(cnpj.replace(/\D/g, ""), cnpj, true)}>
+                    {buscandoCnpj ? "Consultando..." : "Tentar novamente"}
+                  </Button>}
                   {cnpjValido && <p className="text-xs text-green-600 font-semibold">CNPJ validado com sucesso!</p>}
                 </div>
               </div>
