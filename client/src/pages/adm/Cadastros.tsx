@@ -944,12 +944,16 @@ export default function CadastrosAdm() {
   //  Filtros e paginação 
 
   const cadastrosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const termoCnpj = /^[\d.\/\-\s]+$/.test(termo) ? termo.replace(/\D/g, "") : "";
     let lista = cadastros.filter((emp) => {
-      const termo = busca.toLowerCase();
       const matchBusca =
         !termo ||
         (emp.razao_social && emp.razao_social.toLowerCase().includes(termo)) ||
+        (emp.nome && emp.nome.toLowerCase().includes(termo)) ||
+        (emp.nome_responsavel && emp.nome_responsavel.toLowerCase().includes(termo)) ||
         (emp.cnpj && emp.cnpj.includes(termo)) ||
+        (termoCnpj && emp.cnpj && emp.cnpj.replace(/\D/g, "").includes(termoCnpj)) ||
         (emp.email && emp.email.toLowerCase().includes(termo)) ||
         (emp.sobre_empresa && emp.sobre_empresa.toLowerCase().includes(termo)) ||
         (emp.atividade_empresarial && emp.atividade_empresarial.toLowerCase().includes(termo));
@@ -1330,20 +1334,20 @@ export default function CadastrosAdm() {
       <div className="space-y-5">
 
         {/* Cabeçalho */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Cadastros</h1>
             <p className="text-gray-600 mt-1">Gerencie todas as empresas cadastradas na plataforma.</p>
           </div>
 
           {!modoIA && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Busca */}
-              <div className="relative w-full sm:w-80">
+              <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Buscar empresa, CNPJ ou e-mail..."
-                  className="pl-9 h-10 bg-white text-sm"
+                  placeholder="Buscar empresa, usuário, CNPJ ou e-mail..."
+                  className="pl-9 h-10 bg-white text-sm border-gray-400"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                 />
