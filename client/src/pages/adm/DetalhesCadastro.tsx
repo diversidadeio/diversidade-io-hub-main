@@ -13,6 +13,7 @@ import { Edit2, Upload, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ModalUsuariosEmpresa from "@/components/adm/ModalUsuariosEmpresa";
+import QuadroSocietarioAdm from "@/components/adm/QuadroSocietarioAdm";
 
 // ─── Lógica de completude (espelho do Cadastros.tsx) ────────────────────────
 
@@ -1113,26 +1114,7 @@ export default function DetalhesCadastroAdm() {
 
           {/* Sessão 4: Sócios */}
           {renderSectionTitle(Users, "Quadro Societário")}
-          {socios.length === 0 ? (
-            <p className="text-gray-500 italic text-sm mb-4">Nenhum sócio cadastrado.</p>
-          ) : (
-            <div className="space-y-4">
-              {socios.map((socio, idx) => (
-                <div key={socio.id} className="bg-gray-50 border border-gray-100 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {renderField("Nome", socio.nome)}
-                  {renderField("CPF", socio.cpf)}
-                  {renderField("E-mail", socio.email)}
-                  {renderField("CEP", socio.cep)}
-                  {renderField("Data de Nasc.", socio.data_nascimento)}
-                  {renderField("Nacionalidade", socio.nacionalidade)}
-                  {renderField("Raça", socio.raca)}
-
-                  {renderField("Participação %", socio.participacao_percentual)}
-                  {renderField("Participação R$", socio.participacao_valor)}
-                </div>
-              ))}
-            </div>
-          )}
+          <QuadroSocietarioAdm empresa={empresa} socios={socios} onChange={setSocios} emailAdmin={usuario?.email} />
 
           {/* Sessão 5: Dados do Impacto Social */}
           <div className="flex items-center justify-between mt-12 mb-6 border-b border-gray-100 pb-2">
