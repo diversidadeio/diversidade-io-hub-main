@@ -1101,6 +1101,7 @@ export default function CadastrosAdm() {
       const baseObj: any = {
         "Razão Social": emp.razao_social || "",
         "Nome Fantasia": emp.nome_fantasia || "",
+        "Logo da Empresa (URL)": emp.logo_empresa_url || "",
         "CNPJ": emp.cnpj || "",
         "Tipo de Acesso": emp.acesso_tipo || "",
         "Área de Atuação": emp.area_empresa || "",
@@ -1129,6 +1130,7 @@ export default function CadastrosAdm() {
       listaSocios.forEach((socio, index) => {
         const prefix = `Sócio ${index + 1} - `;
         baseObj[`${prefix}Nome`] = socio.nome || "";
+        baseObj[`${prefix}Foto (URL)`] = socio.foto_url || "";
         baseObj[`${prefix}CPF`] = socio.cpf || "";
         baseObj[`${prefix}E-mail`] = socio.email || "";
         baseObj[`${prefix}Data Nascimento`] = socio.data_nascimento ? new Date(socio.data_nascimento).toLocaleDateString("pt-BR") : "";
@@ -1166,6 +1168,22 @@ export default function CadastrosAdm() {
     });
 
     const worksheet = XLSX.utils.json_to_sheet(dadosFormatados);
+
+    // Torna clicáveis as células das colunas de URL (logo e fotos)
+    if (worksheet["!ref"]) {
+      const range = XLSX.utils.decode_range(worksheet["!ref"]);
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const header = worksheet[XLSX.utils.encode_cell({ r: range.s.r, c })]?.v;
+        if (typeof header !== "string" || !header.endsWith("(URL)")) continue;
+        for (let r = range.s.r + 1; r <= range.e.r; r++) {
+          const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
+          if (cell && typeof cell.v === "string" && /^https?:\/\//i.test(cell.v)) {
+            cell.l = { Target: cell.v };
+          }
+        }
+      }
+    }
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Empresas");
     
