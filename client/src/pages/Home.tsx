@@ -593,11 +593,11 @@ export default function Home() {
               <p className="text-gray-700 font-medium">Empreendedores negros mapeados no Brasil</p>
             </div>
             <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FFC000'}}>
-              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>53</div>
+              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>64</div>
               <p className="text-gray-700 font-medium">Negócios gerados pela plataforma</p>
             </div>
             <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 text-center hover:shadow-xl transition-shadow" style={{borderColor: '#FFC000'}}>
-              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>R$ 8,34M</div>
+              <div className="text-5xl font-bold mb-2" style={{color: '#FFC000'}}>R$ 10.143.556,00</div>
               <p className="text-gray-700 font-medium">Volume de negócios gerado</p>
             </div>
           </div>
