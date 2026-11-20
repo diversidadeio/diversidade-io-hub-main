@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap, Search as SearchIcon, ShieldCheck, FileText, PieChart, LogIn } from "lucide-react";
+import { ArrowRight, BarChart3, Users, Leaf, Network, Handshake, TrendingUp, CheckCircle, Target, Zap, Search as SearchIcon, ShieldCheck, FileText, PieChart, LogIn, Award } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import logoImage from "@/assets/logo.png";
 import rhinoImage from "@/assets/rhino.png";
 import { ModalPreCadastro } from "@/components/ModalPreCadastro";
+import { mmApi } from "@/lib/maioresMelhoresApi";
+import { formatarData, type MmEvento } from "@/lib/maioresMelhores";
 
 /**
  * Diversidade.io Hub - Institutional Landing Page
@@ -21,6 +23,15 @@ export default function Home() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [mostrarModalPreCadastro, setMostrarModalPreCadastro] = useState(false);
+  // Edição do Maiores & Melhores com inscrições abertas (o convite só aparece dentro do período)
+  const [premiacao, setPremiacao] = useState<MmEvento | null>(null);
+
+  useEffect(() => {
+    mmApi
+      .eventoAtual()
+      .then((evento) => setPremiacao(evento?.aberto ? evento : null))
+      .catch(() => setPremiacao(null));
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -81,6 +92,28 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-10 -z-10" style={{backgroundColor: '#502273'}}></div>
 
         <div className="container mx-auto px-4">
+          {premiacao && (
+            <Link
+              href="/maiores-e-melhores"
+              className="group mb-10 flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl p-5 sm:p-6 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
+              style={{ background: "radial-gradient(ellipse at right, #643489 0%, #351652 58%, #28123e 100%)" }}
+            >
+              <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full border border-[#f5bf64]/50 text-[#f5bf64]">
+                <Award className="h-7 w-7" strokeWidth={1.5} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-[#f5bf64]">
+                  Premiação {premiacao.ano} · inscrições abertas até {formatarData(premiacao.fim_cadastro)}
+                </span>
+                <span className="block text-2xl sm:text-3xl font-extrabold tracking-tight">
+                  Maiores <em className="not-italic text-[#f5bf64]">&amp;</em> Melhores no Empreendedorismo Negro
+                </span>
+              </span>
+              <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f5bf64] px-5 py-3 font-bold text-[#28123e] group-hover:bg-[#ffd27f] transition-colors">
+                Inscreva sua empresa <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
+          )}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <h1 className="text-5xl md:text-6xl font-bold leading-tight" style={{color: '#7030A0'}}>

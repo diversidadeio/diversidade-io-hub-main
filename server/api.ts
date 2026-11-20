@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { createHash } from "crypto";
 import OpenAI from "openai";
+import { tratarSolicitacaoAcessoMm } from "../api/_maioresMelhoresAcesso.js";
+import { tratarFotoMm } from "../api/_maioresMelhoresFoto.js";
+import { tratarInscricaoMm } from "../api/_maioresMelhoresInscricao.js";
+import { tratarNegocioMm } from "../api/_maioresMelhoresNegocio.js";
 
 export const apiRouter = Router();
 
@@ -453,6 +457,15 @@ apiRouter.post("/convidar-usuario", async (req, res) => {
  * Endpoint para envio de e-mail de aprovação de cadastro:
  * Usado pelo painel de admin localmente (via nodemailer).
  */
+// Link de acesso à inscrição do Maiores & Melhores (na Vercel: api/enviar-email-aprovacao?action=mm-acesso)
+apiRouter.post("/maiores-melhores-acesso", (req, res) => tratarSolicitacaoAcessoMm(req, res));
+// Link temporário da foto de um sócio (na Vercel: api/enviar-email-aprovacao?action=mm-foto)
+apiRouter.post("/maiores-melhores-foto", (req, res) => tratarFotoMm(req, res));
+// Edição da própria inscrição (na Vercel: api/enviar-email-aprovacao?action=mm-inscricao)
+apiRouter.post("/maiores-melhores-inscricao", (req, res) => tratarInscricaoMm(req, res));
+// Registro da nota + e-mail de confirmação ao comprador (na Vercel: api/enviar-email-aprovacao?action=mm-negocio)
+apiRouter.post("/maiores-melhores-negocio", (req, res) => tratarNegocioMm(req, res));
+
 apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
   try {
     const { email, nome } = req.body;

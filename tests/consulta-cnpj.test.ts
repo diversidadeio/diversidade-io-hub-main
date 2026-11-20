@@ -36,6 +36,16 @@ describe("Consulta CNPJ do cadastro gratuito", () => {
     expect(fetchMock.mock.calls[1][0]).toContain("open.cnpja.com/office/");
   });
 
+  it("traz município e UF da fonte principal e da alternativa", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(200, { cnpj, razao_social: "Empresa", municipio: "SAO PAULO", uf: "SP" })));
+    expect(await consultarCnpj(cnpj)).toMatchObject({ municipio: "SAO PAULO", uf: "SP" });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(resposta(500)).mockResolvedValueOnce(resposta(200, {
+      taxId: cnpj, company: { name: "MG LTDA" }, address: { city: "São Paulo", state: "SP" },
+    })));
+    expect(await consultarCnpj(cnpj)).toMatchObject({ razao_social: "MG LTDA", municipio: "São Paulo", uf: "SP" });
+  });
+
   it("reporta não encontrado somente se ambas as fontes retornarem 404", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(404)));
     await expect(consultarCnpj(cnpj)).rejects.toMatchObject({ motivo: "NAO_ENCONTRADO" });

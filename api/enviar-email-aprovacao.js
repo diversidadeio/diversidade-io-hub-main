@@ -1,6 +1,21 @@
 import { Resend } from "resend";
+import { tratarSolicitacaoAcessoMm } from "./_maioresMelhoresAcesso.js";
+import { tratarFotoMm } from "./_maioresMelhoresFoto.js";
+import { tratarInscricaoMm } from "./_maioresMelhoresInscricao.js";
+import { tratarNegocioMm } from "./_maioresMelhoresNegocio.js";
 
 export default async function handler(req, res) {
+  // Rotas do Maiores & Melhores (reescritas em vercel.json). Reaproveitam esta função para não
+  // gastar outras das 12 vagas do plano Hobby:
+  //   POST /api/maiores-melhores-acesso → link de acesso à inscrição por e-mail
+  //   POST /api/maiores-melhores-foto   → link temporário da foto de um sócio da própria inscrição
+  //   POST /api/maiores-melhores-inscricao → edição da própria inscrição (e limpeza das fotos antigas)
+  //   POST /api/maiores-melhores-negocio → registra a nota e envia o e-mail de confirmação ao comprador
+  if (req.query?.action === "mm-acesso") return tratarSolicitacaoAcessoMm(req, res);
+  if (req.query?.action === "mm-foto") return tratarFotoMm(req, res);
+  if (req.query?.action === "mm-inscricao") return tratarInscricaoMm(req, res);
+  if (req.query?.action === "mm-negocio") return tratarNegocioMm(req, res);
+
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });
   }

@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 const aqui = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  resolve: { alias: { "@": resolve(aqui, "../client/src") } },
   test: {
     root: resolve(aqui, ".."),
     include: ["tests/**/*.test.ts"],

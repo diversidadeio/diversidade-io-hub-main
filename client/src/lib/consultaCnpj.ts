@@ -10,6 +10,9 @@ export interface DadosCnpj {
   cnpj: string;
   razao_social: string;
   nome_fantasia?: string;
+  /** Município e UF da sede. A BrasilAPI envia em maiúsculas e sem acento. */
+  municipio?: string;
+  uf?: string;
   cnae_fiscal?: number;
   cnae_fiscal_descricao?: string;
   cnaes_secundarios?: { codigo: number; descricao?: string }[];
@@ -50,6 +53,8 @@ export async function consultarCnpj(cnpj: string): Promise<DadosCnpj> {
         cnpj: origem.taxId,
         razao_social: origem.company?.name,
         nome_fantasia: origem.alias,
+        municipio: origem.address?.city,
+        uf: origem.address?.state,
         cnae_fiscal: origem.mainActivity?.id,
         cnae_fiscal_descricao: origem.mainActivity?.text,
         cnaes_secundarios: origem.sideActivities?.map((atividade: { id: number; text: string }) => ({ codigo: atividade.id, descricao: atividade.text })),

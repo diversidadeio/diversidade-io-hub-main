@@ -19,6 +19,10 @@ import ExclusoesAdm from "./pages/adm/Exclusoes";
 import LogsAdm from "./pages/adm/Logs";
 import AdministradoresAdm from "./pages/adm/Administradores";
 import SolicitacoesBuscaAdm from "./pages/adm/SolicitacoesBusca";
+import MaioresMelhoresAdm from "./pages/adm/MaioresMelhores";
+import MaioresMelhores from "./pages/MaioresMelhores";
+import MaioresMelhoresConfirmar from "./pages/MaioresMelhoresConfirmar";
+import MaioresMelhoresAcesso from "./pages/MaioresMelhoresAcesso";
 
 import Pesquisas from "./pages/usuario/Pesquisas";
 import MinhasSolicitacoes from "./pages/usuario/MinhasSolicitacoes";
@@ -115,7 +119,12 @@ function Router() {
       {/* Página compartilhável de oportunidade — o bloqueio por login é feito dentro da página,
           para que o visitante veja um convite de acesso em vez de um redirecionamento seco. */}
       <Route path={"/oportunidades/:id"} component={Oportunidade} />
-      
+
+      {/* Premiação Maiores & Melhores — pública, sem conta na plataforma */}
+      <Route path={"/maiores-e-melhores"} component={MaioresMelhores} />
+      <Route path={"/maiores-e-melhores/confirmar"} component={MaioresMelhoresConfirmar} />
+      <Route path={"/maiores-e-melhores/acesso"} component={MaioresMelhoresAcesso} />
+
       {/* Rotas da Área do Usuário Logado */}
       <RotaProtegidaNormal path={"/meu-cadastro"} component={MeuCadastro} />
       <RotaAprovada path={"/meu-cadastro/pesquisas"} component={Pesquisas} />
@@ -130,6 +139,7 @@ function Router() {
       <RotaProtegidaAdm path={"/adm/cadastros/:id"} component={DetalhesCadastroAdm} />
       <RotaProtegidaAdm path={"/adm/exclusoes"} component={ExclusoesAdm} />
       <RotaProtegidaAdm path={"/adm/solicitacoes-busca"} component={SolicitacoesBuscaAdm} />
+      <RotaProtegidaAdm path={"/adm/maiores-melhores"} component={MaioresMelhoresAdm} />
 
       <RotaProtegidaAdm path={"/adm/logs"} component={LogsAdm} />
 

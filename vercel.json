@@ -32,6 +32,22 @@
       "destination": "/api/logs?action=relatorio"
     },
     {
+      "source": "/api/maiores-melhores-acesso",
+      "destination": "/api/enviar-email-aprovacao?action=mm-acesso"
+    },
+    {
+      "source": "/api/maiores-melhores-foto",
+      "destination": "/api/enviar-email-aprovacao?action=mm-foto"
+    },
+    {
+      "source": "/api/maiores-melhores-inscricao",
+      "destination": "/api/enviar-email-aprovacao?action=mm-inscricao"
+    },
+    {
+      "source": "/api/maiores-melhores-negocio",
+      "destination": "/api/enviar-email-aprovacao?action=mm-negocio"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
