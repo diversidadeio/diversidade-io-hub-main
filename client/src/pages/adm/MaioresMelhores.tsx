@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Award,
   CalendarDays,
+  ChevronRight,
   Download,
   ExternalLink,
   Loader2,
@@ -14,7 +15,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayoutAdm } from "@/components/adm/LayoutAdm";
+import { PilhaAvatares, useFotosAssinadas } from "@/components/adm/maiores-melhores/AvatarSocio";
 import { EventoDialog, type DadosEvento } from "@/components/adm/maiores-melhores/EventoDialog";
+import { FichaEmpresa } from "@/components/adm/maiores-melhores/FichaEmpresa";
 import { RankingsMm } from "@/components/adm/maiores-melhores/RankingsMm";
 import { exportarEdicaoXlsx } from "@/components/adm/maiores-melhores/exportarMm";
 import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
@@ -25,7 +28,6 @@ import { BUCKET_FOTOS, assinarFotos } from "@/lib/maioresMelhoresApi";
 import { mascaraTelefone } from "@/lib/mascaras";
 import {
   CATEGORIAS,
-  DECLARACOES,
   RESPOSTAS_COMPRADOR,
   STATUS_NEGOCIO,
   type Categoria,
@@ -33,7 +35,6 @@ import {
   type MmEvento,
   type MmNegocio,
   type MmParticipante,
-  type MmSocio,
   type StatusNegocio,
   calcularRankings,
   calcularRankingsPorPerfil,
@@ -81,7 +82,10 @@ export default function MaioresMelhoresAdm() {
   const [carregandoDados, setCarregandoDados] = useState(false);
   const [aba, setAba] = useState<Aba>("rankings");
   const [dialogEvento, setDialogEvento] = useState<{ aberto: boolean; evento?: MmEvento | null }>({ aberto: false });
-  const [filtroEmpresa, setFiltroEmpresa] = useState<MmEmpresa>();
+  /** Empresa escolhida no filtro da aba Negócios ("" = todas). */
+  const [filtroEmpresaId, setFiltroEmpresaId] = useState("");
+  /** Empresa com a ficha (painel lateral) aberta. */
+  const [fichaId, setFichaId] = useState<string>();
   const [excluirEmpresa, setExcluirEmpresa] = useState<MmEmpresa>();
   const [excluirEvento, setExcluirEvento] = useState<MmEvento>();
   const [processando, setProcessando] = useState(false);
@@ -166,7 +170,8 @@ export default function MaioresMelhoresAdm() {
   }, [carregarEventos]);
 
   useEffect(() => {
-    setFiltroEmpresa(undefined);
+    setFiltroEmpresaId("");
+    setFichaId(undefined);
     void carregarDados();
   }, [carregarDados]);
 
@@ -233,6 +238,7 @@ export default function MaioresMelhoresAdm() {
     setProcessando(false);
     if (error) return toast.error(mensagemErro(error));
     toast.success("Inscrição excluída. O CNPJ pode ser inscrito novamente.");
+    if (filtroEmpresaId === excluirEmpresa.id) setFiltroEmpresaId("");
     setExcluirEmpresa(undefined);
     await carregarDados();
   }
@@ -375,10 +381,7 @@ export default function MaioresMelhoresAdm() {
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    setAba(id);
-                    if (id !== "negocios") setFiltroEmpresa(undefined);
-                  }}
+                  onClick={() => setAba(id)}
                   className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
                     aba === id ? "bg-purple-50 text-[#7030A0] border-purple-200" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                   }`}
@@ -397,8 +400,9 @@ export default function MaioresMelhoresAdm() {
                   <AbaNegocios
                     empresas={empresas}
                     negocios={negocios}
-                    filtroEmpresa={filtroEmpresa}
-                    limparFiltroEmpresa={() => setFiltroEmpresa(undefined)}
+                    empresaId={filtroEmpresaId}
+                    setEmpresaId={setFiltroEmpresaId}
+                    abrirFicha={(e) => setFichaId(e.id)}
                     revisar={revisar}
                   />
                 )}
@@ -408,19 +412,35 @@ export default function MaioresMelhoresAdm() {
                     negocios={negocios}
                     participantes={participantes}
                     evento={evento}
-                    verNegocios={(e) => {
-                      setFiltroEmpresa(e);
-                      setAba("negocios");
-                    }}
-                    excluir={setExcluirEmpresa}
+                    abrirFicha={(e) => setFichaId(e.id)}
                   />
                 )}
-                {aba === "participantes" && <AbaParticipantes participantes={participantes} empresas={empresas} />}
+                {aba === "participantes" && (
+                  <AbaParticipantes participantes={participantes} empresas={empresas} abrirFicha={(e) => setFichaId(e.id)} />
+                )}
               </>
             )}
           </>
         )}
       </div>
+
+      <FichaEmpresa
+        empresa={empresas.find((e) => e.id === fichaId)}
+        empresas={empresas}
+        negocios={negocios}
+        participante={participantes.find((p) => p.id === empresas.find((e) => e.id === fichaId)?.participante_id)}
+        aoFechar={() => setFichaId(undefined)}
+        revisar={revisar}
+        verNaAbaNegocios={(e) => {
+          setFiltroEmpresaId(e.id);
+          setAba("negocios");
+          setFichaId(undefined);
+        }}
+        excluir={(e) => {
+          setFichaId(undefined);
+          setExcluirEmpresa(e);
+        }}
+      />
 
       <EventoDialog
         aberto={dialogEvento.aberto}
@@ -516,14 +536,16 @@ function AbaRankings({ empresas, negocios }: { empresas: MmEmpresa[]; negocios: 
 function AbaNegocios({
   empresas,
   negocios,
-  filtroEmpresa,
-  limparFiltroEmpresa,
+  empresaId,
+  setEmpresaId,
+  abrirFicha,
   revisar,
 }: {
   empresas: MmEmpresa[];
   negocios: MmNegocio[];
-  filtroEmpresa?: MmEmpresa;
-  limparFiltroEmpresa: () => void;
+  empresaId: string;
+  setEmpresaId: (id: string) => void;
+  abrirFicha: (e: MmEmpresa) => void;
   revisar: (n: MmNegocio, status: StatusNegocio, motivo: string) => Promise<void>;
 }) {
   const [busca, setBusca] = useState("");
@@ -534,6 +556,14 @@ function AbaNegocios({
 
   const termo = normalizarBusca(busca.trim());
   const nomes = new Map(empresas.map((e) => [e.id, e]));
+  const filtroEmpresa = empresaId ? nomes.get(empresaId) : undefined;
+  const opcoesEmpresa = useMemo(() => {
+    const quantos = new Map<string, number>();
+    for (const n of negocios) quantos.set(n.empresa_id, (quantos.get(n.empresa_id) ?? 0) + 1);
+    return [...empresas]
+      .sort((a, b) => a.razao_social.localeCompare(b.razao_social, "pt-BR"))
+      .map((e) => ({ id: e.id, rotulo: `${e.razao_social} (${quantos.get(e.id) ?? 0})` }));
+  }, [empresas, negocios]);
   const filtrados = negocios.filter((n) => {
     if (filtroEmpresa && n.empresa_id !== filtroEmpresa.id) return false;
     if (status && n.status !== status) return false;
@@ -553,11 +583,21 @@ function AbaNegocios({
           <span className="text-sm text-gray-800">
             Negócios de <strong>{filtroEmpresa.razao_social}</strong> · {formatarCnpj(filtroEmpresa.cnpj)}
           </span>
-          <Button variant="outline" size="sm" onClick={limparFiltroEmpresa}>Ver todos os negócios</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => abrirFicha(filtroEmpresa)}>Abrir ficha da empresa</Button>
+            <Button variant="outline" size="sm" onClick={() => setEmpresaId("")}>Ver todos os negócios</Button>
+          </div>
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <label className={`${rotulo} lg:col-span-1`}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <label className={rotulo}>
+          Empresa inscrita
+          <select className={campo} value={filtroEmpresa ? empresaId : ""} onChange={(e) => setEmpresaId(e.target.value)}>
+            <option value="">Todas as empresas</option>
+            {opcoesEmpresa.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
+          </select>
+        </label>
+        <label className={rotulo}>
           Razão social, CNPJ ou nota
           <input className={campo} value={busca} onChange={(e) => setBusca(e.target.value)} />
         </label>
@@ -585,6 +625,7 @@ function AbaNegocios({
         negocios={filtrados}
         empresas={empresas}
         aoRevisar={(n, s, m) => void revisar(n, s, m)}
+        aoAbrirEmpresa={abrirFicha}
       />
     </div>
   );
@@ -595,22 +636,18 @@ function AbaEmpresas({
   negocios,
   participantes,
   evento,
-  verNegocios,
-  excluir,
+  abrirFicha,
 }: {
   empresas: MmEmpresa[];
   negocios: MmNegocio[];
   participantes: MmParticipante[];
   evento: MmEvento;
-  verNegocios: (e: MmEmpresa) => void;
-  excluir: (e: MmEmpresa) => void;
+  abrirFicha: (e: MmEmpresa) => void;
 }) {
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<"" | Categoria>("");
-  const [fotos, setFotos] = useState<Map<string, string>>(new Map());
   const [exportando, setExportando] = useState(false);
   const termo = normalizarBusca(busca.trim());
-  const pessoas = new Map(participantes.map((p) => [p.id, p]));
 
   const filtradas = empresas.filter(
     (e) =>
@@ -618,21 +655,7 @@ function AbaEmpresas({
       (!termo || normalizarBusca(`${e.razao_social} ${e.cnpj} ${formatarCnpj(e.cnpj)} ${e.responsavel} ${e.email} ${e.municipio}`).includes(termo)),
   );
 
-  // Fotos ficam num bucket privado: assina (3 h) só as que ainda não têm link, conforme a lista filtrada.
-  const caminhosVisiveis = filtradas.flatMap(fotosDaEmpresa).join("|");
-  useEffect(() => {
-    const faltantes = caminhosVisiveis ? caminhosVisiveis.split("|").filter((c) => !fotos.has(c)) : [];
-    if (!faltantes.length) return;
-    let ativo = true;
-    assinarFotos(faltantes, 3 * 60 * 60)
-      .then((novos) => {
-        if (ativo && novos.size) setFotos((atual) => new Map([...atual, ...novos]));
-      })
-      .catch(() => undefined);
-    return () => {
-      ativo = false;
-    };
-  }, [caminhosVisiveis, fotos]);
+  const fotos = useFotosAssinadas(filtradas.flatMap(fotosDaEmpresa));
 
   async function exportar() {
     setExportando(true);
@@ -686,72 +709,33 @@ function AbaEmpresas({
       ) : (
         <div className="space-y-3">
           {filtradas.map((e) => {
-            const p = e.participante_id ? pessoas.get(e.participante_id) : undefined;
             const doNegocio = negocios.filter((n) => n.empresa_id === e.id);
-            const validados = doNegocio.filter((n) => n.status === "validado");
+            const validados = doNegocio.filter((n) => n.status === "validado").length;
+            const emAnalise = doNegocio.filter((n) => n.status === "pendente").length;
             return (
-              <details key={e.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm group">
-                <summary className="cursor-pointer list-none p-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <PilhaAvatares socios={e.socios} fotos={fotos} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">{e.razao_social}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatarCnpj(e.cnpj)} · {CATEGORIAS[e.categoria]} · {e.porte} · {e.municipio}/{e.uf}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">{doNegocio.length} negócios</span>
-                    <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-800 font-medium">{validados.length} validados</span>
-                  </div>
-                </summary>
-                <div className="border-t border-gray-100 p-4 grid gap-4 md:grid-cols-2">
-                  <dl className="grid gap-2 text-sm">
-                    <Linha rotulo="Responsável" valor={e.responsavel} />
-                    <Linha rotulo="E-mail de contato" valor={e.email} />
-                    <Linha rotulo="Inscrita em" valor={new Date(e.criado_em).toLocaleString("pt-BR")} />
-                    <Linha rotulo="Participante" valor={p ? `${p.nome} · ${p.email} · ${mascaraTelefone(p.telefone)}` : "—"} />
-                    <Linha rotulo="Valor validado" valor={formatarMoeda(validados.reduce((s, n) => s + n.valor_centavos, 0))} />
-                    <Linha rotulo="Parceiros distintos validados" valor={String(new Set(validados.map((n) => n.cnpj_parceiro)).size)} />
-                  </dl>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Sócios e titulares</h3>
-                    {e.socios.length ? (
-                      <ul className="space-y-3">
-                        {e.socios.map((s, i) => {
-                          const url = s.foto_path ? fotos.get(s.foto_path) : undefined;
-                          return (
-                            <li key={i} className="flex items-center gap-3">
-                              <Avatar nome={s.nome} url={url} tamanho="lg" temFoto={!!s.foto_path} />
-                              <div className="min-w-0 text-sm">
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                  <span className="font-medium text-gray-900">{s.nome}</span>
-                                  {i === 0 && e.categoria === "afro" && (
-                                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-[#7030A0]">Responsável</span>
-                                  )}
-                                </div>
-                                <p className={s.declaracao === "preta_parda" ? "text-[#7030A0] font-medium" : "text-gray-500"}>{DECLARACOES[s.declaracao]}</p>
-                                <p className="text-xs text-gray-500">
-                                  {!s.foto_path ? "Sem foto enviada" : s.foto_autorizada ? "Foto enviada · uso autorizado" : "Foto enviada · uso não autorizado"}
-                                </p>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-gray-500">Nenhum sócio informado.</p>
-                    )}
-                  </div>
-                  <div className="md:col-span-2 flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => verNegocios(e)}>Ver negócios da empresa</Button>
-                    <Button variant="outline" size="sm" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => excluir(e)}>
-                      <Trash2 className="w-4 h-4" /> Excluir inscrição
-                    </Button>
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => abrirFicha(e)}
+                title="Abrir ficha e linha do tempo"
+                className="w-full text-left bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-wrap items-center justify-between gap-2 hover:border-purple-200 hover:bg-purple-50/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <PilhaAvatares socios={e.socios} fotos={fotos} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900">{e.razao_social}</p>
+                    <p className="text-sm text-gray-500">
+                      {formatarCnpj(e.cnpj)} · {CATEGORIAS[e.categoria]} · {e.porte} · {e.municipio}/{e.uf}
+                    </p>
                   </div>
                 </div>
-              </details>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">{doNegocio.length} negócios</span>
+                  {emAnalise > 0 && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-medium">{emAnalise} em análise</span>}
+                  <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-800 font-medium">{validados} validados</span>
+                  <ChevronRight className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                </div>
+              </button>
             );
           })}
         </div>
@@ -760,7 +744,15 @@ function AbaEmpresas({
   );
 }
 
-function AbaParticipantes({ participantes, empresas }: { participantes: MmParticipante[]; empresas: MmEmpresa[] }) {
+function AbaParticipantes({
+  participantes,
+  empresas,
+  abrirFicha,
+}: {
+  participantes: MmParticipante[];
+  empresas: MmEmpresa[];
+  abrirFicha: (e: MmEmpresa) => void;
+}) {
   const [busca, setBusca] = useState("");
   const termo = normalizarBusca(busca.trim());
   const filtrados = participantes
@@ -797,7 +789,23 @@ function AbaParticipantes({ participantes, empresas }: { participantes: MmPartic
                     <td className="p-3 text-gray-700 break-all">{p.email}</td>
                     <td className="p-3 text-gray-700 whitespace-nowrap">{mascaraTelefone(p.telefone)}</td>
                     <td className="p-3 text-gray-700">
-                      {minhas.length ? minhas.map((e) => e.razao_social).join(", ") : <span className="text-amber-700">Não concluiu inscrição</span>}
+                      {minhas.length ? (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {minhas.map((e) => (
+                            <button
+                              key={e.id}
+                              type="button"
+                              title="Abrir ficha e linha do tempo"
+                              className="text-left font-medium text-[#7030A0] hover:underline"
+                              onClick={() => abrirFicha(e)}
+                            >
+                              {e.razao_social}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-amber-700">Não concluiu inscrição</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -806,64 +814,6 @@ function AbaParticipantes({ participantes, empresas }: { participantes: MmPartic
           </table>
         </div>
       )}
-    </div>
-  );
-}
-
-const iniciais = (nome: string) =>
-  nome
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toLocaleUpperCase("pt-BR");
-
-/** Foto do sócio (clique abre em tamanho original) ou, sem foto, as iniciais do nome. */
-function Avatar({ nome, url, tamanho, temFoto }: { nome: string; url?: string; tamanho: "sm" | "lg"; temFoto: boolean }) {
-  const dimensao = tamanho === "lg" ? "h-16 w-16 text-lg" : "h-10 w-10 text-sm";
-  const base = `${dimensao} shrink-0 rounded-full object-cover ring-2 ring-white`;
-  if (url) {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" title={`Abrir foto de ${nome}`} onClick={(ev) => ev.stopPropagation()}>
-        <img src={url} alt={`Foto de ${nome}`} loading="lazy" className={base} />
-      </a>
-    );
-  }
-  return (
-    <span
-      className={`${dimensao} shrink-0 inline-flex items-center justify-center rounded-full bg-purple-100 font-semibold text-[#7030A0] ring-2 ring-white ${temFoto ? "animate-pulse" : ""}`}
-      title={temFoto ? "Carregando foto..." : `${nome} (sem foto)`}
-      aria-label={nome}
-    >
-      {iniciais(nome) || "?"}
-    </span>
-  );
-}
-
-/** Até 3 sócios sobrepostos no cabeçalho da empresa; o excedente vira "+N". */
-function PilhaAvatares({ socios, fotos }: { socios: MmSocio[]; fotos: Map<string, string> }) {
-  if (!socios.length) return null;
-  const visiveis = socios.slice(0, 3);
-  return (
-    <div className="flex shrink-0 items-center -space-x-3">
-      {visiveis.map((s, i) => (
-        <Avatar key={i} nome={s.nome} url={s.foto_path ? fotos.get(s.foto_path) : undefined} tamanho="sm" temFoto={!!s.foto_path} />
-      ))}
-      {socios.length > visiveis.length && (
-        <span className="relative z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600 ring-2 ring-white">
-          +{socios.length - visiveis.length}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,160px)_1fr] gap-2">
-      <dt className="text-gray-500">{rotulo}</dt>
-      <dd className="text-gray-900 break-words m-0">{valor}</dd>
     </div>
   );
 }

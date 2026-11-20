@@ -23,10 +23,12 @@ interface Props {
   aoRenovar?: (negocio: MmNegocio) => void;
   /** Administração: valida, indefere ou volta para análise */
   aoRevisar?: (negocio: MmNegocio, status: StatusNegocio, motivo: string) => void;
+  /** Administração: o nome da empresa inscrita vira link para a ficha dela */
+  aoAbrirEmpresa?: (empresa: MmEmpresa) => void;
   vazio?: string;
 }
 
-export function ListaNegocios({ negocios, empresas, aoRenovar, aoRevisar, vazio = "Nenhum negócio encontrado." }: Props) {
+export function ListaNegocios({ negocios, empresas, aoRenovar, aoRevisar, aoAbrirEmpresa, vazio = "Nenhum negócio encontrado." }: Props) {
   const [indeferindo, setIndeferindo] = useState<string>();
   const [motivo, setMotivo] = useState("");
 
@@ -42,7 +44,19 @@ export function ListaNegocios({ negocios, empresas, aoRenovar, aoRevisar, vazio 
               <div className="min-w-0">
                 <strong>{n.razao_social_parceiro}</strong>
                 <p className="m-0 text-sm text-[#62566f]">
-                  {empresa?.razao_social} · {PERFIS_PARCEIRO[n.perfil_parceiro]}
+                  {empresa && aoAbrirEmpresa ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-[#5c2686] underline-offset-2 hover:underline cursor-pointer"
+                      title="Abrir a ficha da empresa"
+                      onClick={() => aoAbrirEmpresa(empresa)}
+                    >
+                      {empresa.razao_social}
+                    </button>
+                  ) : (
+                    empresa?.razao_social
+                  )}{" "}
+                  · {PERFIS_PARCEIRO[n.perfil_parceiro]}
                 </p>
               </div>
               <span className={`rounded-full px-2.5 py-1 whitespace-nowrap font-bold text-[0.85rem] ${corStatus[n.status]}`}>
