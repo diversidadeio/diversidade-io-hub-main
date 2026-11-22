@@ -21,6 +21,7 @@ import { mascarar, mascaraCnpj, mascaraTelefone } from "@/lib/mascaras";
 import {
   type MmEvento,
   type MmNegocio,
+  formatarCnpj,
   formatarData,
   normalizarCnpj,
   situacaoPeriodo,
@@ -52,6 +53,8 @@ export default function MaioresMelhores() {
   const [editando, setEditando] = useState(false);
   const [mensagem, setMensagem] = useState<Mensagem>();
   const [ocupado, setOcupado] = useState(false);
+  /** CNPJ informado em "Já inscreveu sua empresa?" sem inscrição: leva ao cadastro (vez muda a cada pedido). */
+  const [semInscricao, setSemInscricao] = useState<{ cnpj: string; vez: number }>();
   const alvoResultado = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +77,7 @@ export default function MaioresMelhores() {
     setEditando(false);
     setInicializado(false);
     setMensagem(undefined);
+    setSemInscricao(undefined);
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -213,7 +217,10 @@ export default function MaioresMelhores() {
         <AvisoSemEvento erro={erroEvento} />
       ) : !token ? (
         <div className="grid gap-5">
-          <RecuperarAcesso />
+          <RecuperarAcesso
+            inscricoesAbertas={aberto}
+            aoNaoInscrita={(cnpj) => setSemInscricao((atual) => ({ cnpj, vez: (atual?.vez ?? 0) + 1 }))}
+          />
           {aberto ? (
             <FormularioEntrada
               aoEntrar={(t) => {
@@ -222,6 +229,7 @@ export default function MaioresMelhores() {
                 setMensagem(undefined);
               }}
               mensagem={mensagem}
+              semInscricao={semInscricao}
             />
           ) : (
             <AvisoPeriodo evento={evento} />
@@ -300,6 +308,7 @@ export default function MaioresMelhores() {
                         participante={sessao.participante}
                         aoSalvar={inscrever}
                         aoErro={(texto) => setMensagem({ ok: false, texto })}
+                        cnpjInicial={semInscricao?.cnpj}
                       />
                     )
                   )
@@ -360,11 +369,17 @@ function OutraEmpresa({ aoSair }: { aoSair: () => void }) {
   );
 }
 
-/** Quem já se inscreveu informa só o CNPJ e recebe por e-mail um link para voltar à inscrição. */
-function RecuperarAcesso() {
+type Aviso = { tipo: "ok" | "info" | "erro"; texto: string };
+
+/**
+ * Quem já se inscreveu informa só o CNPJ e recebe por e-mail um link para voltar à inscrição.
+ * CNPJ sem inscrição nesta edição: avisa na hora e leva ao formulário de cadastro (aoNaoInscrita),
+ * em vez de a pessoa ficar esperando um e-mail que não vai chegar.
+ */
+function RecuperarAcesso({ inscricoesAbertas, aoNaoInscrita }: { inscricoesAbertas: boolean; aoNaoInscrita: (cnpj: string) => void }) {
   const [cnpj, setCnpj] = useState("");
   const [ocupado, setOcupado] = useState(false);
-  const [aviso, setAviso] = useState<Mensagem>();
+  const [aviso, setAviso] = useState<Aviso>();
   const { erros, definir, limpar } = useErros();
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
@@ -380,14 +395,31 @@ function RecuperarAcesso() {
     setOcupado(true);
     setAviso(undefined);
     try {
-      await mmApi.solicitarAcesso(normalizarCnpj(cnpj));
-      setAviso({
-        ok: true,
-        texto:
-          "Se este CNPJ estiver inscrito nesta edição, enviamos um link de acesso para os e-mails da inscrição (o do responsável e o de contato). O link vale por 30 minutos. Não chegou? Veja também a caixa de spam.",
-      });
+      const normalizado = normalizarCnpj(cnpj);
+      const resultado = await mmApi.solicitarAcesso(normalizado);
+      if (resultado === "nao_inscrita") {
+        setAviso({
+          tipo: "info",
+          texto: inscricoesAbertas
+            ? "Não encontramos inscrição para este CNPJ nesta edição, então nenhum e-mail foi enviado. Faça a inscrição no formulário logo abaixo: primeiro seus dados, depois os da empresa."
+            : "Não encontramos inscrição para este CNPJ nesta edição, e as inscrições estão encerradas.",
+        });
+        if (inscricoesAbertas) aoNaoInscrita(normalizado);
+      } else if (resultado === "limitado") {
+        setAviso({
+          tipo: "info",
+          texto:
+            "Já enviamos um link de acesso para este CNPJ há pouco. Confira a caixa de entrada e o spam dos e-mails da inscrição. Se precisar de outro, peça novamente daqui a 1 minuto.",
+        });
+      } else {
+        setAviso({
+          tipo: "ok",
+          texto:
+            "Enviamos um link de acesso para os e-mails da inscrição (o do responsável e o de contato). O link vale por 30 minutos. Não chegou? Veja também a caixa de spam.",
+        });
+      }
     } catch (falha) {
-      setAviso({ ok: false, texto: falha instanceof Error ? falha.message : "Não foi possível enviar o link agora." });
+      setAviso({ tipo: "erro", texto: falha instanceof Error ? falha.message : "Não foi possível enviar o link agora." });
     } finally {
       setOcupado(false);
     }
@@ -421,7 +453,10 @@ function RecuperarAcesso() {
         <button className={`${mm.botaoSecundario} sm:mt-[1.85rem]`} disabled={ocupado}>{ocupado ? "Enviando…" : "Receber link de acesso"}</button>
       </form>
       {aviso && (
-        <p role={aviso.ok ? "status" : "alert"} className={`${aviso.ok ? mm.sucesso : mm.falha} mt-4 mb-0`}>
+        <p
+          role={aviso.tipo === "erro" ? "alert" : "status"}
+          className={`${aviso.tipo === "ok" ? mm.sucesso : aviso.tipo === "info" ? mm.info : mm.falha} mt-4 mb-0`}
+        >
           {aviso.texto}
         </p>
       )}
@@ -429,10 +464,27 @@ function RecuperarAcesso() {
   );
 }
 
-function FormularioEntrada({ aoEntrar, mensagem }: { aoEntrar: (token: string) => void; mensagem?: Mensagem }) {
+function FormularioEntrada({
+  aoEntrar,
+  mensagem,
+  semInscricao,
+}: {
+  aoEntrar: (token: string) => void;
+  mensagem?: Mensagem;
+  semInscricao?: { cnpj: string; vez: number };
+}) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
   const { erros, definir, limpar } = useErros();
+  const refSecao = useRef<HTMLElement>(null);
+  const refNome = useRef<HTMLInputElement>(null);
+
+  // CNPJ sem inscrição em "Já inscreveu sua empresa?": rola até aqui e já posiciona no primeiro campo.
+  useEffect(() => {
+    if (!semInscricao) return;
+    refSecao.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    refNome.current?.focus({ preventScroll: true });
+  }, [semInscricao]);
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -457,8 +509,14 @@ function FormularioEntrada({ aoEntrar, mensagem }: { aoEntrar: (token: string) =
   }
 
   return (
-    <section className={mm.painel}>
-      <h2 className={mm.titulo}>Acesse o portal da premiação</h2>
+    <section ref={refSecao} className={`${mm.painel} scroll-mt-4`} aria-labelledby="titulo-entrada">
+      <h2 id="titulo-entrada" className={mm.titulo}>Acesse o portal da premiação</h2>
+      {semInscricao && (
+        <p className={`${mm.info} mb-4`}>
+          O CNPJ <strong>{formatarCnpj(semInscricao.cnpj)}</strong> ainda não tem inscrição nesta edição. Comece por aqui: informe
+          seus dados e, na próxima etapa, os dados da empresa (o CNPJ já vai preenchido).
+        </p>
+      )}
       <p className="mb-4">Informe seu nome, e-mail e telefone para iniciar a inscrição.</p>
       {mensagem && !mensagem.ok && <p className={`${mm.falha} mb-4`} role="alert">{mensagem.texto}</p>}
       <form className={mm.pilha} onSubmit={enviar} noValidate>
@@ -467,6 +525,7 @@ function FormularioEntrada({ aoEntrar, mensagem }: { aoEntrar: (token: string) =
           <label className={mm.rotulo}>
             <span>Nome completo<Obrigatorio /></span>
             <input
+              ref={refNome}
               name="nome"
               autoComplete="name"
               maxLength={180}

@@ -96,6 +96,9 @@ export interface NotaParaConfirmar {
   };
 }
 
+/** Resultado do pedido de link de acesso (ver api/_maioresMelhoresAcesso.ts). */
+export type ResultadoAcesso = "enviado" | "nao_inscrita" | "limitado";
+
 export interface NegocioRegistrado {
   id: string;
   /** false = o negócio foi registrado, mas o e-mail não saiu: o participante pode pedir o reenvio. */
@@ -144,19 +147,18 @@ export const mmApi = {
     rpc<{ ok: boolean }>("mm_confirmacao_responder", { p_token: token, p_resposta: resposta, p_observacao: observacao }),
 
   /**
-   * Pede o link de acesso por e-mail. A resposta é sempre a mesma, exista ou não inscrição para o CNPJ:
-   * o servidor não revela quais CNPJs estão inscritos.
+   * Pede o link de acesso por e-mail. "nao_inscrita" = não há inscrição deste CNPJ na edição: a página
+   * leva a pessoa ao cadastro. "limitado" = já houve pedido há menos de 1 minuto.
    */
-  async solicitarAcesso(cnpj: string): Promise<void> {
+  async solicitarAcesso(cnpj: string): Promise<ResultadoAcesso> {
     const resposta = await fetch("/api/maiores-melhores-acesso", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cnpj }),
     });
-    if (!resposta.ok) {
-      const corpo = (await resposta.json().catch(() => ({}))) as { erro?: string };
-      throw new Error(corpo.erro || "Não foi possível enviar o link agora. Tente novamente em instantes.");
-    }
+    const corpo = (await resposta.json().catch(() => ({}))) as { erro?: string; resultado?: ResultadoAcesso };
+    if (!resposta.ok) throw new Error(corpo.erro || "Não foi possível enviar o link agora. Tente novamente em instantes.");
+    return corpo.resultado ?? "enviado";
   },
 
   /**

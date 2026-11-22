@@ -119,41 +119,52 @@ describe("POST /api/maiores-melhores-acesso", () => {
     const { deps, enviar } = dependencias(vi.fn().mockResolvedValue(acesso), "https://www.diversidade.io");
     const r = resposta();
     await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r, deps);
-    expect(r.corpo).toEqual({ ok: true });
+    expect(r.corpo).toEqual({ ok: true, resultado: "enviado" });
     const msg = enviar.mock.calls[0][0];
     expect(msg.para).toEqual(["ana@x.com", "contato@afro.com"]);
     expect(msg.link).toBe(`https://www.diversidade.io/maiores-e-melhores/acesso#${TOKEN}`);
     expect(msg.html).toContain(msg.link);
   });
 
-  it("a resposta é idêntica com inscrição, sem inscrição e com limite atingido (não revela quem está inscrito)", async () => {
-    const casos: Array<AcessoMm | { limitado: true } | null> = [acesso, null, { limitado: true }];
-    const respostas = [];
-    for (const caso of casos) {
-      const { deps, enviar } = dependencias(vi.fn().mockResolvedValue(caso));
-      const r = resposta();
-      await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r, deps);
-      respostas.push([r.statusCode, r.corpo]);
-      expect(enviar).toHaveBeenCalledTimes(caso && "token" in caso ? 1 : 0);
-    }
-    expect(respostas[1]).toEqual(respostas[0]);
-    expect(respostas[2]).toEqual(respostas[0]);
-    expect(respostas[0]).toEqual([200, { ok: true }]);
+  it("sem inscrição: avisa (para a página levar ao cadastro) e não envia e-mail", async () => {
+    const { deps, enviar } = dependencias(vi.fn().mockResolvedValue(null));
+    const r = resposta();
+    await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r, deps);
+    expect([r.statusCode, r.corpo]).toEqual([200, { ok: true, resultado: "nao_inscrita" }]);
+    expect(enviar).not.toHaveBeenCalled();
   });
 
-  it("falha do banco ou do envio fica só no log e a resposta continua a mesma", async () => {
+  it("limite atingido: avisa que o link já foi enviado e não envia outro", async () => {
+    const { deps, enviar } = dependencias(vi.fn().mockResolvedValue({ limitado: true }));
+    const r = resposta();
+    await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r, deps);
+    expect([r.statusCode, r.corpo]).toEqual([200, { ok: true, resultado: "limitado" }]);
+    expect(enviar).not.toHaveBeenCalled();
+  });
+
+  it("a resposta nunca traz o link nem os e-mails da inscrição", async () => {
+    const { deps } = dependencias(vi.fn().mockResolvedValue(acesso));
+    const r = resposta();
+    await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r, deps);
+    const corpo = JSON.stringify(r.corpo);
+    expect(corpo).not.toContain(TOKEN);
+    expect(corpo).not.toContain("ana@x.com");
+  });
+
+  it("falha do banco ou do envio responde 500, para a pessoa não ficar esperando um e-mail que não saiu", async () => {
     const erro = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const banco = dependencias(vi.fn().mockRejectedValue(new Error("banco fora")));
     const r1 = resposta();
     await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r1, banco.deps);
-    expect([r1.statusCode, r1.corpo]).toEqual([200, { ok: true }]);
+    expect(r1.statusCode).toBe(500);
+    expect(r1.corpo.erro).toContain("Tente novamente");
 
     const email = dependencias(vi.fn().mockResolvedValue(acesso));
     email.enviar.mockRejectedValue(new Error("resend fora"));
     const r2 = resposta();
     await tratarSolicitacaoAcessoMm({ method: "POST", body: { cnpj: "45428188000101" } }, r2, email.deps);
-    expect([r2.statusCode, r2.corpo]).toEqual([200, { ok: true }]);
+    expect(r2.statusCode).toBe(500);
 
     expect(erro).toHaveBeenCalledTimes(2);
   });

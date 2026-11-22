@@ -9,8 +9,12 @@
  * `enviar-email-aprovacao` (`?action=mm-acesso`, ver vercel.json) e, em desenvolvimento, o
  * roteador `server/api.ts`.
  *
+ * A resposta diz o que aconteceu (link enviado, CNPJ sem inscrição ou limite atingido), para quem
+ * ainda não se inscreveu ir direto ao cadastro em vez de esperar um e-mail que não vai chegar. Saber
+ * se um CNPJ está inscrito não é segredo: a consulta de CNPJ do formulário já mostra isso.
+ *
  * Regras de segurança:
- *  - A resposta é sempre a mesma, exista ou não inscrição para o CNPJ (não revela quem está inscrito).
+ *  - O link só vai para os e-mails da inscrição; a resposta nunca traz o link nem os endereços.
  *  - O endereço do link vem de configuração (SITE_URL), nunca do cabeçalho Origin/Host em produção:
  *    se viesse da requisição, alguém poderia pedir um link para o CNPJ de outra empresa e fazer o
  *    e-mail apontar para um site falso.
@@ -97,13 +101,22 @@ export function montarEmailAcesso(acesso: Pick<AcessoMm, "nome" | "razao_social"
   return { assunto, html, texto };
 }
 
-/** Pede o link ao banco e, havendo inscrição e limite disponível, envia o e-mail. Não devolve nada de propósito. */
-export async function processarSolicitacaoAcesso(cnpj: string, deps: DependenciasAcessoMm): Promise<void> {
+/**
+ * enviado: link enviado aos e-mails da inscrição · nao_inscrita: nenhuma inscrição deste CNPJ na edição ativa ·
+ * limitado: já houve pedido há menos de 1 minuto (ou 5 na última hora) e o link anterior continua valendo.
+ */
+export type ResultadoAcessoMm = "enviado" | "nao_inscrita" | "limitado";
+
+/** Pede o link ao banco e, havendo inscrição e limite disponível, envia o e-mail. */
+export async function processarSolicitacaoAcesso(cnpj: string, deps: DependenciasAcessoMm): Promise<ResultadoAcessoMm> {
   const resultado = await deps.solicitar(cnpj);
-  if (!resultado || !("token" in resultado) || !resultado.emails?.length) return;
+  if (!resultado) return "nao_inscrita";
+  if (!("token" in resultado)) return "limitado";
+  if (!resultado.emails?.length) throw new Error("Inscrição sem e-mail para enviar o link de acesso.");
   const link = `${deps.urlBase}/maiores-e-melhores/acesso#${resultado.token}`;
   const { assunto, html, texto } = montarEmailAcesso(resultado, link);
   await deps.enviar({ para: resultado.emails, assunto, html, texto, link });
+  return "enviado";
 }
 
 /** Cliente do banco (service_role) e envio de e-mail (Resend ou SMTP), lidos do ambiente. null = configuração incompleta. */
@@ -122,17 +135,18 @@ export function dependenciasPadrao(req?: any): DependenciasAcessoMm | null {
       return data as AcessoMm | { limitado: true } | null;
     },
     async enviar({ para, assunto, html, texto, link }) {
-      if (!provedorEmail()) {
-        console.warn("Nenhum serviço de e-mail configurado (RESEND_API_KEY ou SMTP): e-mail de acesso do Maiores & Melhores não enviado.");
-        if (process.env.NODE_ENV !== "production") console.log(`[dev] Link de acesso: ${link}`);
+      if (!provedorEmail() && process.env.NODE_ENV !== "production") {
+        // Desenvolvimento sem e-mail configurado: o link aparece no terminal.
+        console.log(`[dev] Link de acesso: ${link}`);
         return;
       }
+      // Em produção, sem provedor configurado, enviarEmailMm lança erro e a pessoa é avisada.
       await enviarEmailMm({ para, assunto, html, texto });
     },
   };
 }
 
-/** Handler HTTP (Vercel e Express): POST { cnpj } → sempre { ok: true } para CNPJ com formato válido. */
+/** Handler HTTP (Vercel e Express): POST { cnpj } → { ok: true, resultado } ou erro. */
 export async function tratarSolicitacaoAcessoMm(req: any, res: any, deps?: DependenciasAcessoMm | null) {
   if (req.method !== "POST") return res.status(405).json({ erro: "Método não permitido." });
 
@@ -156,10 +170,11 @@ export async function tratarSolicitacaoAcessoMm(req: any, res: any, deps?: Depen
   }
 
   try {
-    await processarSolicitacaoAcesso(cnpj, dependencias);
+    const resultado = await processarSolicitacaoAcesso(cnpj, dependencias);
+    return res.json({ ok: true, resultado });
   } catch (erro) {
-    // O erro fica no log do servidor; quem pediu recebe a mesma resposta de sempre.
+    // Falhou o banco ou o envio: avisa, para a pessoa não ficar esperando um e-mail que não saiu.
     console.error("Maiores & Melhores: falha ao enviar o link de acesso:", erro);
+    return res.status(500).json({ erro: "Não foi possível enviar o link agora. Tente novamente em instantes." });
   }
-  return res.json({ ok: true });
 }

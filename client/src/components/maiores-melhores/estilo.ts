@@ -35,6 +35,8 @@ export const mm = {
   checkbox: "mt-0.5 w-[18px] h-[18px] flex-none accent-[#5c2686]",
   sucesso: "px-4 py-3 rounded-lg mb-4 bg-[#e3f3e8] text-[#205c39]",
   falha: "px-4 py-3 rounded-lg bg-[#fbe8ee] text-[#84243f]",
+  /** Orientação (nem sucesso nem erro): por exemplo, "faça a inscrição abaixo". */
+  info: "px-4 py-3 rounded-lg border border-[#e2d5ec] bg-[#f5f0f8] text-[#4b1f6e]",
   acoes: "flex gap-2 flex-wrap mt-3",
   sobrancelha: "uppercase tracking-[0.14em] text-[0.82rem] font-extrabold mb-3",
 } as const;

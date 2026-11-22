@@ -92,9 +92,11 @@ interface Props {
   aoSalvar: (dados: DadosInscricao) => Promise<boolean>;
   aoErro: (mensagem: string) => void;
   aoCancelar?: () => void;
+  /** Inscrição nova: CNPJ já digitado em "Já inscreveu sua empresa?" (sem inscrição encontrada). */
+  cnpjInicial?: string;
 }
 
-export function FormularioInscricao({ participante, empresa, token, temNegocios = false, aoSalvar, aoErro, aoCancelar }: Props) {
+export function FormularioInscricao({ participante, empresa, token, temNegocios = false, aoSalvar, aoErro, aoCancelar, cnpjInicial }: Props) {
   const edicao = !!empresa;
   const [categoria, setCategoria] = useState<Categoria>(empresa?.categoria ?? "afro");
   const [responsavel, setResponsavel] = useState(empresa?.responsavel ?? participante.nome);
@@ -118,6 +120,12 @@ export function FormularioInscricao({ participante, empresa, token, temNegocios 
   const refUf = useRef<HTMLSelectElement>(null);
   const ultimoCnpj = useRef("");
   const pedidoCnpj = useRef(0);
+
+  // CNPJ trazido de "Já inscreveu sua empresa?": já busca os dados dele ao abrir o formulário.
+  useEffect(() => {
+    if (!edicao && cnpjInicial) void buscarDadosCnpj(cnpjInicial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function buscarDadosCnpj(valor: string) {
     if (edicao) return; // o CNPJ de uma inscrição salva não muda
@@ -316,7 +324,7 @@ export function FormularioInscricao({ participante, empresa, token, temNegocios 
           <input
             name="cnpj"
             readOnly={edicao}
-            defaultValue={empresa ? formatarCnpj(empresa.cnpj) : undefined}
+            defaultValue={empresa ? formatarCnpj(empresa.cnpj) : cnpjInicial ? formatarCnpj(cnpjInicial) : undefined}
             placeholder="00.000.000/0000-00"
             maxLength={18}
             autoCapitalize="characters"
