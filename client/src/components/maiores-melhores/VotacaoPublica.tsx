@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { dataVoto, filtrarRanking, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
@@ -93,47 +93,126 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
+  const [etapa, setEtapa] = useState<number>();
+  const [email, setEmail] = useState("");
   const [escolhasDoLink] = useState(() =>
     [...new Set(new URLSearchParams(window.location.search).getAll("concorrente").map((id) => id.toLowerCase()))]
       .filter(Boolean).slice(0, 3));
-  const [escolhas, setEscolhas] = useState(escolhasDoLink);
-  const [atingiuLimite, setAtingiuLimite] = useState(false);
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [verificacao, setVerificacao] = useState(0);
-  const [enviando, setEnviando] = useState(false);
-  const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
-  const [retornoCopia, setRetornoCopia] = useState("");
   const [falhaLeitura, setFalhaLeitura] = useState(false);
   const requisicao = useRef<AbortController | undefined>(undefined);
   const secao = useRef<HTMLElement>(null);
   const carregada = !!dados;
 
   useEffect(() => {
-    if (carregada && window.location.hash === "#votacao") secao.current?.scrollIntoView();
+    if (!carregada) return;
+    const alvo = window.location.hash.slice(1);
+    if (alvo === "votacao") secao.current?.scrollIntoView();
+    else if (alvo.startsWith("votacao-")) secao.current?.scrollIntoView();
   }, [carregada]);
 
-  useEffect(() => {
-    async function atualizar() {
-      requisicao.current?.abort();
-      const controller = new AbortController();
-      requisicao.current = controller;
-      try {
-        const atual = await lerVotacao(evento, controller.signal);
-        if (!controller.signal.aborted) {
-          setDados(atual);
-          setFalhaLeitura(false);
-        }
-      } catch {
-        if (!controller.signal.aborted) setFalhaLeitura(true);
+  const atualizar = useCallback(async () => {
+    requisicao.current?.abort();
+    const controller = new AbortController();
+    requisicao.current = controller;
+    try {
+      const atual = await lerVotacao(evento, controller.signal);
+      if (!controller.signal.aborted) {
+        setDados(atual);
+        setFalhaLeitura(false);
       }
+    } catch {
+      if (!controller.signal.aborted) setFalhaLeitura(true);
     }
+  }, [evento]);
+
+  useEffect(() => {
     void atualizar();
     const timer = window.setInterval(atualizar, 20000);
     return () => { window.clearInterval(timer); requisicao.current?.abort(); };
-  }, [evento]);
+  }, [atualizar]);
 
-  const selecionadas = dados?.ranking.filter((linha) => escolhas.includes(linha.id)) ?? [];
+  if (!dados) return falhaLeitura && escolhasDoLink.length > 0
+    ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
+    : null;
+  const confirmado = dados.estado === "publicada";
+  const agendada = dados.estado === "ativa" && Date.now() < Date.parse(dados.inicio);
+  const etapas = dados.categorias.length;
+  const alvo = window.location.hash.slice(1);
+  const inicioDoLink = dados.categorias.findIndex((categoria) => "votacao-" + categoria.id === alvo);
+  const inicio = inicioDoLink >= 0 ? inicioDoLink : dados.categorias.findIndex((categoria) =>
+    dados.ranking.some((linha) => linha.categoria_id === categoria.id && escolhasDoLink.includes(linha.id)));
+  const atual = etapa ?? Math.max(0, inicio);
+  const categoriaAtual = dados.categorias[atual];
+
+  function irParaEtapa(indice: number) {
+    setEtapa(indice);
+    secao.current?.scrollIntoView();
+  }
+
+  return (
+    <section id="votacao" ref={secao} className={mm.painel + " mb-6 scroll-mt-24"} aria-labelledby="votacao-titulo">
+      <h2 id="votacao-titulo" className={mm.titulo}>Votação popular</h2>
+      <div className="grid gap-5">
+        <p className={mm.dica}>
+          {confirmado ? "Resultado definitivo" : dados.aberta ? "Votação aberta" :
+            dados.estado === "suspensa" ? "Votação suspensa" :
+            agendada ? "Abertura em " + dataVoto.format(new Date(dados.inicio)) : "Votação encerrada"}
+          {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
+        </p>
+        {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
+        {dados.aberta && etapas > 0 && (categoriaAtual ? (
+          <AreaVotacao key={categoriaAtual.id} evento={evento} categoria={categoriaAtual}
+            aberta confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
+            linhas={dados.ranking.filter((linha) => linha.categoria_id === categoriaAtual.id)}
+            atualizar={atualizar} passo={{ numero: atual + 1, total: etapas, avancar: () => irParaEtapa(atual + 1) }} />
+        ) : (
+          <div className={mm.info + " grid gap-3"}>
+            <p role="status">Você chegou ao fim das categorias.</p>
+            <button type="button" className={mm.botaoSecundario + " justify-self-start"}
+              onClick={() => irParaEtapa(0)}>Voltar à primeira categoria</button>
+          </div>
+        ))}
+        {!dados.aberta && dados.categorias.map((categoria) => (
+          <AreaVotacao key={categoria.id} evento={evento} categoria={categoria}
+            aberta={false} confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
+            linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
+            atualizar={atualizar} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, passo }: {
+  evento: string;
+  categoria: Pick<CategoriaVoto, "id" | "nome">;
+  aberta: boolean;
+  confirmado: boolean;
+  escolhasDoLink: string[];
+  email: string;
+  aoMudarEmail(email: string): void;
+  linhas: RankingVoto[];
+  atualizar(): Promise<void>;
+  passo?: { numero: number; total: number; avancar(): void };
+}) {
+  const [escolhas, setEscolhas] = useState(escolhasDoLink);
+  const [atingiuLimite, setAtingiuLimite] = useState(false);
+  const [token, setToken] = useState("");
+  const [verificacao, setVerificacao] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
+  const [retornoCopia, setRetornoCopia] = useState("");
+  const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(0);
+  const [limite, setLimite] = useState(10);
+  const filtradas = filtrarRanking(linhas, busca);
+  const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
+  const paginaAtual = Math.min(pagina, paginas - 1);
+  const inicioPagina = paginaAtual * limite;
+  const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
+  const total = linhas.reduce((soma, linha) => soma + linha.votos, 0);
+
+  const selecionadas = linhas.filter((linha) => escolhas.includes(linha.id));
   const selecionados = selecionadas.map((linha) => linha.id);
   const recebidasDoLink = selecionados.some((id) => escolhasDoLink.includes(id));
 
@@ -145,6 +224,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     }
     setMensagem(undefined);
     setAtingiuLimite(false);
+    if (selecionados.length === 1 && selecionados.includes(linha.id)) setToken("");
     setEscolhas(selecionados.includes(linha.id)
       ? selecionados.filter((id) => id !== linha.id)
       : [...selecionados, linha.id]);
@@ -166,21 +246,13 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
       const link = new URL("/maiores-e-melhores", window.location.origin);
       for (const id of selecionados) link.searchParams.append("concorrente", id);
-      link.hash = "votacao";
+      link.hash = areaId;
       setMensagem({
         erro: false,
         texto: selecionados.length === 1 ? "Voto registrado." : selecionados.length + " votos registrados.",
         link: link.href,
       });
-      requisicao.current?.abort();
-      const controller = new AbortController();
-      requisicao.current = controller;
-      try {
-        const atual = await lerVotacao(evento, controller.signal);
-        if (!controller.signal.aborted) setDados(atual);
-      } catch {
-        if (!controller.signal.aborted) setFalhaLeitura(true);
-      }
+      await atualizar();
     } catch (erro) {
       setMensagem({ erro: true, texto: (erro as Error).message });
     } finally {
@@ -199,103 +271,65 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     }
   }
 
-  if (!dados) return falhaLeitura && escolhasDoLink.length > 0
-    ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
-    : null;
-  const confirmado = dados.estado === "publicada";
-  const agendada = dados.estado === "ativa" && Date.now() < Date.parse(dados.inicio);
+  const areaId = "votacao-" + categoria.id;
+  const tituloId = areaId + "-titulo";
+  const formId = areaId + "-confirmar";
 
   return (
-    <section id="votacao" ref={secao} className={mm.painel + " mb-6 scroll-mt-24"} aria-labelledby="votacao-titulo">
-      <h2 id="votacao-titulo" className={mm.titulo}>Votação popular</h2>
-      <div className="grid gap-5">
-        <p className={mm.dica}>
-          {confirmado ? "Resultado definitivo" : dados.aberta ? "Votação aberta" :
-            dados.estado === "suspensa" ? "Votação suspensa" :
-            agendada ? "Abertura em " + dataVoto.format(new Date(dados.inicio)) : "Votação encerrada"}
-          {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
-        </p>
-        {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {dados.aberta && dados.ranking.length > 0 && <form id="confirmar-votos" onSubmit={votar} className="grid gap-3 scroll-mt-24">
-          {recebidasDoLink && <p className={mm.dica}>
-            O link já trouxe empresas selecionadas. Você pode manter ou alterar a seleção, informar seu e-mail e confirmar.
-          </p>}
-          <div className={mm.grade + " items-end"}>
-            <div className={mm.info}>
-              {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
-                {selecionadas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{linha.nome}
-                    {dados.categorias.length > 1 && <small className="block">{dados.categorias.find((c) => c.id === linha.categoria_id)?.nome}</small>}
-                  </span>
-                  <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
-                    aria-label={"Remover " + linha.nome} onClick={() => escolher(linha)}>Remover</button>
-                </li>)}
-              </ul> : <p>Escolha até 3 empresas no ranking para votar.</p>}
-            </div>
-            <label className={mm.rotulo}>Seu e-mail
-              <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
-                value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-          </div>
-          <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
-          <Verificacao key={verificacao} aoValidar={setToken} />
-          <button className={mm.botao + " justify-self-start"} disabled={!selecionados.length || !token || enviando} type="submit">
-            {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
-          </button>
-        </form>}
-        {mensagem && (mensagem.erro
-          ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
-          : <div className={mm.sucesso + " grid gap-3"}>
-            <p role="status">{mensagem.texto}</p>
-            <p>Compartilhe sua seleção para outras pessoas votarem nas mesmas empresas.</p>
-            <div className="flex flex-wrap items-end gap-2">
-              <label className={mm.rotulo + " flex-1 min-w-52"}>Link para compartilhar
-                <input className={mm.campo} type="url" readOnly value={mensagem.link}
-                  onFocus={(e) => e.currentTarget.select()} />
-              </label>
-              <button type="button" className={mm.botaoSecundario}
-                onClick={() => void copiarLink(mensagem.link)}>Copiar link</button>
-            </div>
-            {retornoCopia && <p role="status">{retornoCopia}</p>}
-          </div>)}
-        <h3 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h3>
-        {dados.aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
-          {atingiuLimite ? "Limite de 3 empresas. Remova uma seleção para escolher outra." : selecionados.length + " de 3 empresas selecionadas"}
+    <section id={areaId} aria-labelledby={tituloId} className="grid gap-5 border-t border-[#e6dfec] pt-6 scroll-mt-24">
+      {passo && <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={mm.dica}>Etapa {passo.numero} de {passo.total}</p>
+        {mensagem?.erro !== false && <button type="button" className={mm.botaoSecundario}
+          disabled={enviando} onClick={passo.avancar}>Pular categoria</button>}
+      </div>}
+      <h3 id={tituloId} className={mm.titulo + " mb-0 text-[#5c2686]"}>{categoria.nome}</h3>
+      {aberta && linhas.length > 0 && <form id={formId} onSubmit={votar} className="grid gap-3 scroll-mt-24">
+        {recebidasDoLink && <p className={mm.dica}>
+          O link já trouxe empresas selecionadas. Você pode manter ou alterar a seleção, informar seu e-mail e confirmar.
         </p>}
-        <div className={"grid items-start gap-4 " + (dados.categorias.length > 1 ? "lg:grid-cols-3" : "")}>
-          {dados.categorias.map((categoria) => (
-            <RankingCategoria key={categoria.id} categoria={categoria}
-              linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
-              selecionados={selecionados} aoVotar={dados.aberta ? escolher : undefined} />
-          ))}
+        <div className={mm.grade + " items-end"}>
+          <div className={mm.info}>
+            {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
+              {selecionadas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{linha.nome}</span>
+                <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
+                  aria-label={"Remover " + linha.nome} onClick={() => escolher(linha)}>Remover</button>
+              </li>)}
+            </ul> : <p>Escolha até 3 empresas no ranking para votar.</p>}
+          </div>
+          <label className={mm.rotulo}>Seu e-mail
+            <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
+              value={email} onChange={(e) => aoMudarEmail(e.target.value)} />
+          </label>
         </div>
-        {dados.aberta && selecionados.length > 0 &&
-          <a className={mm.botaoSecundario + " justify-self-start"} href="#confirmar-votos">Ir para confirmação</a>}
-      </div>
-    </section>
-  );
-}
-
-function RankingCategoria({ categoria, linhas, selecionados, aoVotar }: {
-  categoria: Pick<CategoriaVoto, "id" | "nome">;
-  linhas: RankingVoto[];
-  selecionados: string[];
-  aoVotar?: (linha: RankingVoto) => void;
-}) {
-  const [busca, setBusca] = useState("");
-  const [pagina, setPagina] = useState(0);
-  const [limite, setLimite] = useState(10);
-  const filtradas = filtrarRanking(linhas, busca);
-  const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
-  const paginaAtual = Math.min(pagina, paginas - 1);
-  const inicioPagina = paginaAtual * limite;
-  const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
-  const total = linhas.reduce((soma, linha) => soma + linha.votos, 0);
-  const tituloId = "ranking-" + categoria.id;
-
-  return (
-    <section aria-labelledby={tituloId} className="grid min-w-0 gap-4 rounded-xl border border-[#e6dfec] bg-[#fbf8fc] p-4">
-      <h4 id={tituloId} className="font-bold text-[#5c2686]">{categoria.nome}</h4>
+        <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
+        {selecionados.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
+        <button className={mm.botao + " justify-self-start"} disabled={!selecionados.length || !token || enviando} type="submit">
+          {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
+        </button>
+      </form>}
+      {mensagem && (mensagem.erro
+        ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
+        : <div className={mm.sucesso + " grid gap-3"}>
+          <p role="status">{mensagem.texto}</p>
+          <p>Compartilhe sua seleção para outras pessoas votarem nas mesmas empresas.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className={mm.rotulo + " flex-1 min-w-52"}>Link para compartilhar
+              <input className={mm.campo} type="url" readOnly value={mensagem.link}
+                onFocus={(e) => e.currentTarget.select()} />
+            </label>
+            <button type="button" className={mm.botaoSecundario}
+              onClick={() => void copiarLink(mensagem.link)}>Copiar link</button>
+          </div>
+          {retornoCopia && <p role="status">{retornoCopia}</p>}
+          {passo && <button type="button" className={mm.botao + " justify-self-start"} onClick={passo.avancar}>
+            {passo.numero === passo.total ? "Concluir votação" : "Próxima categoria"}
+          </button>}
+        </div>)}
+      <h4 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h4>
+      {aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
+        {atingiuLimite ? "Limite de 3 empresas. Remova uma seleção para escolher outra." : selecionados.length + " de 3 empresas selecionadas"}
+      </p>}
       <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className={mm.rotulo + " flex-1 min-w-52"}>Pesquisar empresa
@@ -309,7 +343,7 @@ function RankingCategoria({ categoria, linhas, selecionados, aoVotar }: {
         </label>
       </div>
       {filtradas.length ? <>
-        <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={aoVotar} />
+        <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={aberta ? escolher : undefined} />
         <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
           <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
             onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>
@@ -320,6 +354,8 @@ function RankingCategoria({ categoria, linhas, selecionados, aoVotar }: {
       </> : <p role="status" className={mm.dica}>
         {busca.trim() ? "Nenhuma empresa encontrada para essa pesquisa." : "Nenhum empreendimento no ranking."}
       </p>}
+      {aberta && selecionados.length > 0 &&
+        <a className={mm.botaoSecundario + " justify-self-start"} href={"#" + formId}>Ir para confirmação</a>}
     </section>
   );
 }
