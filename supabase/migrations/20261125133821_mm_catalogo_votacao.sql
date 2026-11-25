@@ -22,7 +22,7 @@ begin
   with categorias as (
     insert into public.mm_voto_categorias(evento_id, nome, catalogo)
       values
-        (p_evento, 'Empreendimentos da plataforma', true),
+        (p_evento, 'Empresas ou Iniciativas Inclusivas Mais Admiradas', true),
         (p_evento, 'Empreendimentos de Mulheres Negras Mais Admirados', true),
         (p_evento, 'Empreendimentos de Homens Negros Mais Admirados', true)
       on conflict (evento_id, nome) do update set catalogo = true
@@ -43,11 +43,13 @@ begin
     select e.id, coalesce(nullif(trim(e.nome_fantasia), ''), nullif(trim(e.razao_social), ''), nullif(trim(e.nome), '')) as nome,
       nullif(trim(e.razao_social), '') as razao_social,
       coalesce(nullif(trim(e.nome_responsavel), ''), 'Cadastro da plataforma') as responsavel,
-      r.tem_mulher, r.tem_homem
+      r.tem_mulher, r.tem_homem,
+      'EMPRESA OU INICIATIVA INCENTIVADORA' = any (
+        regexp_split_to_array(upper(trim(coalesce(e.acesso_tipo, ''))), '[[:space:]]*,[[:space:]]*')
+      ) as incentivadora
     from public.empresas e
     left join recortes r on r.empresa_id = e.id
     where lower(coalesce(trim(e.tipo_usuario), 'empresa')) <> 'adm'
-      and coalesce(e.acesso_tipo, '') not ilike '%EMPRESA OU INICIATIVA INCENTIVADORA%'
   ), sincronizados as (
     insert into public.mm_voto_concorrentes (
       evento_id, categoria_id, empresa_origem_id, nome, razao_social, responsavel, descricao, cidade, uf, publicado
@@ -55,9 +57,10 @@ begin
     select p_evento, c.id, e.id, left(e.nome, 150), e.razao_social, e.responsavel, '', '', '', true
     from elegiveis e cross join categorias c
     where e.nome is not null and case c.nome
-      when 'Empreendimentos de Mulheres Negras Mais Admirados' then e.tem_mulher
-      when 'Empreendimentos de Homens Negros Mais Admirados' then e.tem_homem
-      else true end
+      when 'Empresas ou Iniciativas Inclusivas Mais Admiradas' then e.incentivadora
+      when 'Empreendimentos de Mulheres Negras Mais Admirados' then not e.incentivadora and e.tem_mulher
+      when 'Empreendimentos de Homens Negros Mais Admirados' then not e.incentivadora and e.tem_homem
+      end
     on conflict (categoria_id, empresa_origem_id) do update
       set nome = excluded.nome, razao_social = excluded.razao_social, responsavel = excluded.responsavel, publicado = true
     returning categoria_id, empresa_origem_id

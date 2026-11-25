@@ -42,7 +42,7 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       if (!votacao || votacao.estado === "rascunho") return res.json(null);
 
       const categorias = await banco.from("mm_voto_categorias").select("id,nome,catalogo,ativa")
-        .eq("evento_id", evento).order("nome");
+        .eq("evento_id", evento).order("nome", { ascending: false });
       if (categorias.error) throw categorias.error;
       const catalogo = categorias.data.filter((categoria) => categoria.catalogo);
       const publicas = (catalogo.length ? catalogo : categorias.data).filter((categoria) => categoria.ativa);
