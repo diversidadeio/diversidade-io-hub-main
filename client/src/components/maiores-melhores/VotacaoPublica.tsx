@@ -94,7 +94,9 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
   const [categoria, setCategoria] = useState("");
-  const [concorrente, setConcorrente] = useState(() => new URLSearchParams(window.location.search).get("concorrente") || "");
+  const [linkConcorrente] = useState(() => new URLSearchParams(window.location.search).get("concorrente"));
+  const [escolhas, setEscolhas] = useState<string[]>(() => linkConcorrente ? [linkConcorrente] : []);
+  const [atingiuLimite, setAtingiuLimite] = useState(false);
   const [email, setEmail] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(0);
@@ -106,7 +108,6 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const [falhaLeitura, setFalhaLeitura] = useState(false);
   const requisicao = useRef<AbortController | undefined>(undefined);
   const secao = useRef<HTMLElement>(null);
-  const campoEmail = useRef<HTMLInputElement>(null);
   const carregada = !!dados;
 
   useEffect(() => {
@@ -134,10 +135,11 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   }, [evento]);
 
   const categoriaAtual = dados?.categorias.find((c) => c.id === categoria)
-    ?? dados?.categorias.find((c) => c.id === dados.ranking.find((r) => r.id === concorrente)?.categoria_id)
+    ?? dados?.categorias.find((c) => c.id === dados.ranking.find((r) => r.id === linkConcorrente)?.categoria_id)
     ?? dados?.categorias[0];
   const linhas = dados?.ranking.filter((r) => r.categoria_id === categoriaAtual?.id) ?? [];
-  const selecionado = linhas.some((r) => r.id === concorrente) ? concorrente : "";
+  const selecionadas = dados?.ranking.filter((linha) => escolhas.includes(linha.id)) ?? [];
+  const selecionados = selecionadas.map((linha) => linha.id);
   const filtradas = filtrarRanking(linhas, busca);
   const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
   const paginaAtual = Math.min(pagina, paginas - 1);
@@ -145,26 +147,32 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
 
   function escolher(linha: RankingVoto) {
-    setCategoria(linha.categoria_id);
-    setConcorrente(linha.id);
+    if (enviando) return;
+    if (!selecionados.includes(linha.id) && selecionados.length >= 3) {
+      setAtingiuLimite(true);
+      return;
+    }
     setMensagem(undefined);
-    campoEmail.current?.focus();
+    setAtingiuLimite(false);
+    setEscolhas(selecionados.includes(linha.id)
+      ? selecionados.filter((id) => id !== linha.id)
+      : [...selecionados, linha.id]);
   }
 
   async function votar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!token || !selecionado || enviando) return;
+    if (!token || !selecionados.length || enviando) return;
     setEnviando(true);
     setMensagem(undefined);
     try {
       const resposta = await fetch(rota, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ evento, concorrente: selecionado, email, token }),
+        body: JSON.stringify({ evento, concorrentes: selecionados, email, token }),
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
-      setMensagem({ erro: false, texto: "Voto registrado." });
+      setMensagem({ erro: false, texto: selecionados.length === 1 ? "Voto registrado." : selecionados.length + " votos registrados." });
       requisicao.current?.abort();
       const controller = new AbortController();
       requisicao.current = controller;
@@ -183,7 +191,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     }
   }
 
-  if (!dados) return falhaLeitura && concorrente
+  if (!dados) return falhaLeitura && linkConcorrente
     ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
     : null;
   const confirmado = dados.estado === "publicada";
@@ -204,25 +212,31 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
         {categoriaAtual && dados.categorias.length > 1 && <label className={mm.rotulo}>Categoria
           <select className={mm.campo} value={categoriaAtual.id} onChange={(e) => {
             setCategoria(e.target.value);
-            setConcorrente("");
             setPagina(0);
           }}>
             {dados.categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         </label>}
-        {dados.aberta && linhas.length > 0 && <form onSubmit={votar} className="grid gap-3">
+        {dados.aberta && (linhas.length > 0 || selecionadas.length > 0) && <form onSubmit={votar} className="grid gap-3">
           <div className={mm.grade + " items-end"}>
-            <p className={mm.info}>{linhas.find((linha) => linha.id === selecionado)?.nome
-              ?? "Escolha um empreendimento no ranking para votar."}</p>
+            <div className={mm.info}>
+              {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
+                {selecionadas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{linha.nome}</span>
+                  <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
+                    aria-label={"Remover " + linha.nome} onClick={() => escolher(linha)}>Remover</button>
+                </li>)}
+              </ul> : <p>Escolha até 3 empresas no ranking para votar.</p>}
+            </div>
             <label className={mm.rotulo}>Seu e-mail
-              <input ref={campoEmail} className={mm.campo} type="email" autoComplete="email" maxLength={254} required
+              <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
                 value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
           </div>
           <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
           <Verificacao key={verificacao} aoValidar={setToken} />
-          <button className={mm.botao + " justify-self-start"} disabled={!selecionado || !token || enviando} type="submit">
-            {enviando ? "Registrando…" : "Confirmar voto"}
+          <button className={mm.botao + " justify-self-start"} disabled={!selecionados.length || !token || enviando} type="submit">
+            {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
           </button>
         </form>}
         {mensagem && <p role={mensagem.erro ? "alert" : "status"} className={mensagem.erro ? mm.falha : mm.sucesso}>
@@ -230,6 +244,9 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
         </p>}
         <h3 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h3>
         <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
+        {dados.aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
+          {atingiuLimite ? "Limite de 3 empresas. Remova uma seleção para escolher outra." : selecionados.length + " de 3 empresas selecionadas"}
+        </p>}
         <div className="flex flex-wrap items-end gap-3">
           <label className={mm.rotulo + " flex-1 min-w-52"}>Pesquisar empresa
             <input className={mm.campo} type="search" value={busca} placeholder="Nome da empresa ou razão social"
@@ -242,7 +259,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           </label>
         </div>
         {filtradas.length ? <>
-          <RankingVotacao linhas={visiveis} selecionado={selecionado} aoVotar={dados.aberta ? escolher : undefined} />
+          <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={dados.aberta ? escolher : undefined} />
           <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
             <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
               onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>

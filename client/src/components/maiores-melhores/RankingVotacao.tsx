@@ -3,10 +3,10 @@ import { mm } from "./estilo";
 
 const percentual = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 2 });
 
-export function RankingVotacao({ linhas, aoVotar, selecionado }: {
+export function RankingVotacao({ linhas, aoVotar, selecionados }: {
   linhas: RankingVoto[];
   aoVotar?: (linha: RankingVoto) => void;
-  selecionado?: string;
+  selecionados?: readonly string[];
 }) {
   if (!linhas.length) return <p className={mm.dica}>Nenhum concorrente publicado nesta categoria.</p>;
   return (
@@ -17,7 +17,7 @@ export function RankingVotacao({ linhas, aoVotar, selecionado }: {
         const instagram = urlPublica(linha.instagram);
         const local = [linha.cidade, linha.uf].filter(Boolean).join(" / ");
         const nivel = Math.max(0, Math.min(100, linha.percentual));
-        const marcada = linha.id === selecionado;
+        const marcada = selecionados?.includes(linha.id) ?? false;
         return (
           <li key={linha.id} className={mm.cartao + " relative isolate overflow-hidden " +
             (marcada ? "ring-2 ring-[#8054a5]" : aoVotar ? "hover:border-[#b393cc]" : "")}>

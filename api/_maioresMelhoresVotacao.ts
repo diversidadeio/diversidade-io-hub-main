@@ -66,12 +66,14 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       });
     }
 
-    const { evento, concorrente, email, token } = (req.body ?? {}) as Record<string, unknown>;
+    const { evento, concorrentes, email, token } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof evento !== "string" || !UUID.test(evento)
-      || typeof concorrente !== "string" || !UUID.test(concorrente)
+      || !Array.isArray(concorrentes) || concorrentes.length < 1 || concorrentes.length > 3
+      || !concorrentes.every((id: unknown) => typeof id === "string" && UUID.test(id))
+      || new Set(concorrentes.map((id: string) => id.toLowerCase())).size !== concorrentes.length
       || typeof email !== "string" || email.length > 254 || !EMAIL.test(email.trim())
       || typeof token !== "string" || token.length === 0 || token.length > 2048) {
-      return res.status(400).json({ erro: "Confira o concorrente, o e-mail e a verificação." });
+      return res.status(400).json({ erro: "Selecione de 1 a 3 empresas e confira o e-mail e a verificação." });
     }
 
     const secret = process.env.MM_TURNSTILE_SECRET_KEY;
@@ -88,14 +90,14 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       return res.status(422).json({ erro: "Refaça a verificação de segurança e tente novamente." });
     }
 
-    const resultado = await banco.rpc("mm_registrar_voto", {
+    const resultado = await banco.rpc("mm_registrar_lote_votos", {
       p_evento: evento,
-      p_concorrente: concorrente,
+      p_concorrentes: concorrentes,
       p_email: email.trim().toLowerCase(),
       p_comprovante: createHash("sha256").update(token).digest("hex"),
     });
     if (resultado.error) throw resultado.error;
-    if (!resultado.data) return res.status(409).json({ erro: "Este concorrente ou a votação está indisponível." });
+    if (!resultado.data) return res.status(409).json({ erro: "Confira as empresas selecionadas e se a votação continua aberta." });
     return res.status(201).json({ sucesso: true });
   } catch (erro) {
     const codigo = (erro as { code?: string })?.code;
