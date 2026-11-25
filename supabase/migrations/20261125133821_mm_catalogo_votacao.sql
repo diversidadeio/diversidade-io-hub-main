@@ -40,7 +40,7 @@ begin
     select empresa_id, bool_or(genero = 'mulher') as tem_mulher, bool_or(genero = 'homem') as tem_homem
     from quadro group by empresa_id
   ), elegiveis as materialized (
-    select e.id, coalesce(nullif(trim(e.nome_fantasia), ''), nullif(trim(e.razao_social), ''), nullif(trim(e.nome), '')) as nome,
+    select e.id, coalesce(nullif(trim(e.nome_fantasia), ''), nullif(trim(e.razao_social), '')) as nome,
       nullif(trim(e.razao_social), '') as razao_social,
       coalesce(nullif(trim(e.nome_responsavel), ''), 'Cadastro da plataforma') as responsavel,
       r.tem_mulher, r.tem_homem,
