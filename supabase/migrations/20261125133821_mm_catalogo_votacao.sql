@@ -1,8 +1,5 @@
 begin;
 
-create unique index mm_voto_categoria_catalogo_idx
-  on public.mm_voto_categorias(evento_id) where catalogo;
-
 alter table public.mm_voto_concorrentes
   add column empresa_origem_id uuid,
   drop constraint mm_voto_concorrentes_descricao_check,
@@ -15,8 +12,6 @@ alter table public.mm_voto_concorrentes
 
 create function public.mm_atualizar_catalogo_votacao(p_evento uuid) returns void
 language plpgsql set search_path = '' as $$
-declare
-  categoria uuid;
 begin
   perform 1 from public.mm_votacoes
     where evento_id = p_evento and estado <> 'publicada' for update;
@@ -24,38 +19,53 @@ begin
     raise exception 'Catálogo indisponível para atualização nesta edição.';
   end if;
 
-  select id into categoria from public.mm_voto_categorias
-    where evento_id = p_evento and catalogo;
-  if categoria is null then
+  with categorias as (
     insert into public.mm_voto_categorias(evento_id, nome, catalogo)
-      values (p_evento, 'Empreendimentos da plataforma', true)
-      on conflict (evento_id) where catalogo do nothing
-      returning id into categoria;
-    if categoria is null then
-      select id into categoria from public.mm_voto_categorias where evento_id = p_evento and catalogo;
-    end if;
-  end if;
-
-  with elegiveis as materialized (
+      values
+        (p_evento, 'Empreendimentos da plataforma', true),
+        (p_evento, 'Empreendimentos de Mulheres Negras Mais Admirados', true),
+        (p_evento, 'Empreendimentos de Homens Negros Mais Admirados', true)
+      on conflict (evento_id, nome) do update set catalogo = true
+      returning id, nome
+  ), quadro as (
+    select empresa_id, case
+      when lower(trim(genero)) ~ '^(mulher([[:space:]]|$)|feminino$)' then 'mulher'
+      when lower(trim(genero)) ~ '^(homem([[:space:]]|$)|masculino$)' then 'homem'
+      when coalesce(lower(trim(genero)), '') in ('', 'não informado', 'nao informado') then
+        case lower(trim(sexo)) when 'feminino' then 'mulher' when 'masculino' then 'homem' end
+      end as genero
+    from public.socios
+    where lower(trim(raca)) in ('preto', 'preta', 'pardo', 'parda', 'negro', 'negra')
+  ), recortes as (
+    select empresa_id, bool_or(genero = 'mulher') as tem_mulher, bool_or(genero = 'homem') as tem_homem
+    from quadro group by empresa_id
+  ), elegiveis as materialized (
     select e.id, coalesce(nullif(trim(e.nome_fantasia), ''), nullif(trim(e.razao_social), ''), nullif(trim(e.nome), '')) as nome,
       nullif(trim(e.razao_social), '') as razao_social,
-      coalesce(nullif(trim(e.nome_responsavel), ''), 'Cadastro da plataforma') as responsavel
+      coalesce(nullif(trim(e.nome_responsavel), ''), 'Cadastro da plataforma') as responsavel,
+      r.tem_mulher, r.tem_homem
     from public.empresas e
+    left join recortes r on r.empresa_id = e.id
     where lower(coalesce(trim(e.tipo_usuario), 'empresa')) <> 'adm'
       and coalesce(e.acesso_tipo, '') not ilike '%EMPRESA OU INICIATIVA INCENTIVADORA%'
   ), sincronizados as (
     insert into public.mm_voto_concorrentes (
       evento_id, categoria_id, empresa_origem_id, nome, razao_social, responsavel, descricao, cidade, uf, publicado
     )
-    select p_evento, categoria, id, left(nome, 150), razao_social, responsavel, '', '', '', true
-    from elegiveis where nome is not null
+    select p_evento, c.id, e.id, left(e.nome, 150), e.razao_social, e.responsavel, '', '', '', true
+    from elegiveis e cross join categorias c
+    where e.nome is not null and case c.nome
+      when 'Empreendimentos de Mulheres Negras Mais Admirados' then e.tem_mulher
+      when 'Empreendimentos de Homens Negros Mais Admirados' then e.tem_homem
+      else true end
     on conflict (categoria_id, empresa_origem_id) do update
       set nome = excluded.nome, razao_social = excluded.razao_social, responsavel = excluded.responsavel, publicado = true
-    returning empresa_origem_id
+    returning categoria_id, empresa_origem_id
   )
   update public.mm_voto_concorrentes c set publicado = false
-  where c.categoria_id = categoria and c.empresa_origem_id is not null and c.publicado
-    and not exists (select 1 from sincronizados s where s.empresa_origem_id = c.empresa_origem_id);
+  where c.categoria_id in (select id from categorias) and c.publicado
+    and not exists (select 1 from sincronizados s
+      where s.categoria_id = c.categoria_id and s.empresa_origem_id = c.empresa_origem_id);
 end;
 $$;
 

@@ -44,8 +44,8 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       const categorias = await banco.from("mm_voto_categorias").select("id,nome,catalogo,ativa")
         .eq("evento_id", evento).order("nome");
       if (categorias.error) throw categorias.error;
-      const geral = categorias.data.find((categoria) => categoria.catalogo);
-      const publicas = (geral ? [geral] : categorias.data).filter((categoria) => categoria.ativa);
+      const catalogo = categorias.data.filter((categoria) => categoria.catalogo);
+      const publicas = (catalogo.length ? catalogo : categorias.data).filter((categoria) => categoria.ativa);
       const ranking = [];
       for (let offset = 0; publicas.length; offset += 500) {
         const pagina = await banco.from("mm_voto_ranking").select("*").eq("evento_id", evento)
