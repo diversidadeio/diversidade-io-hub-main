@@ -68,12 +68,12 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
 
     const { evento, concorrentes, email, token } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof evento !== "string" || !UUID.test(evento)
-      || !Array.isArray(concorrentes) || concorrentes.length < 1 || concorrentes.length > 3
+      || !Array.isArray(concorrentes) || concorrentes.length < 1 || concorrentes.length > 9
       || !concorrentes.every((id: unknown) => typeof id === "string" && UUID.test(id))
       || new Set(concorrentes.map((id: string) => id.toLowerCase())).size !== concorrentes.length
       || typeof email !== "string" || email.length > 254 || !EMAIL.test(email.trim())
       || typeof token !== "string" || token.length === 0 || token.length > 2048) {
-      return res.status(400).json({ erro: "Selecione de 1 a 3 empresas e confira o e-mail e a verificação." });
+      return res.status(400).json({ erro: "Selecione até 3 empresas por categoria e confira o e-mail e a verificação." });
     }
 
     const secret = process.env.MM_TURNSTILE_SECRET_KEY;

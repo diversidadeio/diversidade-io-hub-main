@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { dataVoto, filtrarRanking, ROTA_VOTACAO_MM, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
@@ -94,11 +94,12 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
   const [etapa, setEtapa] = useState<number>();
-  const [registrouVoto, setRegistrouVoto] = useState(false);
   const [email, setEmail] = useState("");
   const [escolhasDoLink] = useState(() =>
     [...new Set(new URLSearchParams(window.location.search).getAll("concorrente").map((id) => id.toLowerCase()))]
-      .filter(Boolean).slice(0, 3));
+      .filter(Boolean).slice(0, 9));
+  const [escolhas, setEscolhas] = useState(escolhasDoLink);
+  const [confirmando, setConfirmando] = useState(false);
   const [falhaLeitura, setFalhaLeitura] = useState(false);
   const requisicao = useRef<AbortController | undefined>(undefined);
   const secao = useRef<HTMLElement>(null);
@@ -145,10 +146,25 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const inicio = inicioDoLink >= 0 ? inicioDoLink : dados.categorias.findIndex((categoria) =>
     dados.ranking.some((linha) => linha.categoria_id === categoria.id && escolhasDoLink.includes(linha.id)));
   const atual = etapa ?? Math.max(0, inicio);
+  const selecionadas = dados.categorias.flatMap((categoria) =>
+    dados.ranking.filter((linha) => linha.categoria_id === categoria.id && escolhas.includes(linha.id)).slice(0, 3));
+  const selecionados = selecionadas.map((linha) => linha.id);
+  const ultimaEtapa = atual === etapas - 1;
 
   function irParaEtapa(indice: number) {
     setEtapa(indice);
     secao.current?.scrollIntoView();
+  }
+
+  function alternarEscolha(id: string) {
+    setEscolhas(selecionados.includes(id) ? selecionados.filter((atualId) => atualId !== id) : [...selecionados, id]);
+  }
+
+  function pularCategoria(categoriaId: string) {
+    const outras = selecionadas.filter((linha) => linha.categoria_id !== categoriaId);
+    setEscolhas(outras.map((linha) => linha.id));
+    if (!ultimaEtapa || !outras.length) irParaEtapa(atual + 1);
+    else document.getElementById("confirmar-votos")?.scrollIntoView();
   }
 
   return (
@@ -162,10 +178,10 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
         </p>
         {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {dados.aberta && etapas > 0 && atual < etapas && <p className="mx-auto max-w-2xl text-center text-[#62566f]">
-          A votação tem {etapas} categorias. Em cada uma, escolha até 3 empresas e confirme seus votos.
-          Se preferir seguir sem votar, clique em <strong>Pular categoria</strong>. No final, você verá se seus votos foram registrados.
-        </p>}
+        {dados.aberta && etapas > 0 && atual < etapas && <div className="grid gap-2 text-left leading-relaxed text-[#62566f]">
+          <p>A votação tem <strong>{etapas} categorias</strong>. Escolha até 3 empresas em cada uma ou clique em <strong>Pular categoria</strong>.</p>
+          <p>Na última etapa, revise suas escolhas, informe seu e-mail e confirme todos os votos de uma vez.</p>
+        </div>}
         {dados.aberta && etapas > 0 && <div className="sticky top-0 z-30 grid justify-items-center gap-3 rounded-xl border border-[#e6dfec] bg-[#fbf8fc] px-4 py-3">
           <ol className="flex items-center gap-2" aria-label="Etapas da votação">
             {dados.categorias.map((categoria, indice) => (
@@ -189,22 +205,30 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
         {dados.aberta && etapas > 0 && atual >= etapas && (
           <div className={mm.info + " grid gap-3"}>
             <p role="status" className="font-bold">Você chegou ao fim das categorias.</p>
-            <p>{registrouVoto ? "Seus votos foram registrados nas categorias em que você confirmou a seleção."
-              : "Se quiser participar, clique em Voltar para escolher uma categoria."}</p>
+            <p>Para fazer uma seleção, clique em Voltar.</p>
             <button type="button" className={mm.botaoSecundario + " justify-self-start"}
               onClick={() => irParaEtapa(etapas - 1)}>Voltar</button>
           </div>
         )}
         {dados.categorias.map((categoria, indice) => (
           <div key={categoria.id} hidden={dados.aberta && indice !== atual}>
-            <AreaVotacao evento={evento} categoria={categoria} visivel={!dados.aberta || indice === atual}
-              aberta={dados.aberta} confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
+            <AreaVotacao categoria={categoria} aberta={dados.aberta} confirmado={confirmado}
               linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
-              atualizar={atualizar} aoRegistrarVoto={() => setRegistrouVoto(true)} passo={dados.aberta ? {
-                ultimo: indice + 1 === etapas,
-                avancar: () => irParaEtapa(indice + 1),
-                voltar: indice > 0 ? () => irParaEtapa(indice - 1) : undefined,
-              } : undefined} />
+              selecionadas={selecionadas.filter((linha) => linha.categoria_id === categoria.id)}
+              aoEscolher={alternarEscolha} confirmando={confirmando}>
+              {dados.aberta && indice === atual && <>
+                {ultimaEtapa ? <ConfirmacaoFinal evento={evento} categorias={dados.categorias}
+                  selecionadas={selecionadas} escolhasDoLink={escolhasDoLink}
+                  email={email} aoAlterarEmail={setEmail} aoRemover={alternarEscolha} aoEnviar={setConfirmando} atualizar={atualizar}
+                  voltar={() => irParaEtapa(atual - 1)} pular={() => pularCategoria(categoria.id)} />
+                : <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className={mm.botao} onClick={() => irParaEtapa(atual + 1)}>Próxima categoria</button>
+                  {atual > 0 && <button type="button" className={mm.botaoSecundario}
+                    onClick={() => irParaEtapa(atual - 1)}>Voltar</button>}
+                  <button type="button" className={mm.botaoSecundario} onClick={() => pularCategoria(categoria.id)}>Pular categoria</button>
+                </div>}
+              </>}
+            </AreaVotacao>
           </div>
         ))}
       </div>
@@ -212,160 +236,43 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   );
 }
 
-function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, aoRegistrarVoto, passo }: {
-  evento: string;
+function AreaVotacao({ categoria, aberta, confirmado, linhas, selecionadas, aoEscolher, confirmando, children }: {
   categoria: Pick<CategoriaVoto, "id" | "nome">;
-  visivel: boolean;
   aberta: boolean;
   confirmado: boolean;
-  escolhasDoLink: string[];
-  email: string;
-  aoMudarEmail(email: string): void;
   linhas: RankingVoto[];
-  atualizar(): Promise<void>;
-  aoRegistrarVoto(): void;
-  passo?: { ultimo: boolean; avancar(): void; voltar?(): void };
+  selecionadas: RankingVoto[];
+  aoEscolher(id: string): void;
+  confirmando: boolean;
+  children?: ReactNode;
 }) {
-  const [escolhas, setEscolhas] = useState(escolhasDoLink);
   const [atingiuLimite, setAtingiuLimite] = useState(false);
-  const [token, setToken] = useState("");
-  const [verificacao, setVerificacao] = useState(0);
-  const [enviando, setEnviando] = useState(false);
-  const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
-  const [retornoCopia, setRetornoCopia] = useState("");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(0);
   const [limite, setLimite] = useState(10);
-  useEffect(() => {
-    if (!visivel || !aberta) setToken("");
-  }, [visivel, aberta]);
   const filtradas = filtrarRanking(linhas, busca);
   const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
   const paginaAtual = Math.min(pagina, paginas - 1);
   const inicioPagina = paginaAtual * limite;
   const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
   const total = linhas.reduce((soma, linha) => soma + linha.votos, 0);
-
-  const selecionadas = linhas.filter((linha) => escolhas.includes(linha.id));
   const selecionados = selecionadas.map((linha) => linha.id);
-  const recebidasDoLink = selecionados.some((id) => escolhasDoLink.includes(id));
-
-  function escolher(linha: RankingVoto) {
-    if (enviando) return;
-    if (!selecionados.includes(linha.id) && selecionados.length >= 3) {
-      setAtingiuLimite(true);
-      return;
-    }
-    setMensagem(undefined);
-    setAtingiuLimite(false);
-    if (selecionados.length === 1 && selecionados.includes(linha.id)) setToken("");
-    setEscolhas(selecionados.includes(linha.id)
-      ? selecionados.filter((id) => id !== linha.id)
-      : [...selecionados, linha.id]);
-  }
-
-  async function votar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!token || !selecionados.length || enviando) return;
-    setEnviando(true);
-    setMensagem(undefined);
-    setRetornoCopia("");
-    try {
-      const resposta = await fetch(rota, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ evento, concorrentes: selecionados, email, token }),
-      });
-      const resultado = await resposta.json();
-      if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
-      aoRegistrarVoto();
-      const link = new URL(ROTA_VOTACAO_MM, window.location.origin);
-      for (const id of selecionados) link.searchParams.append("concorrente", id);
-      link.hash = areaId;
-      setMensagem({
-        erro: false,
-        texto: selecionados.length === 1 ? "Voto registrado." : selecionados.length + " votos registrados.",
-        link: link.href,
-      });
-      await atualizar();
-    } catch (erro) {
-      setMensagem({ erro: true, texto: (erro as Error).message });
-    } finally {
-      setToken("");
-      setVerificacao((n) => n + 1);
-      setEnviando(false);
-    }
-  }
-
-  async function copiarLink(link: string) {
-    try {
-      await navigator.clipboard.writeText(link);
-      setRetornoCopia("Link copiado.");
-    } catch {
-      setRetornoCopia("Selecione e copie o endereço no campo acima.");
-    }
-  }
-
   const areaId = "votacao-" + categoria.id;
   const tituloId = areaId + "-titulo";
-  const formId = areaId + "-confirmar";
-  const navegacao = passo && <>
-    {passo.voltar && <button type="button" className={mm.botaoSecundario}
-      disabled={enviando} onClick={passo.voltar}>Voltar</button>}
-    <button type="button" className={mm.botaoSecundario}
-      disabled={enviando} onClick={passo.avancar}>Pular categoria</button>
-  </>;
+
+  function escolher(linha: RankingVoto) {
+    const atingiu = !selecionados.includes(linha.id) && selecionados.length >= 3;
+    setAtingiuLimite(atingiu);
+    if (!atingiu) aoEscolher(linha.id);
+  }
 
   return (
     <section id={areaId} aria-labelledby={tituloId} className="grid gap-5 border-t border-[#e6dfec] pt-6 scroll-mt-24">
       <h3 id={tituloId} className={mm.titulo + " mb-0 text-[#5c2686]"}>{categoria.nome}</h3>
-      {aberta && linhas.length > 0 && <form id={formId} onSubmit={votar} className="grid gap-3 scroll-mt-24">
-        {recebidasDoLink && <p className={mm.dica}>
-          O link já trouxe empresas selecionadas. Você pode manter ou alterar a seleção, informar seu e-mail e confirmar.
-        </p>}
-        <div className={mm.grade + " items-end"}>
-          <div className={mm.info}>
-            {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
-              {selecionadas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>{linha.nome}</span>
-                <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
-                  aria-label={"Remover " + linha.nome} onClick={() => escolher(linha)}>Remover</button>
-              </li>)}
-            </ul> : <p>Escolha até 3 empresas no ranking para votar.</p>}
-          </div>
-          <label className={mm.rotulo}>Seu e-mail
-            <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
-              value={email} onChange={(e) => aoMudarEmail(e.target.value)} />
-          </label>
-        </div>
-        <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
-        {visivel && selecionados.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
-        <div className="flex flex-wrap items-center gap-2">
-          <button className={mm.botao} disabled={!selecionados.length || !token || enviando} type="submit">
-            {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
-          </button>
-          {navegacao}
-        </div>
-      </form>}
-      {passo && linhas.length === 0 && <div className="flex flex-wrap items-center gap-2">{navegacao}</div>}
-      {mensagem && (mensagem.erro
-        ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
-        : <div className={mm.sucesso + " grid gap-3"}>
-          <p role="status">{mensagem.texto}</p>
-          <p>Compartilhe sua seleção para outras pessoas votarem nas mesmas empresas.</p>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className={mm.rotulo + " flex-1 min-w-52"}>Link para compartilhar
-              <input className={mm.campo} type="url" readOnly value={mensagem.link}
-                onFocus={(e) => e.currentTarget.select()} />
-            </label>
-            <button type="button" className={mm.botaoSecundario}
-              onClick={() => void copiarLink(mensagem.link)}>Copiar link</button>
-          </div>
-          {retornoCopia && <p role="status">{retornoCopia}</p>}
-          {passo && <button type="button" className={mm.botao + " justify-self-start"} onClick={passo.avancar}>
-            {passo.ultimo ? "Concluir votação" : "Próxima categoria"}
-          </button>}
-        </div>)}
+      {aberta && selecionadas.length > 0 && <p className={mm.info}>
+        Seleção nesta categoria: {selecionadas.map((linha) => linha.nome).join(", ")}
+      </p>}
+      {children}
       <h4 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h4>
       {aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
         {atingiuLimite ? "Limite de 3 empresas. Remova uma seleção para escolher outra." : selecionados.length + " de 3 empresas selecionadas"}
@@ -383,7 +290,7 @@ function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasD
         </label>
       </div>
       {filtradas.length ? <>
-        <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={aberta ? escolher : undefined} />
+        <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={aberta && !confirmando ? escolher : undefined} />
         <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
           <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
             onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>
@@ -394,8 +301,128 @@ function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasD
       </> : <p role="status" className={mm.dica}>
         {busca.trim() ? "Nenhuma empresa encontrada para essa pesquisa." : "Nenhum empreendimento no ranking."}
       </p>}
-      {aberta && selecionados.length > 0 &&
-        <a className={mm.botaoSecundario + " justify-self-start"} href={"#" + formId}>Ir para confirmação</a>}
     </section>
   );
+}
+
+function ConfirmacaoFinal({ evento, categorias, selecionadas, escolhasDoLink, email, aoAlterarEmail, aoRemover, aoEnviar, atualizar, voltar, pular }: {
+  evento: string;
+  categorias: Votacao["categorias"];
+  selecionadas: RankingVoto[];
+  escolhasDoLink: string[];
+  email: string;
+  aoAlterarEmail(email: string): void;
+  aoRemover(id: string): void;
+  aoEnviar(enviando: boolean): void;
+  atualizar(): Promise<void>;
+  voltar?: () => void;
+  pular(): void;
+}) {
+  const [token, setToken] = useState("");
+  const [verificacao, setVerificacao] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
+  const [retornoCopia, setRetornoCopia] = useState("");
+  const temSelecao = selecionadas.length > 0;
+
+  useEffect(() => {
+    if (!temSelecao) setToken("");
+  }, [temSelecao]);
+
+  async function votar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!token || !selecionadas.length || enviando) return;
+    const concorrentes = selecionadas.map((linha) => linha.id);
+    setEnviando(true);
+    aoEnviar(true);
+    setMensagem(undefined);
+    setRetornoCopia("");
+    try {
+      const resposta = await fetch(rota, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evento, concorrentes, email, token }),
+      });
+      const resultado = await resposta.json();
+      if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar os votos.");
+      const link = new URL(ROTA_VOTACAO_MM, window.location.origin);
+      for (const id of concorrentes) link.searchParams.append("concorrente", id);
+      link.hash = "votacao-" + categorias[categorias.length - 1].id;
+      setMensagem({
+        erro: false,
+        texto: concorrentes.length === 1 ? "Voto registrado." : concorrentes.length + " votos registrados.",
+        link: link.href,
+      });
+      await atualizar();
+    } catch (erro) {
+      setMensagem({ erro: true, texto: (erro as Error).message });
+    } finally {
+      setToken("");
+      setVerificacao((n) => n + 1);
+      setEnviando(false);
+      aoEnviar(false);
+    }
+  }
+
+  async function copiarLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setRetornoCopia("Link copiado.");
+    } catch {
+      setRetornoCopia("Selecione e copie o endereço no campo acima.");
+    }
+  }
+
+  return <div className="grid gap-3">
+    <form id="confirmar-votos" onSubmit={votar} className="grid gap-3 scroll-mt-32">
+      <h4 className="font-bold">Revise sua seleção</h4>
+      {selecionadas.some((linha) => escolhasDoLink.includes(linha.id)) && <p className={mm.dica}>
+        O link trouxe as empresas pré-selecionadas. Revise a lista, informe seu e-mail e confirme.
+      </p>}
+      {!!selecionadas.length && <div className={mm.info + " grid gap-3"}>
+        {categorias.map((categoria) => {
+          const escolhas = selecionadas.filter((linha) => linha.categoria_id === categoria.id);
+          if (!escolhas.length) return null;
+          return <div key={categoria.id}>
+            <p className="font-bold">{categoria.nome}</p>
+            <ul className="grid gap-1">
+              {escolhas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{linha.nome}</span>
+                <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
+                  aria-label={"Remover " + linha.nome} onClick={() => aoRemover(linha.id)}>Remover</button>
+              </li>)}
+            </ul>
+          </div>;
+        })}
+      </div>}
+      <label className={mm.rotulo + " max-w-xl"}>Seu e-mail
+        <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
+          value={email} onChange={(e) => aoAlterarEmail(e.target.value)} />
+      </label>
+      <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
+      {selecionadas.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={mm.botao} disabled={!selecionadas.length || !token || enviando} type="submit">
+          {enviando ? "Registrando…" : selecionadas.length > 1 ? "Confirmar " + selecionadas.length + " votos" : "Confirmar voto"}
+        </button>
+        {voltar && <button type="button" className={mm.botaoSecundario} disabled={enviando} onClick={voltar}>Voltar</button>}
+        <button type="button" className={mm.botaoSecundario} disabled={enviando} onClick={pular}>Pular categoria</button>
+      </div>
+    </form>
+    {mensagem && (mensagem.erro
+      ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
+      : <div className={mm.sucesso + " grid gap-3"}>
+        <p role="status">{mensagem.texto}</p>
+        <p>Compartilhe sua seleção de todas as categorias em um único link.</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className={mm.rotulo + " flex-1 min-w-52"}>Link para compartilhar
+            <input className={mm.campo} type="url" readOnly value={mensagem.link}
+              onFocus={(e) => e.currentTarget.select()} />
+          </label>
+          <button type="button" className={mm.botaoSecundario}
+            onClick={() => void copiarLink(mensagem.link)}>Copiar link</button>
+        </div>
+        {retornoCopia && <p role="status">{retornoCopia}</p>}
+      </div>)}
+  </div>;
 }
