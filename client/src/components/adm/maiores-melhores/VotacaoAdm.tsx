@@ -174,7 +174,7 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
     if (falhaRanking) throw falhaRanking;
     const nomeCategoria = (chave: string) => categorias.find((c) => c.id === chave)?.nome ?? chave;
     XLSX.utils.book_append_sheet(livro, XLSX.utils.json_to_sheet(ordenarRanking(classificacao).map((r) => ({
-      Categoria: nomeCategoria(r.categoria_id), Posição: r.posicao, Concorrente: r.nome, Votos: r.votos,
+      Categoria: nomeCategoria(r.categoria_id), Posição: r.votos > 0 ? r.posicao : null, Concorrente: r.nome, Votos: r.votos,
       "Percentual de votos recebidos": r.percentual,
     })), { header: ["Categoria", "Posição", "Concorrente", "Votos", "Percentual de votos recebidos"] }), "Classificação");
     XLSX.utils.book_append_sheet(livro, XLSX.utils.json_to_sheet(auditados.map((v) => ({

@@ -21,13 +21,13 @@ export function RankingVotacao({ linhas, aoVotar, selecionados }: {
         return (
           <li key={linha.id} className={mm.cartao + " relative isolate overflow-hidden " +
             (marcada ? "ring-2 ring-[#8054a5]" : aoVotar ? "hover:border-[#b393cc]" : "")}>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 overflow-hidden bg-gradient-to-t from-[#e8d8f5] to-[#f2e9fa] motion-safe:transition-[height] motion-safe:duration-700 motion-safe:ease-out"
-              style={{ height: nivel + "%", borderRadius: nivel < 100 ? "48% 62% 0 0 / 9px 14px 0 0" : undefined }} />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 -z-10 overflow-hidden bg-gradient-to-r from-[#e8d8f5] to-[#f2e9fa] motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
+              style={{ width: nivel + "%", borderRadius: nivel < 100 ? "0 9px 14px 0 / 0 48% 62% 0" : undefined }} />
             {aoVotar && <button type="button" aria-label={"Votar em " + linha.nome} aria-pressed={marcada}
               className="absolute inset-0 z-10 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5c2686]"
               onClick={() => aoVotar(linha)} />}
             <div className="flex flex-wrap items-start gap-3">
-              <span className="font-bold text-[#5c2686]">{linha.posicao}º</span>
+              {linha.votos > 0 && <span className="font-bold text-[#5c2686]">{linha.posicao}º</span>}
               {imagem && <img src={imagem} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-12 rounded-lg object-contain" />}
               <div className="flex-1 min-w-40">
                 <p className="font-bold">{linha.nome}</p>
