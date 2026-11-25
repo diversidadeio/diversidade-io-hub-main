@@ -12,6 +12,7 @@ create table public.mm_voto_categorias (
   evento_id uuid not null references public.mm_votacoes(evento_id) on delete cascade,
   nome text not null check (length(trim(nome)) between 1 and 150),
   ativa boolean not null default true,
+  catalogo boolean not null default false,
   unique (evento_id, nome),
   unique (evento_id, id)
 );
@@ -120,6 +121,9 @@ begin
   select n.* into concorrente from public.mm_voto_concorrentes n
     join public.mm_voto_categorias c on c.id = n.categoria_id
     where n.evento_id = p_evento and n.id = p_concorrente and n.publicado and c.ativa
+      and (c.catalogo or not exists (
+        select 1 from public.mm_voto_categorias geral where geral.evento_id = p_evento and geral.catalogo
+      ))
     for share of n, c;
   if not found or clock_timestamp() < votacao.inicio or clock_timestamp() >= votacao.fim then
     return false;
@@ -146,9 +150,10 @@ with contagem as (
   where n.publicado
   group by n.id
 )
-select *, rank() over (partition by categoria_id order by votos desc)::integer as posicao,
-  coalesce(round(100.0 * votos / nullif(sum(votos) over (partition by categoria_id), 0), 2), 0) as percentual
-from contagem;
+select contagem.*, rank() over (partition by contagem.categoria_id order by votos desc)::integer as posicao,
+  coalesce(round(100.0 * votos / nullif(sum(votos) over (partition by contagem.categoria_id), 0), 2), 0) as percentual,
+  n.razao_social
+from contagem join public.mm_voto_concorrentes n on n.id = contagem.id;
 
 create view public.mm_voto_totais with (security_invoker = true) as
 select evento_id, categoria_id, count(*)::integer as votos, count(distinct email)::integer as emails

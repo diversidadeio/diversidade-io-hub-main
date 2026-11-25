@@ -41,12 +41,15 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       const votacao = configuracao.data;
       if (!votacao || votacao.estado === "rascunho") return res.json(null);
 
-      const categorias = await banco.from("mm_voto_categorias").select("id,nome")
-        .eq("evento_id", evento).eq("ativa", true).order("nome");
+      const categorias = await banco.from("mm_voto_categorias").select("id,nome,catalogo,ativa")
+        .eq("evento_id", evento).order("nome");
       if (categorias.error) throw categorias.error;
+      const geral = categorias.data.find((categoria) => categoria.catalogo);
+      const publicas = (geral ? [geral] : categorias.data).filter((categoria) => categoria.ativa);
       const ranking = [];
-      for (let offset = 0; ; offset += 500) {
+      for (let offset = 0; publicas.length; offset += 500) {
         const pagina = await banco.from("mm_voto_ranking").select("*").eq("evento_id", evento)
+          .in("categoria_id", publicas.map((categoria) => categoria.id))
           .order("id").range(offset, offset + 499);
         if (pagina.error) throw pagina.error;
         ranking.push(...pagina.data);
@@ -58,7 +61,7 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
         fim: votacao.fim,
         estado: votacao.estado,
         aberta: votacao.estado === "ativa" && agora >= Date.parse(votacao.inicio) && agora < Date.parse(votacao.fim),
-        categorias: categorias.data,
+        categorias: publicas.map(({ id, nome }) => ({ id, nome })),
         ranking,
       });
     }

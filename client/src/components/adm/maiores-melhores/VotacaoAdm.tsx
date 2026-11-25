@@ -53,7 +53,7 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
     try {
       const [c, g, n, r, t] = await Promise.all([
         supabase.from("mm_votacoes").select("inicio,fim,estado").eq("evento_id", id).abortSignal(signal).maybeSingle(),
-        supabase.from("mm_voto_categorias").select("id,nome,ativa").eq("evento_id", id).order("nome").abortSignal(signal),
+        supabase.from("mm_voto_categorias").select("id,nome,ativa,catalogo").eq("evento_id", id).order("catalogo", { ascending: false }).order("nome").abortSignal(signal),
         supabase.from("mm_voto_concorrentes").select("*").eq("evento_id", id).order("nome").abortSignal(signal),
         supabase.from("mm_voto_ranking").select("*").eq("evento_id", id).abortSignal(signal),
         supabase.from("mm_voto_totais").select("categoria_id,votos,emails").eq("evento_id", id).abortSignal(signal),
@@ -238,7 +238,7 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         </label>
-        {!definitivo && <form key={atual.id + atual.nome + atual.ativa} onSubmit={(e) => salvarCategoria(e, atual)}
+        {!definitivo && !atual.catalogo && <form key={atual.id + atual.nome + atual.ativa} onSubmit={(e) => salvarCategoria(e, atual)}
           className="flex flex-wrap gap-3 items-end">
           <label className={mm.rotulo + " flex-1"}>Nome da categoria
             <input name="nome" className={mm.campo} required maxLength={150} defaultValue={atual.nome} />
@@ -251,10 +251,15 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
           A classificação considera os concorrentes publicados nas categorias ativas.</p>
         <RankingVotacao linhas={ranking.filter((r) => r.categoria_id === atual.id)} />
         <h3 className="font-bold">Concorrentes</h3>
-        {!definitivo && <button type="button" className={mm.botaoSecundario + " justify-self-start"} onClick={() => setEdicao(null)}>
+        {atual.catalogo && !definitivo && <button type="button" className={mm.botaoSecundario + " justify-self-start"}
+          disabled={ocupado} onClick={() => void operar(async () => {
+            const { error } = await supabase.rpc("mm_atualizar_catalogo_votacao", { p_evento: id });
+            if (error) throw error;
+          }, "Empreendimentos atualizados.")}>Atualizar empreendimentos da plataforma</button>}
+        {!definitivo && !atual.catalogo && <button type="button" className={mm.botaoSecundario + " justify-self-start"} onClick={() => setEdicao(null)}>
           Cadastrar ou importar
         </button>}
-        {!definitivo && edicao !== undefined && <EditorConcorrente key={edicao?.id ?? atual.id} categoria={atual.id}
+        {!definitivo && !atual.catalogo && edicao !== undefined && <EditorConcorrente key={edicao?.id ?? atual.id} categoria={atual.id}
           selecionado={edicao} empresas={empresas} ocupado={ocupado} fechar={() => setEdicao(undefined)}
           salvar={(dados) => void operar(async () => {
             const resultado = edicao
@@ -266,7 +271,7 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
         <ul className="grid gap-2">
           {concorrentes.filter((c) => c.categoria_id === atual.id).map((c) => <li key={c.id} className={mm.cartao + " flex flex-wrap items-center gap-2"}>
             <span className="flex-1"><strong>{c.nome}</strong> · {c.publicado ? "Publicado" : "Não publicado"}</span>
-            {!definitivo && <button type="button" className={mm.botaoSecundario} onClick={() => setEdicao(c)}>Editar</button>}
+            {!definitivo && !atual.catalogo && <button type="button" className={mm.botaoSecundario} onClick={() => setEdicao(c)}>Editar</button>}
             {c.publicado && <button type="button" className={mm.botaoSecundario} onClick={() => {
               const link = new URL("/maiores-e-melhores", window.location.origin);
               link.searchParams.set("concorrente", c.id);

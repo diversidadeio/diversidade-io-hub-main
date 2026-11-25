@@ -2,6 +2,7 @@ export interface CategoriaVoto {
   id: string;
   nome: string;
   ativa: boolean;
+  catalogo?: boolean;
 }
 
 export interface ConcorrenteVoto {
@@ -26,6 +27,7 @@ export interface RankingVoto extends Pick<ConcorrenteVoto,
   votos: number;
   posicao: number;
   percentual: number;
+  razao_social?: string | null;
 }
 
 export interface ConfiguracaoVoto {
@@ -67,6 +69,15 @@ export function urlPublica(valor: string | null) {
   }
 }
 
+const colacao = new Intl.Collator("pt-BR", { sensitivity: "base" });
+
 export function ordenarRanking(linhas: RankingVoto[]) {
-  return [...linhas].sort((a, b) => a.posicao - b.posicao || a.nome.localeCompare(b.nome, "pt-BR"));
+  return [...linhas].sort((a, b) => b.votos - a.votos || colacao.compare(a.nome, b.nome) || a.id.localeCompare(b.id));
+}
+
+export function filtrarRanking(linhas: RankingVoto[], busca: string) {
+  const normalizar = (texto: string) => texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const termo = normalizar(busca.trim());
+  return ordenarRanking(linhas.filter(({ nome, razao_social }) =>
+    normalizar(nome).includes(termo) || normalizar(razao_social ?? "").includes(termo)));
 }

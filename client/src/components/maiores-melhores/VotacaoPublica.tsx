@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { dataVoto, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
+import { dataVoto, filtrarRanking, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
 
@@ -96,6 +96,9 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const [categoria, setCategoria] = useState("");
   const [concorrente, setConcorrente] = useState(() => new URLSearchParams(window.location.search).get("concorrente") || "");
   const [email, setEmail] = useState("");
+  const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(0);
+  const [limite, setLimite] = useState(10);
   const [token, setToken] = useState("");
   const [verificacao, setVerificacao] = useState(0);
   const [enviando, setEnviando] = useState(false);
@@ -103,6 +106,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const [falhaLeitura, setFalhaLeitura] = useState(false);
   const requisicao = useRef<AbortController | undefined>(undefined);
   const secao = useRef<HTMLElement>(null);
+  const campoEmail = useRef<HTMLInputElement>(null);
   const carregada = !!dados;
 
   useEffect(() => {
@@ -134,6 +138,18 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     ?? dados?.categorias[0];
   const linhas = dados?.ranking.filter((r) => r.categoria_id === categoriaAtual?.id) ?? [];
   const selecionado = linhas.some((r) => r.id === concorrente) ? concorrente : "";
+  const filtradas = filtrarRanking(linhas, busca);
+  const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
+  const paginaAtual = Math.min(pagina, paginas - 1);
+  const inicioPagina = paginaAtual * limite;
+  const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
+
+  function escolher(linha: RankingVoto) {
+    setCategoria(linha.categoria_id);
+    setConcorrente(linha.id);
+    setMensagem(undefined);
+    campoEmail.current?.focus();
+  }
 
   async function votar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -185,34 +201,27 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
         </p>
         {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {categoriaAtual && <label className={mm.rotulo}>Categoria
+        {categoriaAtual && dados.categorias.length > 1 && <label className={mm.rotulo}>Categoria
           <select className={mm.campo} value={categoriaAtual.id} onChange={(e) => {
             setCategoria(e.target.value);
             setConcorrente("");
+            setPagina(0);
           }}>
             {dados.categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         </label>}
         {dados.aberta && linhas.length > 0 && <form onSubmit={votar} className="grid gap-3">
-          <div className={mm.grade}>
-            <label className={mm.rotulo}>Empreendimento
-              <select className={mm.campo} value={selecionado} onChange={(e) => {
-                setCategoria(categoriaAtual?.id ?? "");
-                setConcorrente(e.target.value);
-              }} required>
-                <option value="">Selecione</option>
-                {[...linhas].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((linha) =>
-                  <option value={linha.id} key={linha.id}>{linha.nome}</option>)}
-              </select>
-            </label>
+          <div className={mm.grade + " items-end"}>
+            <p className={mm.info}>{linhas.find((linha) => linha.id === selecionado)?.nome
+              ?? "Escolha um empreendimento no ranking para votar."}</p>
             <label className={mm.rotulo}>Seu e-mail
-              <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
+              <input ref={campoEmail} className={mm.campo} type="email" autoComplete="email" maxLength={254} required
                 value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
           </div>
           <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
           <Verificacao key={verificacao} aoValidar={setToken} />
-          <button className={mm.botao + " justify-self-start"} disabled={!token || enviando} type="submit">
+          <button className={mm.botao + " justify-self-start"} disabled={!selecionado || !token || enviando} type="submit">
             {enviando ? "Registrando…" : "Confirmar voto"}
           </button>
         </form>}
@@ -220,8 +229,30 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {mensagem.texto}
         </p>}
         <h3 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h3>
-        <p className={mm.dica}>{total.toLocaleString("pt-BR")} votos na categoria · {linhas.length} concorrentes</p>
-        <RankingVotacao linhas={linhas} />
+        <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className={mm.rotulo + " flex-1 min-w-52"}>Pesquisar empresa
+            <input className={mm.campo} type="search" value={busca} placeholder="Nome da empresa ou razão social"
+              onChange={(e) => { setBusca(e.target.value); setPagina(0); }} />
+          </label>
+          <label className={mm.rotulo}>Empresas por página
+            <select className={mm.campo} value={limite} onChange={(e) => { setLimite(Number(e.target.value)); setPagina(0); }}>
+              {[10, 20, 50, 100].map((quantidade) => <option key={quantidade}>{quantidade}</option>)}
+            </select>
+          </label>
+        </div>
+        {filtradas.length ? <>
+          <RankingVotacao linhas={visiveis} selecionado={selecionado} aoVotar={dados.aberta ? escolher : undefined} />
+          <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
+            <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
+              onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>
+            <span role="status" className={mm.dica}>Página {paginaAtual + 1} de {paginas} · {filtradas.length} {filtradas.length === 1 ? "empresa" : "empresas"}</span>
+            <button type="button" className={mm.botaoSecundario} disabled={paginaAtual + 1 >= paginas}
+              onClick={() => setPagina(paginaAtual + 1)}>Próxima ›</button>
+          </nav>
+        </> : <p role="status" className={mm.dica}>
+          {busca.trim() ? "Nenhuma empresa encontrada para essa pesquisa." : "Nenhum empreendimento no ranking."}
+        </p>}
       </div>
     </section>
   );
