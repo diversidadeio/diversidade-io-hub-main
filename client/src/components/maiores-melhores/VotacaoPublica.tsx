@@ -93,16 +93,12 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
-  const [categoria, setCategoria] = useState("");
   const [escolhasDoLink] = useState(() =>
     [...new Set(new URLSearchParams(window.location.search).getAll("concorrente").map((id) => id.toLowerCase()))]
       .filter(Boolean).slice(0, 3));
   const [escolhas, setEscolhas] = useState(escolhasDoLink);
   const [atingiuLimite, setAtingiuLimite] = useState(false);
   const [email, setEmail] = useState("");
-  const [busca, setBusca] = useState("");
-  const [pagina, setPagina] = useState(0);
-  const [limite, setLimite] = useState(10);
   const [token, setToken] = useState("");
   const [verificacao, setVerificacao] = useState(0);
   const [enviando, setEnviando] = useState(false);
@@ -137,18 +133,9 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     return () => { window.clearInterval(timer); requisicao.current?.abort(); };
   }, [evento]);
 
-  const categoriaAtual = dados?.categorias.find((c) => c.id === categoria)
-    ?? dados?.categorias.find((c) => c.id === dados.ranking.find((r) => escolhasDoLink.includes(r.id))?.categoria_id)
-    ?? dados?.categorias[0];
-  const linhas = dados?.ranking.filter((r) => r.categoria_id === categoriaAtual?.id) ?? [];
   const selecionadas = dados?.ranking.filter((linha) => escolhas.includes(linha.id)) ?? [];
   const selecionados = selecionadas.map((linha) => linha.id);
   const recebidasDoLink = selecionados.some((id) => escolhasDoLink.includes(id));
-  const filtradas = filtrarRanking(linhas, busca);
-  const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
-  const paginaAtual = Math.min(pagina, paginas - 1);
-  const inicioPagina = paginaAtual * limite;
-  const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
 
   function escolher(linha: RankingVoto) {
     if (enviando) return;
@@ -217,7 +204,6 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     : null;
   const confirmado = dados.estado === "publicada";
   const agendada = dados.estado === "ativa" && Date.now() < Date.parse(dados.inicio);
-  const total = linhas.reduce((soma, linha) => soma + linha.votos, 0);
 
   return (
     <section id="votacao" ref={secao} className={mm.painel + " mb-6 scroll-mt-24"} aria-labelledby="votacao-titulo">
@@ -230,15 +216,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
         </p>
         {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {categoriaAtual && dados.categorias.length > 1 && <label className={mm.rotulo}>Categoria
-          <select className={mm.campo} value={categoriaAtual.id} onChange={(e) => {
-            setCategoria(e.target.value);
-            setPagina(0);
-          }}>
-            {dados.categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
-        </label>}
-        {dados.aberta && (linhas.length > 0 || selecionadas.length > 0) && <form onSubmit={votar} className="grid gap-3">
+        {dados.aberta && dados.ranking.length > 0 && <form id="confirmar-votos" onSubmit={votar} className="grid gap-3 scroll-mt-24">
           {recebidasDoLink && <p className={mm.dica}>
             O link já trouxe empresas selecionadas. Você pode manter ou alterar a seleção, informar seu e-mail e confirmar.
           </p>}
@@ -246,7 +224,9 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
             <div className={mm.info}>
               {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
                 {selecionadas.map((linha) => <li key={linha.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{linha.nome}</span>
+                  <span>{linha.nome}
+                    {dados.categorias.length > 1 && <small className="block">{dados.categorias.find((c) => c.id === linha.categoria_id)?.nome}</small>}
+                  </span>
                   <button type="button" className="text-sm underline disabled:opacity-50" disabled={enviando}
                     aria-label={"Remover " + linha.nome} onClick={() => escolher(linha)}>Remover</button>
                 </li>)}
@@ -279,34 +259,67 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
             {retornoCopia && <p role="status">{retornoCopia}</p>}
           </div>)}
         <h3 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h3>
-        <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
         {dados.aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
           {atingiuLimite ? "Limite de 3 empresas. Remova uma seleção para escolher outra." : selecionados.length + " de 3 empresas selecionadas"}
         </p>}
-        <div className="flex flex-wrap items-end gap-3">
-          <label className={mm.rotulo + " flex-1 min-w-52"}>Pesquisar empresa
-            <input className={mm.campo} type="search" value={busca} placeholder="Nome da empresa ou razão social"
-              onChange={(e) => { setBusca(e.target.value); setPagina(0); }} />
-          </label>
-          <label className={mm.rotulo}>Empresas por página
-            <select className={mm.campo} value={limite} onChange={(e) => { setLimite(Number(e.target.value)); setPagina(0); }}>
-              {[10, 20, 50, 100].map((quantidade) => <option key={quantidade}>{quantidade}</option>)}
-            </select>
-          </label>
+        <div className={"grid items-start gap-4 " + (dados.categorias.length > 1 ? "lg:grid-cols-3" : "")}>
+          {dados.categorias.map((categoria) => (
+            <RankingCategoria key={categoria.id} categoria={categoria}
+              linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
+              selecionados={selecionados} aoVotar={dados.aberta ? escolher : undefined} />
+          ))}
         </div>
-        {filtradas.length ? <>
-          <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={dados.aberta ? escolher : undefined} />
-          <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
-            <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
-              onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>
-            <span role="status" className={mm.dica}>Página {paginaAtual + 1} de {paginas} · {filtradas.length} {filtradas.length === 1 ? "empresa" : "empresas"}</span>
-            <button type="button" className={mm.botaoSecundario} disabled={paginaAtual + 1 >= paginas}
-              onClick={() => setPagina(paginaAtual + 1)}>Próxima ›</button>
-          </nav>
-        </> : <p role="status" className={mm.dica}>
-          {busca.trim() ? "Nenhuma empresa encontrada para essa pesquisa." : "Nenhum empreendimento no ranking."}
-        </p>}
+        {dados.aberta && selecionados.length > 0 &&
+          <a className={mm.botaoSecundario + " justify-self-start"} href="#confirmar-votos">Ir para confirmação</a>}
       </div>
+    </section>
+  );
+}
+
+function RankingCategoria({ categoria, linhas, selecionados, aoVotar }: {
+  categoria: Pick<CategoriaVoto, "id" | "nome">;
+  linhas: RankingVoto[];
+  selecionados: string[];
+  aoVotar?: (linha: RankingVoto) => void;
+}) {
+  const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(0);
+  const [limite, setLimite] = useState(10);
+  const filtradas = filtrarRanking(linhas, busca);
+  const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
+  const paginaAtual = Math.min(pagina, paginas - 1);
+  const inicioPagina = paginaAtual * limite;
+  const visiveis = filtradas.slice(inicioPagina, inicioPagina + limite);
+  const total = linhas.reduce((soma, linha) => soma + linha.votos, 0);
+  const tituloId = "ranking-" + categoria.id;
+
+  return (
+    <section aria-labelledby={tituloId} className="grid min-w-0 gap-4 rounded-xl border border-[#e6dfec] bg-[#fbf8fc] p-4">
+      <h4 id={tituloId} className="font-bold text-[#5c2686]">{categoria.nome}</h4>
+      <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className={mm.rotulo + " flex-1 min-w-52"}>Pesquisar empresa
+          <input className={mm.campo} type="search" value={busca} placeholder="Nome da empresa ou razão social"
+            onChange={(e) => { setBusca(e.target.value); setPagina(0); }} />
+        </label>
+        <label className={mm.rotulo}>Empresas por página
+          <select className={mm.campo} value={limite} onChange={(e) => { setLimite(Number(e.target.value)); setPagina(0); }}>
+            {[10, 20, 50, 100].map((quantidade) => <option key={quantidade}>{quantidade}</option>)}
+          </select>
+        </label>
+      </div>
+      {filtradas.length ? <>
+        <RankingVotacao linhas={visiveis} selecionados={selecionados} aoVotar={aoVotar} />
+        <nav className="flex flex-wrap items-center gap-3" aria-label="Paginação do ranking">
+          <button type="button" className={mm.botaoSecundario} disabled={paginaAtual === 0}
+            onClick={() => setPagina(paginaAtual - 1)}>‹ Anterior</button>
+          <span role="status" className={mm.dica}>Página {paginaAtual + 1} de {paginas} · {filtradas.length} {filtradas.length === 1 ? "empresa" : "empresas"}</span>
+          <button type="button" className={mm.botaoSecundario} disabled={paginaAtual + 1 >= paginas}
+            onClick={() => setPagina(paginaAtual + 1)}>Próxima ›</button>
+        </nav>
+      </> : <p role="status" className={mm.dica}>
+        {busca.trim() ? "Nenhuma empresa encontrada para essa pesquisa." : "Nenhum empreendimento no ranking."}
+      </p>}
     </section>
   );
 }
