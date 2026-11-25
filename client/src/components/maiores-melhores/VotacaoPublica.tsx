@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "wouter";
 import { dataVoto, filtrarRanking, ROTA_VOTACAO_MM, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
@@ -144,7 +145,6 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const inicio = inicioDoLink >= 0 ? inicioDoLink : dados.categorias.findIndex((categoria) =>
     dados.ranking.some((linha) => linha.categoria_id === categoria.id && escolhasDoLink.includes(linha.id)));
   const atual = etapa ?? Math.max(0, inicio);
-  const categoriaAtual = dados.categorias[atual];
 
   function irParaEtapa(indice: number) {
     setEtapa(indice);
@@ -162,32 +162,51 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
         </p>
         {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {dados.aberta && etapas > 0 && (categoriaAtual ? (
-          <AreaVotacao key={categoriaAtual.id} evento={evento} categoria={categoriaAtual}
-            aberta confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
-            linhas={dados.ranking.filter((linha) => linha.categoria_id === categoriaAtual.id)}
-            atualizar={atualizar} passo={{ numero: atual + 1, total: etapas, avancar: () => irParaEtapa(atual + 1) }} />
-        ) : (
+        {dados.aberta && etapas > 0 && <div className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-y border-[#e6dfec] bg-white py-3">
+          <ol className="flex items-center gap-2" aria-label="Etapas da votação">
+            {dados.categorias.map((categoria, indice) => (
+              <li key={categoria.id} aria-current={indice === atual ? "step" : undefined}
+                className={"grid size-9 place-items-center rounded-full border text-sm font-bold " +
+                  (indice === atual ? "border-[#5c2686] bg-[#5c2686] text-white ring-2 ring-[#dfc9ef] ring-offset-2"
+                    : indice < atual ? "border-[#d9c9e3] bg-[#f0e5f8] text-[#5c2686]"
+                    : "border-[#e6dfec] bg-white text-[#62566f]")}>
+                <span className="sr-only">Etapa {indice + 1}: {categoria.nome}</span>
+                <span aria-hidden="true">{indice + 1}</span>
+              </li>
+            ))}
+          </ol>
+          <p className={mm.dica}>
+            {atual < etapas ? `Etapa ${atual + 1} de ${etapas} categorias` : `${etapas} categorias percorridas`}
+          </p>
+        </div>}
+        {dados.aberta && etapas > 0 && atual >= etapas && (
           <div className={mm.info + " grid gap-3"}>
             <p role="status">Você chegou ao fim das categorias.</p>
             <button type="button" className={mm.botaoSecundario + " justify-self-start"}
-              onClick={() => irParaEtapa(0)}>Voltar à primeira categoria</button>
+              onClick={() => irParaEtapa(etapas - 1)}>Voltar</button>
           </div>
-        ))}
-        {!dados.aberta && dados.categorias.map((categoria) => (
-          <AreaVotacao key={categoria.id} evento={evento} categoria={categoria}
-            aberta={false} confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
-            linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
-            atualizar={atualizar} />
+        )}
+        {dados.categorias.map((categoria, indice) => (
+          <div key={categoria.id} hidden={dados.aberta && indice !== atual}>
+            <AreaVotacao evento={evento} categoria={categoria} visivel={!dados.aberta || indice === atual}
+              aberta={dados.aberta} confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
+              linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
+              atualizar={atualizar} passo={dados.aberta ? {
+                ultimo: indice + 1 === etapas,
+                avancar: () => irParaEtapa(indice + 1),
+                voltar: indice > 0 ? () => irParaEtapa(indice - 1) : undefined,
+              } : undefined} />
+          </div>
         ))}
       </div>
     </section>
   );
 }
 
-function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, passo }: {
+function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, passo }: {
   evento: string;
   categoria: Pick<CategoriaVoto, "id" | "nome">;
+  visivel: boolean;
   aberta: boolean;
   confirmado: boolean;
   escolhasDoLink: string[];
@@ -195,7 +214,7 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
   aoMudarEmail(email: string): void;
   linhas: RankingVoto[];
   atualizar(): Promise<void>;
-  passo?: { numero: number; total: number; avancar(): void };
+  passo?: { ultimo: boolean; avancar(): void; voltar?(): void };
 }) {
   const [escolhas, setEscolhas] = useState(escolhasDoLink);
   const [atingiuLimite, setAtingiuLimite] = useState(false);
@@ -207,6 +226,9 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(0);
   const [limite, setLimite] = useState(10);
+  useEffect(() => {
+    if (!visivel || !aberta) setToken("");
+  }, [visivel, aberta]);
   const filtradas = filtrarRanking(linhas, busca);
   const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
   const paginaAtual = Math.min(pagina, paginas - 1);
@@ -276,10 +298,16 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
   const areaId = "votacao-" + categoria.id;
   const tituloId = areaId + "-titulo";
   const formId = areaId + "-confirmar";
+  const navegacao = passo && <>
+    {passo.voltar ? <button type="button" className={mm.botaoSecundario}
+      disabled={enviando} onClick={passo.voltar}>Voltar</button>
+      : <Link className={mm.botaoSecundario} href="/maiores-e-melhores">Voltar</Link>}
+    <button type="button" className={mm.botaoSecundario}
+      disabled={enviando} onClick={passo.avancar}>Pular categoria</button>
+  </>;
 
   return (
     <section id={areaId} aria-labelledby={tituloId} className="grid gap-5 border-t border-[#e6dfec] pt-6 scroll-mt-24">
-      {passo && <p className={mm.dica}>Etapa {passo.numero} de {passo.total}</p>}
       <h3 id={tituloId} className={mm.titulo + " mb-0 text-[#5c2686]"}>{categoria.nome}</h3>
       {aberta && linhas.length > 0 && <form id={formId} onSubmit={votar} className="grid gap-3 scroll-mt-24">
         {recebidasDoLink && <p className={mm.dica}>
@@ -301,17 +329,15 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
           </label>
         </div>
         <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
-        {selecionados.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
+        {visivel && selecionados.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
         <div className="flex flex-wrap items-center gap-2">
           <button className={mm.botao} disabled={!selecionados.length || !token || enviando} type="submit">
             {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
           </button>
-          {passo && mensagem?.erro !== false && <button type="button" className={mm.botaoSecundario}
-            disabled={enviando} onClick={passo.avancar}>Pular categoria</button>}
+          {navegacao}
         </div>
       </form>}
-      {passo && linhas.length === 0 && <button type="button" className={mm.botaoSecundario + " justify-self-start"}
-        onClick={passo.avancar}>Pular categoria</button>}
+      {passo && linhas.length === 0 && <div className="flex flex-wrap items-center gap-2">{navegacao}</div>}
       {mensagem && (mensagem.erro
         ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
         : <div className={mm.sucesso + " grid gap-3"}>
@@ -327,7 +353,7 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
           </div>
           {retornoCopia && <p role="status">{retornoCopia}</p>}
           {passo && <button type="button" className={mm.botao + " justify-self-start"} onClick={passo.avancar}>
-            {passo.numero === passo.total ? "Concluir votação" : "Próxima categoria"}
+            {passo.ultimo ? "Concluir votação" : "Próxima categoria"}
           </button>}
         </div>)}
       <h4 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h4>
