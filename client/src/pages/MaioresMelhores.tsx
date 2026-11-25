@@ -1,11 +1,12 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Building2, ClipboardList, Handshake } from "lucide-react";
+import { Link, Redirect } from "wouter";
 import { MolduraMm, HeroMm } from "@/components/maiores-melhores/Moldura";
 import { FormularioInscricao, type DadosInscricao } from "@/components/maiores-melhores/FormularioInscricao";
 import { FormularioNegocio } from "@/components/maiores-melhores/FormularioNegocio";
 import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { MinhaInscricao } from "@/components/maiores-melhores/MinhaInscricao";
-import VotacaoPublica from "@/components/maiores-melhores/VotacaoPublica";
+import { ROTA_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "@/components/maiores-melhores/estilo";
 import {
   LegendaObrigatorios,
@@ -46,6 +47,14 @@ const ABAS: { id: Aba; titulo: string; tituloPainel: string; icone: typeof Build
 ];
 
 export default function MaioresMelhores() {
+  const { search, hash } = window.location;
+  if (new URLSearchParams(search).has("concorrente") || /^#votacao(?:-|$)/.test(hash)) {
+    return <Redirect to={ROTA_VOTACAO_MM + search + hash} replace />;
+  }
+  return <InscricoesMaioresMelhores />;
+}
+
+function InscricoesMaioresMelhores() {
   const [evento, setEvento] = useState<MmEvento | null>();
   const [erroEvento, setErroEvento] = useState("");
   const [token, setToken] = useState<string | null>(() => lerTokenParticipante());
@@ -205,14 +214,13 @@ export default function MaioresMelhores() {
       <HeroMm
         sobrancelha={evento ? `Premiação ${evento.ano}` : "Premiação"}
         texto={evento?.descricao || "Inscreva sua empresa e registre os negócios que fortalecem o empreendedorismo negro."}
-        detalhe={evento && (
-          <span className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-3 py-1 text-sm text-[#f0e8f5]">
+        detalhe={<div className="flex flex-wrap items-center gap-3">
+          {evento && <span className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-3 py-1 text-sm text-[#f0e8f5]">
             {periodo}
-          </span>
-        )}
+          </span>}
+          <Link className={mm.botaoSecundario} href={ROTA_VOTACAO_MM}>Votação popular</Link>
+        </div>}
       />
-
-      {evento && <VotacaoPublica key={evento.id} evento={evento.id} />}
 
       {evento === undefined ? (
         <section className={mm.painel}><p role="status" className="m-0">Carregando a premiação…</p></section>

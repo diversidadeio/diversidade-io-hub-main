@@ -23,6 +23,8 @@ import MaioresMelhoresAdm from "./pages/adm/MaioresMelhores";
 import MaioresMelhores from "./pages/MaioresMelhores";
 import MaioresMelhoresConfirmar from "./pages/MaioresMelhoresConfirmar";
 import MaioresMelhoresAcesso from "./pages/MaioresMelhoresAcesso";
+import MaioresMelhoresVotacao from "./pages/MaioresMelhoresVotacao";
+import { ROTA_VOTACAO_MM } from "./lib/maioresMelhoresVotacao";
 
 import Pesquisas from "./pages/usuario/Pesquisas";
 import MinhasSolicitacoes from "./pages/usuario/MinhasSolicitacoes";
@@ -122,6 +124,7 @@ function Router() {
 
       {/* Premiação Maiores & Melhores — pública, sem conta na plataforma */}
       <Route path={"/maiores-e-melhores"} component={MaioresMelhores} />
+      <Route path={ROTA_VOTACAO_MM} component={MaioresMelhoresVotacao} />
       <Route path={"/maiores-e-melhores/confirmar"} component={MaioresMelhoresConfirmar} />
       <Route path={"/maiores-e-melhores/acesso"} component={MaioresMelhoresAcesso} />
 

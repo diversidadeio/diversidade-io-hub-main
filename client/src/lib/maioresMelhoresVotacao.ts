@@ -1,3 +1,5 @@
+export const ROTA_VOTACAO_MM = "/maiores-e-melhores/votacao";
+
 export interface CategoriaVoto {
   id: string;
   nome: string;

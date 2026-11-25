@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { dataVoto, filtrarRanking, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
+import { dataVoto, filtrarRanking, ROTA_VOTACAO_MM, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
 
@@ -131,9 +131,11 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     return () => { window.clearInterval(timer); requisicao.current?.abort(); };
   }, [atualizar]);
 
-  if (!dados) return falhaLeitura && escolhasDoLink.length > 0
-    ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
-    : null;
+  if (!dados) return <section className={mm.painel} aria-labelledby="votacao-titulo">
+    <h2 id="votacao-titulo" className={mm.titulo}>Votação popular</h2>
+    {falhaLeitura ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
+      : <p role="status">{dados === undefined ? "Carregando a votação…" : "A votação popular ainda não está disponível."}</p>}
+  </section>;
   const confirmado = dados.estado === "publicada";
   const agendada = dados.estado === "ativa" && Date.now() < Date.parse(dados.inicio);
   const etapas = dados.categorias.length;
@@ -244,7 +246,7 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
-      const link = new URL("/maiores-e-melhores", window.location.origin);
+      const link = new URL(ROTA_VOTACAO_MM, window.location.origin);
       for (const id of selecionados) link.searchParams.append("concorrente", id);
       link.hash = areaId;
       setMensagem({
@@ -277,11 +279,7 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
 
   return (
     <section id={areaId} aria-labelledby={tituloId} className="grid gap-5 border-t border-[#e6dfec] pt-6 scroll-mt-24">
-      {passo && <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={mm.dica}>Etapa {passo.numero} de {passo.total}</p>
-        {mensagem?.erro !== false && <button type="button" className={mm.botaoSecundario}
-          disabled={enviando} onClick={passo.avancar}>Pular categoria</button>}
-      </div>}
+      {passo && <p className={mm.dica}>Etapa {passo.numero} de {passo.total}</p>}
       <h3 id={tituloId} className={mm.titulo + " mb-0 text-[#5c2686]"}>{categoria.nome}</h3>
       {aberta && linhas.length > 0 && <form id={formId} onSubmit={votar} className="grid gap-3 scroll-mt-24">
         {recebidasDoLink && <p className={mm.dica}>
@@ -304,10 +302,16 @@ function AreaVotacao({ evento, categoria, aberta, confirmado, escolhasDoLink, em
         </div>
         <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
         {selecionados.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
-        <button className={mm.botao + " justify-self-start"} disabled={!selecionados.length || !token || enviando} type="submit">
-          {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className={mm.botao} disabled={!selecionados.length || !token || enviando} type="submit">
+            {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
+          </button>
+          {passo && mensagem?.erro !== false && <button type="button" className={mm.botaoSecundario}
+            disabled={enviando} onClick={passo.avancar}>Pular categoria</button>}
+        </div>
       </form>}
+      {passo && linhas.length === 0 && <button type="button" className={mm.botaoSecundario + " justify-self-start"}
+        onClick={passo.avancar}>Pular categoria</button>}
       {mensagem && (mensagem.erro
         ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
         : <div className={mm.sucesso + " grid gap-3"}>
