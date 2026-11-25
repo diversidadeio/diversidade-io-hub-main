@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Building2, ClipboardList, Handshake } from "lucide-react";
+import { ArrowRight, Building2, ClipboardList, Handshake } from "lucide-react";
 import { Link, Redirect } from "wouter";
 import { MolduraMm, HeroMm } from "@/components/maiores-melhores/Moldura";
 import { FormularioInscricao, type DadosInscricao } from "@/components/maiores-melhores/FormularioInscricao";
@@ -214,11 +214,14 @@ function InscricoesMaioresMelhores() {
       <HeroMm
         sobrancelha={evento ? `Premiação ${evento.ano}` : "Premiação"}
         texto={evento?.descricao || "Inscreva sua empresa e registre os negócios que fortalecem o empreendedorismo negro."}
-        detalhe={<div className="flex flex-wrap items-center gap-3">
+        detalhe={<div className="flex flex-col items-start gap-3">
           {evento && <span className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-3 py-1 text-sm text-[#f0e8f5]">
             {periodo}
           </span>}
-          <Link className={mm.botaoSecundario} href={ROTA_VOTACAO_MM}>Votação popular</Link>
+          <Link className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f5bf64] px-5 py-3 font-bold text-[#28123e] transition-colors hover:bg-[#ffd27f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5bf64]"
+            href={ROTA_VOTACAO_MM}>
+            Votação popular <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
         </div>}
       />
 
