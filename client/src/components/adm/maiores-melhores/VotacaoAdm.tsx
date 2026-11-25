@@ -272,12 +272,6 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
           {concorrentes.filter((c) => c.categoria_id === atual.id).map((c) => <li key={c.id} className={mm.cartao + " flex flex-wrap items-center gap-2"}>
             <span className="flex-1"><strong>{c.nome}</strong> · {c.publicado ? "Publicado" : "Não publicado"}</span>
             {!definitivo && !atual.catalogo && <button type="button" className={mm.botaoSecundario} onClick={() => setEdicao(c)}>Editar</button>}
-            {c.publicado && <button type="button" className={mm.botaoSecundario} onClick={() => {
-              const link = new URL("/maiores-e-melhores", window.location.origin);
-              link.searchParams.set("concorrente", c.id);
-              link.hash = "votacao";
-              void navigator.clipboard.writeText(link.href).then(() => toast.success("Link copiado."), () => toast.error("Não foi possível copiar o link."));
-            }}>Copiar link de votação</button>}
           </li>)}
         </ul>
       </>}

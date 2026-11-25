@@ -94,8 +94,10 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
   const [categoria, setCategoria] = useState("");
-  const [linkConcorrente] = useState(() => new URLSearchParams(window.location.search).get("concorrente"));
-  const [escolhas, setEscolhas] = useState<string[]>(() => linkConcorrente ? [linkConcorrente] : []);
+  const [escolhasDoLink] = useState(() =>
+    [...new Set(new URLSearchParams(window.location.search).getAll("concorrente").map((id) => id.toLowerCase()))]
+      .filter(Boolean).slice(0, 3));
+  const [escolhas, setEscolhas] = useState(escolhasDoLink);
   const [atingiuLimite, setAtingiuLimite] = useState(false);
   const [email, setEmail] = useState("");
   const [busca, setBusca] = useState("");
@@ -104,7 +106,8 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   const [token, setToken] = useState("");
   const [verificacao, setVerificacao] = useState(0);
   const [enviando, setEnviando] = useState(false);
-  const [mensagem, setMensagem] = useState<{ erro: boolean; texto: string }>();
+  const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
+  const [retornoCopia, setRetornoCopia] = useState("");
   const [falhaLeitura, setFalhaLeitura] = useState(false);
   const requisicao = useRef<AbortController | undefined>(undefined);
   const secao = useRef<HTMLElement>(null);
@@ -135,11 +138,12 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   }, [evento]);
 
   const categoriaAtual = dados?.categorias.find((c) => c.id === categoria)
-    ?? dados?.categorias.find((c) => c.id === dados.ranking.find((r) => r.id === linkConcorrente)?.categoria_id)
+    ?? dados?.categorias.find((c) => c.id === dados.ranking.find((r) => escolhasDoLink.includes(r.id))?.categoria_id)
     ?? dados?.categorias[0];
   const linhas = dados?.ranking.filter((r) => r.categoria_id === categoriaAtual?.id) ?? [];
   const selecionadas = dados?.ranking.filter((linha) => escolhas.includes(linha.id)) ?? [];
   const selecionados = selecionadas.map((linha) => linha.id);
+  const recebidasDoLink = selecionados.some((id) => escolhasDoLink.includes(id));
   const filtradas = filtrarRanking(linhas, busca);
   const paginas = Math.max(1, Math.ceil(filtradas.length / limite));
   const paginaAtual = Math.min(pagina, paginas - 1);
@@ -164,6 +168,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     if (!token || !selecionados.length || enviando) return;
     setEnviando(true);
     setMensagem(undefined);
+    setRetornoCopia("");
     try {
       const resposta = await fetch(rota, {
         method: "POST",
@@ -172,7 +177,14 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
-      setMensagem({ erro: false, texto: selecionados.length === 1 ? "Voto registrado." : selecionados.length + " votos registrados." });
+      const link = new URL("/maiores-e-melhores", window.location.origin);
+      for (const id of selecionados) link.searchParams.append("concorrente", id);
+      link.hash = "votacao";
+      setMensagem({
+        erro: false,
+        texto: selecionados.length === 1 ? "Voto registrado." : selecionados.length + " votos registrados.",
+        link: link.href,
+      });
       requisicao.current?.abort();
       const controller = new AbortController();
       requisicao.current = controller;
@@ -191,7 +203,16 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
     }
   }
 
-  if (!dados) return falhaLeitura && linkConcorrente
+  async function copiarLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setRetornoCopia("Link copiado.");
+    } catch {
+      setRetornoCopia("Selecione e copie o endereço no campo acima.");
+    }
+  }
+
+  if (!dados) return falhaLeitura && escolhasDoLink.length > 0
     ? <p className={mm.falha} role="alert">Não foi possível carregar a votação. A página tentará novamente.</p>
     : null;
   const confirmado = dados.estado === "publicada";
@@ -218,6 +239,9 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           </select>
         </label>}
         {dados.aberta && (linhas.length > 0 || selecionadas.length > 0) && <form onSubmit={votar} className="grid gap-3">
+          {recebidasDoLink && <p className={mm.dica}>
+            O link já trouxe empresas selecionadas. Você pode manter ou alterar a seleção, informar seu e-mail e confirmar.
+          </p>}
           <div className={mm.grade + " items-end"}>
             <div className={mm.info}>
               {selecionadas.length ? <ul className="grid gap-2" aria-label="Empresas selecionadas">
@@ -239,9 +263,21 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
             {enviando ? "Registrando…" : selecionados.length > 1 ? "Confirmar " + selecionados.length + " votos" : "Confirmar voto"}
           </button>
         </form>}
-        {mensagem && <p role={mensagem.erro ? "alert" : "status"} className={mensagem.erro ? mm.falha : mm.sucesso}>
-          {mensagem.texto}
-        </p>}
+        {mensagem && (mensagem.erro
+          ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>
+          : <div className={mm.sucesso + " grid gap-3"}>
+            <p role="status">{mensagem.texto}</p>
+            <p>Compartilhe sua seleção para outras pessoas votarem nas mesmas empresas.</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className={mm.rotulo + " flex-1 min-w-52"}>Link para compartilhar
+                <input className={mm.campo} type="url" readOnly value={mensagem.link}
+                  onFocus={(e) => e.currentTarget.select()} />
+              </label>
+              <button type="button" className={mm.botaoSecundario}
+                onClick={() => void copiarLink(mensagem.link)}>Copiar link</button>
+            </div>
+            {retornoCopia && <p role="status">{retornoCopia}</p>}
+          </div>)}
         <h3 className="font-bold">{confirmado ? "Classificação definitiva" : "Ranking popular"}</h3>
         <p className={mm.dica}>{total.toLocaleString("pt-BR")} {total === 1 ? "voto" : "votos"} · {linhas.length} {linhas.length === 1 ? "empreendimento" : "empreendimentos"}</p>
         {dados.aberta && <p role="status" className={atingiuLimite ? mm.info : mm.dica}>
