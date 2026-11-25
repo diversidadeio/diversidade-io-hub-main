@@ -50,6 +50,7 @@ begin
     from public.empresas e
     left join recortes r on r.empresa_id = e.id
     where lower(coalesce(trim(e.tipo_usuario), 'empresa')) <> 'adm'
+      and e.id <> '70f48c27-cdb1-4f53-be3d-93d8092946d6'::uuid -- Cadastro de teste usado pela equipe.
   ), sincronizados as (
     insert into public.mm_voto_concorrentes (
       evento_id, categoria_id, empresa_origem_id, nome, razao_social, responsavel, descricao, cidade, uf, publicado
