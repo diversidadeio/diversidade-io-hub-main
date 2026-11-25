@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Link } from "wouter";
 import { dataVoto, filtrarRanking, ROTA_VOTACAO_MM, type CategoriaVoto, type ConfiguracaoVoto, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 import { RankingVotacao } from "./RankingVotacao";
@@ -95,6 +94,7 @@ async function lerVotacao(evento: string, signal?: AbortSignal): Promise<Votacao
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const [dados, setDados] = useState<Votacao | null>();
   const [etapa, setEtapa] = useState<number>();
+  const [registrouVoto, setRegistrouVoto] = useState(false);
   const [email, setEmail] = useState("");
   const [escolhasDoLink] = useState(() =>
     [...new Set(new URLSearchParams(window.location.search).getAll("concorrente").map((id) => id.toLowerCase()))]
@@ -162,26 +162,35 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
           {dados.aberta && " até " + dataVoto.format(new Date(Date.parse(dados.fim) - 1)) + " (horário de Brasília)"}
         </p>
         {falhaLeitura && <p role="status" className={mm.dica}>O ranking será atualizado na próxima consulta.</p>}
-        {dados.aberta && etapas > 0 && <div className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-y border-[#e6dfec] bg-white py-3">
+        {dados.aberta && etapas > 0 && atual < etapas && <p className="mx-auto max-w-2xl text-center text-[#62566f]">
+          A votação tem {etapas} categorias. Em cada uma, escolha até 3 empresas e confirme seus votos.
+          Se preferir seguir sem votar, clique em <strong>Pular categoria</strong>. No final, você verá se seus votos foram registrados.
+        </p>}
+        {dados.aberta && etapas > 0 && <div className="sticky top-0 z-30 grid justify-items-center gap-3 rounded-xl border border-[#e6dfec] bg-[#fbf8fc] px-4 py-3">
           <ol className="flex items-center gap-2" aria-label="Etapas da votação">
             {dados.categorias.map((categoria, indice) => (
-              <li key={categoria.id} aria-current={indice === atual ? "step" : undefined}
-                className={"grid size-9 place-items-center rounded-full border text-sm font-bold " +
+              <li key={categoria.id} aria-current={indice === atual ? "step" : undefined} className="flex items-center gap-2">
+                {indice > 0 && <span aria-hidden="true" className={"h-0.5 w-5 sm:w-10 " +
+                  (indice <= atual ? "bg-[#ab83c7]" : "bg-[#e6dfec]")} />}
+                <span className={"grid size-11 place-items-center rounded-full border text-lg font-extrabold " +
                   (indice === atual ? "border-[#5c2686] bg-[#5c2686] text-white ring-2 ring-[#dfc9ef] ring-offset-2"
                     : indice < atual ? "border-[#d9c9e3] bg-[#f0e5f8] text-[#5c2686]"
-                    : "border-[#e6dfec] bg-white text-[#62566f]")}>
-                <span className="sr-only">Etapa {indice + 1}: {categoria.nome}</span>
-                <span aria-hidden="true">{indice + 1}</span>
+                    : "border-[#d9c9e3] bg-white text-[#62566f]")}>
+                  <span className="sr-only">Etapa {indice + 1}: {categoria.nome}</span>
+                  <span aria-hidden="true">{indice + 1}</span>
+                </span>
               </li>
             ))}
           </ol>
-          <p className={mm.dica}>
-            {atual < etapas ? `Etapa ${atual + 1} de ${etapas} categorias` : `${etapas} categorias percorridas`}
+          <p role="status" className="text-center text-sm font-bold text-[#5c2686]">
+            {atual < etapas ? `Etapa ${atual + 1} de ${etapas}` : "Fim das etapas"}
           </p>
         </div>}
         {dados.aberta && etapas > 0 && atual >= etapas && (
           <div className={mm.info + " grid gap-3"}>
-            <p role="status">Você chegou ao fim das categorias.</p>
+            <p role="status" className="font-bold">Você chegou ao fim das categorias.</p>
+            <p>{registrouVoto ? "Seus votos foram registrados nas categorias em que você confirmou a seleção."
+              : "Se quiser participar, clique em Voltar para escolher uma categoria."}</p>
             <button type="button" className={mm.botaoSecundario + " justify-self-start"}
               onClick={() => irParaEtapa(etapas - 1)}>Voltar</button>
           </div>
@@ -191,7 +200,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
             <AreaVotacao evento={evento} categoria={categoria} visivel={!dados.aberta || indice === atual}
               aberta={dados.aberta} confirmado={confirmado} escolhasDoLink={escolhasDoLink} email={email} aoMudarEmail={setEmail}
               linhas={dados.ranking.filter((linha) => linha.categoria_id === categoria.id)}
-              atualizar={atualizar} passo={dados.aberta ? {
+              atualizar={atualizar} aoRegistrarVoto={() => setRegistrouVoto(true)} passo={dados.aberta ? {
                 ultimo: indice + 1 === etapas,
                 avancar: () => irParaEtapa(indice + 1),
                 voltar: indice > 0 ? () => irParaEtapa(indice - 1) : undefined,
@@ -203,7 +212,7 @@ export default function VotacaoPublica({ evento }: { evento: string }) {
   );
 }
 
-function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, passo }: {
+function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasDoLink, email, aoMudarEmail, linhas, atualizar, aoRegistrarVoto, passo }: {
   evento: string;
   categoria: Pick<CategoriaVoto, "id" | "nome">;
   visivel: boolean;
@@ -214,6 +223,7 @@ function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasD
   aoMudarEmail(email: string): void;
   linhas: RankingVoto[];
   atualizar(): Promise<void>;
+  aoRegistrarVoto(): void;
   passo?: { ultimo: boolean; avancar(): void; voltar?(): void };
 }) {
   const [escolhas, setEscolhas] = useState(escolhasDoLink);
@@ -268,6 +278,7 @@ function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasD
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar o voto.");
+      aoRegistrarVoto();
       const link = new URL(ROTA_VOTACAO_MM, window.location.origin);
       for (const id of selecionados) link.searchParams.append("concorrente", id);
       link.hash = areaId;
@@ -299,9 +310,8 @@ function AreaVotacao({ evento, categoria, visivel, aberta, confirmado, escolhasD
   const tituloId = areaId + "-titulo";
   const formId = areaId + "-confirmar";
   const navegacao = passo && <>
-    {passo.voltar ? <button type="button" className={mm.botaoSecundario}
-      disabled={enviando} onClick={passo.voltar}>Voltar</button>
-      : <Link className={mm.botaoSecundario} href="/maiores-e-melhores">Voltar</Link>}
+    {passo.voltar && <button type="button" className={mm.botaoSecundario}
+      disabled={enviando} onClick={passo.voltar}>Voltar</button>}
     <button type="button" className={mm.botaoSecundario}
       disabled={enviando} onClick={passo.avancar}>Pular categoria</button>
   </>;
