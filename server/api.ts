@@ -7,6 +7,7 @@ import { tratarSolicitacaoAcessoMm } from "../api/_maioresMelhoresAcesso.js";
 import { tratarFotoMm } from "../api/_maioresMelhoresFoto.js";
 import { tratarInscricaoMm } from "../api/_maioresMelhoresInscricao.js";
 import { tratarNegocioMm } from "../api/_maioresMelhoresNegocio.js";
+import { tratarVotacaoMm } from "../api/_maioresMelhoresVotacao.js";
 
 export const apiRouter = Router();
 
@@ -465,6 +466,7 @@ apiRouter.post("/maiores-melhores-foto", (req, res) => tratarFotoMm(req, res));
 apiRouter.post("/maiores-melhores-inscricao", (req, res) => tratarInscricaoMm(req, res));
 // Registro da nota + e-mail de confirmação ao comprador (na Vercel: api/enviar-email-aprovacao?action=mm-negocio)
 apiRouter.post("/maiores-melhores-negocio", (req, res) => tratarNegocioMm(req, res));
+apiRouter.all("/maiores-melhores-votacao", (req, res) => tratarVotacaoMm(req, res));
 
 apiRouter.post("/enviar-email-aprovacao", async (req, res) => {
   try {

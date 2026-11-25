@@ -24,6 +24,7 @@ import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
+import VotacaoAdm from "@/components/adm/maiores-melhores/VotacaoAdm";
 import { BUCKET_FOTOS, assinarFotos } from "@/lib/maioresMelhoresApi";
 import { mascaraTelefone } from "@/lib/mascaras";
 import {
@@ -46,7 +47,7 @@ import {
   valorValidadoSemDuplicar,
 } from "@/lib/maioresMelhores";
 
-type Aba = "rankings" | "negocios" | "empresas" | "participantes";
+type Aba = "rankings" | "negocios" | "empresas" | "participantes" | "votacao";
 
 const COLUNAS_NEGOCIO =
   "id,evento_id,empresa_id,perfil_parceiro,cnpj_comprador,cnpj_vendedor,cnpj_parceiro,razao_social_parceiro,data_emissao,valor_centavos,numero_nota,serie_nota,email_comprador,whatsapp_comprador,token_expira_em,resposta_comprador,observacao_comprador,respondido_em,status,motivo,revisado_por,revisado_em,criado_em";
@@ -374,6 +375,7 @@ export default function MaioresMelhoresAdm() {
             <nav className="flex flex-wrap gap-2" aria-label="Seções da premiação">
               {([
                 ["rankings", "Rankings"],
+                ["votacao", "Votação popular"],
                 ["negocios", `Negócios (${negocios.length})`],
                 ["empresas", `Empresas inscritas (${empresas.length})`],
                 ["participantes", `Participantes (${participantes.length})`],
@@ -396,6 +398,7 @@ export default function MaioresMelhoresAdm() {
             ) : (
               <>
                 {aba === "rankings" && <AbaRankings empresas={empresas} negocios={negocios} />}
+                {aba === "votacao" && evento && <VotacaoAdm key={evento.id} evento={evento} empresas={empresas} />}
                 {aba === "negocios" && (
                   <AbaNegocios
                     empresas={empresas}

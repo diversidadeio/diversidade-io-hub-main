@@ -3,6 +3,7 @@ import { tratarSolicitacaoAcessoMm } from "./_maioresMelhoresAcesso.js";
 import { tratarFotoMm } from "./_maioresMelhoresFoto.js";
 import { tratarInscricaoMm } from "./_maioresMelhoresInscricao.js";
 import { tratarNegocioMm } from "./_maioresMelhoresNegocio.js";
+import { tratarVotacaoMm } from "./_maioresMelhoresVotacao.js";
 
 export default async function handler(req, res) {
   // Rotas do Maiores & Melhores (reescritas em vercel.json). Reaproveitam esta função para não
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
   if (req.query?.action === "mm-foto") return tratarFotoMm(req, res);
   if (req.query?.action === "mm-inscricao") return tratarInscricaoMm(req, res);
   if (req.query?.action === "mm-negocio") return tratarNegocioMm(req, res);
+  if (req.query?.action === "mm-votacao") return tratarVotacaoMm(req, res);
 
   if (req.method !== "POST") {
     return res.status(405).json({ erro: "Método não permitido." });

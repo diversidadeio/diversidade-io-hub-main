@@ -48,6 +48,10 @@
       "destination": "/api/enviar-email-aprovacao?action=mm-negocio"
     },
     {
+      "source": "/api/maiores-melhores-votacao",
+      "destination": "/api/enviar-email-aprovacao?action=mm-votacao"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

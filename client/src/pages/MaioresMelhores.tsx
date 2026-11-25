@@ -5,6 +5,7 @@ import { FormularioInscricao, type DadosInscricao } from "@/components/maiores-m
 import { FormularioNegocio } from "@/components/maiores-melhores/FormularioNegocio";
 import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { MinhaInscricao } from "@/components/maiores-melhores/MinhaInscricao";
+import VotacaoPublica from "@/components/maiores-melhores/VotacaoPublica";
 import { mm } from "@/components/maiores-melhores/estilo";
 import {
   LegendaObrigatorios,
@@ -210,6 +211,8 @@ export default function MaioresMelhores() {
           </span>
         )}
       />
+
+      {evento && <VotacaoPublica key={evento.id} evento={evento.id} />}
 
       {evento === undefined ? (
         <section className={mm.painel}><p role="status" className="m-0">Carregando a premiação…</p></section>
