@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
