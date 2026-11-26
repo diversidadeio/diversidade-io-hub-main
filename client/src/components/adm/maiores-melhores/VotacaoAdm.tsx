@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { normalizarCnpj, UFS, type MmEmpresa, type MmEvento } from "@/lib/maioresMelhores";
 import {
-  dataVoto, estadosVotacao, horarioBrasilia, ordenarRanking, urlPublica,
+  dataVoto, estadosVotacao, horarioBrasilia, ordenarRanking, urlPublica, TITULO_VOTACAO_MM,
   type CategoriaVoto, type ConcorrenteVoto, type ConfiguracaoVoto, type RankingVoto,
 } from "@/lib/maioresMelhoresVotacao";
 import { RankingVotacao } from "@/components/maiores-melhores/RankingVotacao";
@@ -185,7 +185,7 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
   if (config === undefined) return <p role="status">Carregando votação…</p>;
 
   return <section className={mm.painel + " grid gap-6"} aria-labelledby="titulo-votacao-adm">
-    <h2 id="titulo-votacao-adm" className={mm.titulo}>Votação popular</h2>
+    <h2 id="titulo-votacao-adm" className={mm.titulo}>{TITULO_VOTACAO_MM}</h2>
     {erro && <p role="alert" className={mm.falha}>{erro}</p>}
     <form key={(config?.inicio ?? "") + (config?.fim ?? "")} onSubmit={salvarPeriodo} className="grid gap-3">
       <div className={mm.grade}>
@@ -223,11 +223,18 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
       </div>}
       <p className={mm.info}>{total?.votos ?? 0} votos · {total?.emails ?? 0} e-mails distintos · {concorrentes.length} concorrentes cadastrados</p>
       {atual && <>
-        <label className={mm.rotulo}>Categoria para apuração
-          <select className={mm.campo} value={atual.id} onChange={(e) => { setCategoria(e.target.value); setEdicao(undefined); }}>
-            {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
-        </label>
+        <fieldset className="m-0 grid min-w-0 gap-2 border-0 p-0">
+          <legend className="mb-2 text-sm font-semibold">Categoria para apuração</legend>
+          <div className="grid gap-2 lg:grid-cols-3">
+            {categorias.map((c) => (
+              <button key={c.id} type="button" aria-pressed={c.id === atual.id}
+                className={c.id === atual.id ? mm.botao : mm.botaoSecundario}
+                onClick={() => { setCategoria(c.id); setEdicao(undefined); }}>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+        </fieldset>
         {!definitivo && !atual.catalogo && <form key={atual.id + atual.nome + atual.ativa} onSubmit={(e) => salvarCategoria(e, atual)}
           className="flex flex-wrap gap-3 items-end">
           <label className={mm.rotulo + " flex-1"}>Nome da categoria

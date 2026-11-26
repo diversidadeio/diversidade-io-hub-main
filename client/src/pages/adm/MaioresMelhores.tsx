@@ -24,6 +24,7 @@ import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
+import { TITULO_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
 import VotacaoAdm from "@/components/adm/maiores-melhores/VotacaoAdm";
 import { BUCKET_FOTOS, assinarFotos } from "@/lib/maioresMelhoresApi";
 import { mascaraTelefone } from "@/lib/mascaras";
@@ -375,7 +376,7 @@ export default function MaioresMelhoresAdm() {
             <nav className="flex flex-wrap gap-2" aria-label="Seções da premiação">
               {([
                 ["rankings", "Rankings"],
-                ["votacao", "Votação popular"],
+                ["votacao", TITULO_VOTACAO_MM],
                 ["negocios", `Negócios (${negocios.length})`],
                 ["empresas", `Empresas inscritas (${empresas.length})`],
                 ["participantes", `Participantes (${participantes.length})`],
