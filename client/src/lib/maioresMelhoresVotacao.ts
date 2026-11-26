@@ -1,4 +1,6 @@
 export const ROTA_VOTACAO_MM = "/maiores-e-melhores/votacao";
+export const ROTA_ACOMPANHAR_MM = ROTA_VOTACAO_MM + "/acompanhar";
+export const TITULO_VOTACAO_MM = "Votação Mais Admirados";
 
 export interface CategoriaVoto {
   id: string;
@@ -77,9 +79,10 @@ export function ordenarRanking(linhas: RankingVoto[]) {
   return [...linhas].sort((a, b) => b.votos - a.votos || colacao.compare(a.nome, b.nome) || a.id.localeCompare(b.id));
 }
 
-export function filtrarRanking(linhas: RankingVoto[], busca: string) {
+export function filtrarRanking(linhas: RankingVoto[], busca: string, porSocio: readonly string[] = []) {
   const normalizar = (texto: string) => texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
   const termo = normalizar(busca.trim());
-  return ordenarRanking(linhas.filter(({ nome, razao_social }) =>
-    normalizar(nome).includes(termo) || normalizar(razao_social ?? "").includes(termo)));
+  const identificadores = new Set(porSocio);
+  return ordenarRanking(linhas.filter(({ id, nome, razao_social }) =>
+    identificadores.has(id) || normalizar(nome).includes(termo) || normalizar(razao_social ?? "").includes(termo)));
 }

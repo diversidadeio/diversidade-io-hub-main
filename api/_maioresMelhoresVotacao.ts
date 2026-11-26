@@ -35,6 +35,18 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       if (typeof evento !== "string" || !UUID.test(evento)) {
         return res.status(400).json({ erro: "Edição inválida." });
       }
+      const { socio, categoria } = req.query ?? {};
+      if (socio !== undefined) {
+        if (typeof socio !== "string" || socio.trim().length < 3 || socio.length > 150
+          || typeof categoria !== "string" || !UUID.test(categoria)) {
+          return res.status(400).json({ erro: "Pesquisa inválida." });
+        }
+        const resultado = await banco.rpc("mm_buscar_concorrentes_por_socio", {
+          p_evento: evento, p_categoria: categoria, p_nome: socio.trim(),
+        });
+        if (resultado.error) throw resultado.error;
+        return res.json({ concorrentes: resultado.data });
+      }
       const configuracao = await banco.from("mm_votacoes").select("estado,inicio,fim,mm_eventos!inner(ativo)")
         .eq("evento_id", evento).eq("mm_eventos.ativo", true).maybeSingle();
       if (configuracao.error) throw configuracao.error;
@@ -66,11 +78,14 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       });
     }
 
-    const { evento, concorrentes, email, token } = (req.body ?? {}) as Record<string, unknown>;
+    const { evento, concorrentes, indicacoes = [], email, token } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof evento !== "string" || !UUID.test(evento)
-      || !Array.isArray(concorrentes) || concorrentes.length < 1 || concorrentes.length > 9
+      || !Array.isArray(concorrentes) || !Array.isArray(indicacoes)
+      || concorrentes.length + indicacoes.length < 1 || concorrentes.length + indicacoes.length > 9
       || !concorrentes.every((id: unknown) => typeof id === "string" && UUID.test(id))
       || new Set(concorrentes.map((id: string) => id.toLowerCase())).size !== concorrentes.length
+      || !indicacoes.every((item) => item && typeof item.categoria_id === "string" && UUID.test(item.categoria_id)
+        && typeof item.nome === "string" && item.nome.trim().length >= 2 && item.nome.length <= 150)
       || typeof email !== "string" || email.length > 254 || !EMAIL.test(email.trim())
       || typeof token !== "string" || token.length === 0 || token.length > 2048) {
       return res.status(400).json({ erro: "Selecione até 3 empresas por categoria e confira o e-mail e a verificação." });
@@ -90,15 +105,16 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       return res.status(422).json({ erro: "Refaça a verificação de segurança e tente novamente." });
     }
 
-    const resultado = await banco.rpc("mm_registrar_lote_votos", {
+    const resultado = await banco.rpc("mm_registrar_votos_com_indicacoes", {
       p_evento: evento,
       p_concorrentes: concorrentes,
+      p_indicacoes: indicacoes.map(({ categoria_id, nome }) => ({ categoria_id, nome })),
       p_email: email.trim().toLowerCase(),
       p_comprovante: createHash("sha256").update(token).digest("hex"),
     });
     if (resultado.error) throw resultado.error;
     if (!resultado.data) return res.status(409).json({ erro: "Confira as empresas selecionadas e se a votação continua aberta." });
-    return res.status(201).json({ sucesso: true });
+    return res.status(201).json({ sucesso: true, concorrentes: resultado.data });
   } catch (erro) {
     const codigo = (erro as { code?: string })?.code;
     console.error("Falha na votação Maiores & Melhores", codigo ?? "serviço indisponível");

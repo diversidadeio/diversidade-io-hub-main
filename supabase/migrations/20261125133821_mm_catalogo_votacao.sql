@@ -5,9 +5,9 @@ alter table public.mm_voto_concorrentes
   drop constraint mm_voto_concorrentes_descricao_check,
   drop constraint mm_voto_concorrentes_cidade_check,
   drop constraint mm_voto_concorrentes_uf_check,
-  add check (empresa_origem_id is not null or trim(descricao) <> ''),
-  add check (empresa_origem_id is not null or trim(cidade) <> ''),
-  add check (uf ~ '^[A-Z]{2}$' or (empresa_origem_id is not null and uf = '')),
+  add check (empresa_origem_id is not null or nome_indicado_chave is not null or trim(descricao) <> ''),
+  add check (empresa_origem_id is not null or nome_indicado_chave is not null or trim(cidade) <> ''),
+  add check (uf ~ '^[A-Z]{2}$' or (uf = '' and (empresa_origem_id is not null or nome_indicado_chave is not null))),
   add unique (categoria_id, empresa_origem_id);
 
 create function public.mm_atualizar_catalogo_votacao(p_evento uuid) returns void
@@ -67,7 +67,7 @@ begin
     returning categoria_id, empresa_origem_id
   )
   update public.mm_voto_concorrentes c set publicado = false
-  where c.categoria_id in (select id from categorias) and c.publicado
+  where c.categoria_id in (select id from categorias) and c.publicado and c.nome_indicado_chave is null
     and not exists (select 1 from sincronizados s
       where s.categoria_id = c.categoria_id and s.empresa_origem_id = c.empresa_origem_id);
 end;

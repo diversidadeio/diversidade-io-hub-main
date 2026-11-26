@@ -1,12 +1,12 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, ClipboardList, Handshake } from "lucide-react";
+import { ArrowDown, ArrowRight, Building2, ClipboardList, Handshake } from "lucide-react";
 import { Link, Redirect } from "wouter";
 import { MolduraMm, HeroMm } from "@/components/maiores-melhores/Moldura";
 import { FormularioInscricao, type DadosInscricao } from "@/components/maiores-melhores/FormularioInscricao";
 import { FormularioNegocio } from "@/components/maiores-melhores/FormularioNegocio";
 import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { MinhaInscricao } from "@/components/maiores-melhores/MinhaInscricao";
-import { ROTA_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
+import { ROTA_VOTACAO_MM, TITULO_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "@/components/maiores-melhores/estilo";
 import {
   LegendaObrigatorios,
@@ -209,6 +209,8 @@ function InscricoesMaioresMelhores() {
     </div>
   ) : null;
 
+  const botaoPremiacao = "inline-flex items-center justify-center gap-2 rounded-lg bg-[#f5bf64] px-5 py-3 font-bold text-[#28123e] transition-colors hover:bg-[#ffd27f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5bf64]";
+
   return (
     <MolduraMm direita={direitaCabecalho}>
       <HeroMm
@@ -218,13 +220,18 @@ function InscricoesMaioresMelhores() {
           {evento && <span className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-3 py-1 text-sm text-[#f0e8f5]">
             {periodo}
           </span>}
-          <Link className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f5bf64] px-5 py-3 font-bold text-[#28123e] transition-colors hover:bg-[#ffd27f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5bf64]"
-            href={ROTA_VOTACAO_MM}>
-            Votação popular <ArrowRight aria-hidden="true" className="h-4 w-4" />
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <a className={botaoPremiacao} href="#inscricoes-desempenho">
+              Votação por desempenho <ArrowDown aria-hidden="true" className="h-4 w-4" />
+            </a>
+            <Link className={botaoPremiacao} href={ROTA_VOTACAO_MM}>
+              {TITULO_VOTACAO_MM} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          </div>
         </div>}
       />
 
+      <div id="inscricoes-desempenho" className="scroll-mt-6" tabIndex={-1} />
       {evento === undefined ? (
         <section className={mm.painel}><p role="status" className="m-0">Carregando a premiação…</p></section>
       ) : !evento ? (

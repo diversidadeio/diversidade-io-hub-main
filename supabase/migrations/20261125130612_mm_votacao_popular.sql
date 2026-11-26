@@ -33,6 +33,7 @@ create table public.mm_voto_concorrentes (
   site text,
   instagram text,
   publicado boolean not null default false,
+  nome_indicado_chave text,
   foreign key (evento_id, categoria_id) references public.mm_voto_categorias(evento_id, id) on delete cascade,
   unique (evento_id, categoria_id, id),
   unique (categoria_id, cnpj)

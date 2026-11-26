@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { ordenarRanking, urlPublica, type RankingVoto } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "./estilo";
 
@@ -27,6 +28,10 @@ export function RankingVotacao({ linhas, aoVotar, selecionados }: {
               className="absolute inset-0 z-10 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5c2686]"
               onClick={() => aoVotar(linha)} />}
             <div className="flex flex-wrap items-start gap-3">
+              {selecionados !== undefined && <span aria-hidden="true" className={"grid size-6 shrink-0 place-items-center rounded-full border-2 " +
+                (marcada ? "border-[#5c2686] bg-[#5c2686] text-white" : "border-[#916cb1] bg-white")}>
+                {marcada && <Check className="size-4" strokeWidth={3} />}
+              </span>}
               {linha.votos > 0 && <span className="font-bold text-[#5c2686]">{linha.posicao}º</span>}
               {imagem && <img src={imagem} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-12 rounded-lg object-contain" />}
               <div className="flex-1 min-w-40">
