@@ -8,13 +8,13 @@ import {
   type CategoriaVoto, type ConcorrenteVoto, type ConfiguracaoVoto, type RankingVoto,
 } from "@/lib/maioresMelhoresVotacao";
 import { RankingVotacao } from "@/components/maiores-melhores/RankingVotacao";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { mm } from "@/components/maiores-melhores/estilo";
 
 type Voto = { id: string; categoria_id: string; concorrente_id: string; email: string; criado_em: string };
 type Total = { categoria_id: string | null; votos: number; emails: number };
 
 const COLUNAS = "id,categoria_id,concorrente_id,email,criado_em";
-const LIMITE = 50;
 const vazio = {
   categoria_id: "", nome: "", razao_social: "", cnpj: "", responsavel: "", descricao: "",
   cidade: "", uf: "", logo: "", foto: "", site: "", instagram: "", publicado: false,
@@ -36,6 +36,11 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
   const [concorrentes, setConcorrentes] = useState<ConcorrenteVoto[]>([]);
   const [ranking, setRanking] = useState<RankingVoto[]>([]);
   const [totais, setTotais] = useState<Total[]>([]);
+  const [auditoriaAberta, setAuditoriaAberta] = useState(false);
+  const [emailAuditoria, setEmailAuditoria] = useState("");
+  const [dataAuditoria, setDataAuditoria] = useState("");
+  const [limite, setLimite] = useState(20);
+  const [carregandoAuditoria, setCarregandoAuditoria] = useState(false);
   const [votos, setVotos] = useState<Voto[]>([]);
   const [pagina, setPagina] = useState(0);
   const [temMais, setTemMais] = useState(false);
@@ -73,14 +78,23 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
   }, [id]);
 
   const carregarAuditoria = useCallback(async (signal: AbortSignal) => {
-    const { data, error } = await supabase.from("mm_votos").select(COLUNAS).eq("evento_id", id)
+    let consulta = supabase.from("mm_votos").select(COLUNAS).eq("evento_id", id);
+    const email = emailAuditoria.trim();
+    if (email) consulta = consulta.ilike("email", "%" + email.replace(/[\\%_*]/g, "\\$&") + "%");
+    if (dataAuditoria) {
+      const inicio = new Date(dataAuditoria + "T00:00:00-03:00");
+      const fim = new Date(inicio.getTime() + 86400000);
+      if (Number.isFinite(+inicio)) consulta = consulta.gte("criado_em", inicio.toISOString()).lt("criado_em", fim.toISOString());
+    }
+    const { data, error } = await consulta
       .order("criado_em", { ascending: false }).order("id", { ascending: false })
-      .range(pagina * LIMITE, (pagina + 1) * LIMITE).abortSignal(signal);
+      .range(pagina * limite, (pagina + 1) * limite).abortSignal(signal);
     if (signal.aborted) return;
     setErroAuditoria(error?.message ?? "");
-    setVotos(data?.slice(0, LIMITE) ?? []);
-    setTemMais((data?.length ?? 0) > LIMITE);
-  }, [id, pagina]);
+    setVotos(data?.slice(0, limite) ?? []);
+    setTemMais((data?.length ?? 0) > limite);
+    setCarregandoAuditoria(false);
+  }, [id, pagina, limite, emailAuditoria, dataAuditoria]);
 
   useEffect(() => {
     const controle = new AbortController();
@@ -90,13 +104,15 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
   }, [carregar]);
 
   useEffect(() => {
+    if (!auditoriaAberta) return;
     const controle = new AbortController();
-    void carregarAuditoria(controle.signal);
+    setCarregandoAuditoria(true);
+    const busca = window.setTimeout(() => void carregarAuditoria(controle.signal), 250);
     const timer = window.setInterval(() => {
       if (pagina === 0) void carregarAuditoria(controle.signal);
     }, 15000);
-    return () => { window.clearInterval(timer); controle.abort(); };
-  }, [carregarAuditoria, pagina]);
+    return () => { window.clearTimeout(busca); window.clearInterval(timer); controle.abort(); };
+  }, [auditoriaAberta, carregarAuditoria, pagina]);
 
   async function operar(acao: () => Promise<void>, sucesso: string) {
     setOcupado(true);
@@ -221,7 +237,59 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
           <button type="button" className={mm.botaoSecundario} disabled={ocupado} onClick={() => setPublicar(false)}>Cancelar</button>
         </div>
       </div>}
-      <p className={mm.info}>{total?.votos ?? 0} votos · {total?.emails ?? 0} e-mails distintos · {concorrentes.length} concorrentes cadastrados</p>
+      <Dialog open={auditoriaAberta} onOpenChange={setAuditoriaAberta}>
+        <div className={mm.info + " flex flex-wrap items-center justify-between gap-3"}>
+          <p>{total?.votos ?? 0} votos · {total?.emails ?? 0} e-mails distintos · {concorrentes.length} concorrentes cadastrados</p>
+          <DialogTrigger asChild>
+            <button type="button" className={mm.botaoSecundario}>Auditoria dos votos</button>
+          </DialogTrigger>
+        </div>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Auditoria dos votos</DialogTitle>
+            <DialogDescription>Consulte os votos registrados nesta edição.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-[2fr_1fr_auto]">
+            <label className={mm.rotulo}>Pesquisar por e-mail
+              <input type="search" className={mm.campo} value={emailAuditoria}
+                onChange={(e) => { setEmailAuditoria(e.target.value); setPagina(0); }} />
+            </label>
+            <label className={mm.rotulo}>Data (Brasília)
+              <input type="date" className={mm.campo} value={dataAuditoria}
+                onChange={(e) => { setDataAuditoria(e.target.value); setPagina(0); }} />
+            </label>
+            <label className={mm.rotulo}>Votos por página
+              <select className={mm.campo} value={limite}
+                onChange={(e) => { setLimite(Number(e.target.value)); setPagina(0); }}>
+                {[20, 50, 100].map((valor) => <option key={valor} value={valor}>{valor}</option>)}
+              </select>
+            </label>
+          </div>
+          <button type="button" className={mm.botaoSecundario + " justify-self-start"} disabled={ocupado}
+            onClick={() => void operar(exportar, "Planilha exportada.")}>Exportar votos e classificação</button>
+          {carregandoAuditoria && <p role="status" className={mm.dica}>Carregando votos…</p>}
+          {erroAuditoria && <p role="alert" className={mm.falha}>{erroAuditoria}</p>}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead><tr><th>Data e hora (Brasília)</th><th>E-mail</th><th>Categoria</th><th>Concorrente</th></tr></thead>
+              <tbody>
+                {!carregandoAuditoria && votos.map((v) => <tr key={v.id} className="border-t">
+                  <td className="py-2 pr-3 whitespace-nowrap">{dataVoto.format(new Date(v.criado_em))}</td>
+                  <td className="pr-3">{v.email}</td>
+                  <td className="pr-3">{categorias.find((c) => c.id === v.categoria_id)?.nome ?? v.categoria_id}</td>
+                  <td>{concorrentes.find((c) => c.id === v.concorrente_id)?.nome ?? v.concorrente_id}</td>
+                </tr>)}
+              </tbody>
+            </table>
+            {!votos.length && !erroAuditoria && !carregandoAuditoria && <p className={mm.dica}>Nenhum voto nesta página.</p>}
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="button" className={mm.botaoSecundario} disabled={pagina === 0 || carregandoAuditoria} onClick={() => setPagina(pagina - 1)}>Anterior</button>
+            <span>Página {pagina + 1}</span>
+            <button type="button" className={mm.botaoSecundario} disabled={!temMais || carregandoAuditoria} onClick={() => setPagina(pagina + 1)}>Próxima</button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {atual && <>
         <fieldset className="m-0 grid min-w-0 gap-2 border-0 p-0">
           <legend className="mb-2 text-sm font-semibold">Categoria para apuração</legend>
@@ -272,27 +340,6 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
           </li>)}
         </ul>
       </>}
-      <h3 className="font-bold">Auditoria dos votos</h3>
-      {erroAuditoria && <p role="alert" className={mm.falha}>{erroAuditoria}</p>}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead><tr><th>Data e hora (Brasília)</th><th>E-mail</th><th>Categoria</th><th>Concorrente</th></tr></thead>
-          <tbody>
-            {votos.map((v) => <tr key={v.id} className="border-t">
-              <td className="py-2 pr-3 whitespace-nowrap">{dataVoto.format(new Date(v.criado_em))}</td>
-              <td className="pr-3">{v.email}</td>
-              <td className="pr-3">{categorias.find((c) => c.id === v.categoria_id)?.nome ?? v.categoria_id}</td>
-              <td>{concorrentes.find((c) => c.id === v.concorrente_id)?.nome ?? v.concorrente_id}</td>
-            </tr>)}
-          </tbody>
-        </table>
-        {!votos.length && !erroAuditoria && <p className={mm.dica}>Nenhum voto nesta página.</p>}
-      </div>
-      <div className="flex items-center gap-3">
-        <button type="button" className={mm.botaoSecundario} disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>Anterior</button>
-        <span>Página {pagina + 1}</span>
-        <button type="button" className={mm.botaoSecundario} disabled={!temMais} onClick={() => setPagina(pagina + 1)}>Próxima</button>
-      </div>
     </>}
   </section>;
 }
