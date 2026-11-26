@@ -139,17 +139,13 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
     }, estadosVotacao[estado] + ".");
   }
 
-  function salvarCategoria(e: FormEvent<HTMLFormElement>, editar?: CategoriaVoto) {
+  function salvarCategoria(e: FormEvent<HTMLFormElement>, editar: CategoriaVoto) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const dados = new FormData(form);
+    const dados = new FormData(e.currentTarget);
     const nome = String(dados.get("nome") ?? "").trim();
     void operar(async () => {
-      const resposta = editar
-        ? await supabase.from("mm_voto_categorias").update({ nome, ativa: dados.has("ativa") }).eq("id", editar.id)
-        : await supabase.from("mm_voto_categorias").insert({ nome, evento_id: id });
-      if (resposta.error) throw resposta.error;
-      if (!editar) form.reset();
+      const { error } = await supabase.from("mm_voto_categorias").update({ nome, ativa: dados.has("ativa") }).eq("id", editar.id);
+      if (error) throw error;
     }, "Categoria salva.");
   }
 
@@ -226,12 +222,6 @@ export default function VotacaoAdm({ evento, empresas }: { evento: MmEvento; emp
         </div>
       </div>}
       <p className={mm.info}>{total?.votos ?? 0} votos · {total?.emails ?? 0} e-mails distintos · {concorrentes.length} concorrentes cadastrados</p>
-      {!definitivo && <form onSubmit={(e) => salvarCategoria(e)} className="flex flex-wrap gap-2 items-end">
-        <label className={mm.rotulo + " flex-1"}>Nova categoria
-          <input name="nome" className={mm.campo} required maxLength={150} />
-        </label>
-        <button className={mm.botaoSecundario} disabled={ocupado}>Criar categoria</button>
-      </form>}
       {atual && <>
         <label className={mm.rotulo}>Categoria para apuração
           <select className={mm.campo} value={atual.id} onChange={(e) => { setCategoria(e.target.value); setEdicao(undefined); }}>
