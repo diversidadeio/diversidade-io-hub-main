@@ -9,95 +9,6 @@ import { RankingVotacao } from "./RankingVotacao";
 const CATEGORIA_INCLUSIVAS = "Empresas ou Iniciativas Inclusivas Mais Admiradas";
 type EscolhaVoto = Pick<RankingVoto, "id" | "nome" | "categoria_id"> & { indicada?: boolean };
 
-interface Turnstile {
-  render(alvo: HTMLElement, opcoes: {
-    sitekey: string;
-    action: string;
-    callback(token: string): void;
-    "expired-callback"(): void;
-    "error-callback"(): void;
-  }): string;
-  remove(id: string): void;
-  reset(id: string): void;
-}
-
-let carregandoTurnstile: Promise<Turnstile> | undefined;
-const chave = import.meta.env.VITE_MM_TURNSTILE_SITE_KEY;
-
-function carregarTurnstile() {
-  if (!carregandoTurnstile) {
-    carregandoTurnstile = new Promise<Turnstile>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.onload = () => {
-        const api = (window as Window & { turnstile?: Turnstile }).turnstile;
-        if (api) resolve(api);
-        else reject(new Error("Turnstile indisponível."));
-      };
-      script.onerror = () => { script.remove(); reject(new Error("Turnstile indisponível.")); };
-      document.head.append(script);
-    }).catch((erro) => {
-      carregandoTurnstile = undefined;
-      throw erro;
-    });
-  }
-  return carregandoTurnstile;
-}
-
-function Verificacao({ aoValidar }: { aoValidar: (token: string) => void }) {
-  const alvo = useRef<HTMLDivElement>(null);
-  const [falha, setFalha] = useState(false);
-  const [tentativa, setTentativa] = useState(0);
-
-  useEffect(() => {
-    if (!chave) return;
-    setFalha(false);
-    let ativo = true;
-    let novaTentativa: number | undefined;
-    let widget: { api: Turnstile; id: string } | undefined;
-    function tentarNovamente() {
-      if (!ativo) return;
-      aoValidar("");
-      if (tentativa > 0) setFalha(true);
-      else if (novaTentativa === undefined) {
-        novaTentativa = window.setTimeout(() => setTentativa(1), 1500);
-      }
-    }
-    void carregarTurnstile().then((api) => {
-      if (!ativo || !alvo.current) return;
-      const id = api.render(alvo.current, {
-        sitekey: chave,
-        action: "mm-voto",
-        callback: (token) => {
-          if (!ativo) return;
-          window.clearTimeout(novaTentativa);
-          novaTentativa = undefined;
-          setFalha(false);
-          aoValidar(token);
-        },
-        "expired-callback": () => {
-          aoValidar("");
-          if (widget) api.reset(widget.id);
-        },
-        "error-callback": tentarNovamente,
-      });
-      widget = { api, id };
-    }).catch(tentarNovamente);
-    return () => {
-      ativo = false;
-      window.clearTimeout(novaTentativa);
-      if (widget) widget.api.remove(widget.id);
-    };
-  }, [aoValidar, tentativa]);
-
-  if (!chave) return <p className={mm.erro}>Verificação de segurança indisponível.</p>;
-  return <div>
-    <div ref={alvo} />
-    {falha && <p role="alert" className={mm.erro}>Verificação de segurança indisponível. Tente novamente em instantes.</p>}
-  </div>;
-}
-
 export default function VotacaoPublica({ evento }: { evento: string }) {
   const { dados, falhaLeitura, atualizar } = useVotacaoMm(evento);
   const [etapa, setEtapa] = useState<number>();
@@ -477,20 +388,14 @@ function ConfirmacaoFinal({ evento, categorias, selecionadas, escolhasDoLink, em
   atualizar(): Promise<void>;
   voltar?: () => void;
 }) {
-  const [token, setToken] = useState("");
-  const [verificacao, setVerificacao] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [mensagem, setMensagem] = useState<{ erro: true; texto: string } | { erro: false; texto: string; link: string }>();
   const [retornoCopia, setRetornoCopia] = useState("");
   const temSelecao = selecionadas.length > 0;
 
-  useEffect(() => {
-    if (!temSelecao) setToken("");
-  }, [temSelecao]);
-
   async function votar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!token || !selecionadas.length || enviando) return;
+    if (!temSelecao || enviando) return;
     const concorrentes = selecionadas.filter((linha) => !linha.indicada).map((linha) => linha.id);
     const indicacoes = selecionadas.filter((linha) => linha.indicada).map(({ categoria_id, nome }) => ({ categoria_id, nome }));
     setEnviando(true);
@@ -501,7 +406,7 @@ function ConfirmacaoFinal({ evento, categorias, selecionadas, escolhasDoLink, em
       const resposta = await fetch(API_VOTACAO_MM, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ evento, concorrentes, indicacoes, email, token }),
+        body: JSON.stringify({ evento, concorrentes, indicacoes, email }),
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.erro || "Não foi possível registrar os votos.");
@@ -519,8 +424,6 @@ function ConfirmacaoFinal({ evento, categorias, selecionadas, escolhasDoLink, em
     } catch (erro) {
       setMensagem({ erro: true, texto: (erro as Error).message });
     } finally {
-      setToken("");
-      setVerificacao((n) => n + 1);
       setEnviando(false);
       aoEnviar(false);
     }
@@ -563,12 +466,11 @@ function ConfirmacaoFinal({ evento, categorias, selecionadas, escolhasDoLink, em
           <input className={mm.campo} type="email" autoComplete="email" maxLength={254} required
             value={email} onChange={(e) => aoAlterarEmail(e.target.value)} />
         </label>
-        <button className={mm.botao + " self-start sm:min-h-[45px] sm:self-end"} disabled={!selecionadas.length || !token || enviando} type="submit">
+        <button className={mm.botao + " self-start sm:min-h-[45px] sm:self-end"} disabled={!temSelecao || enviando} type="submit">
           {enviando ? "Registrando…" : "Confirmar votos"}
         </button>
       </div>
       <p className={mm.dica}>Seu e-mail é usado para auditoria da votação e fica visível apenas à administração.</p>
-      {selecionadas.length > 0 && <Verificacao key={verificacao} aoValidar={setToken} />}
     </form>
     {mensagem && (mensagem.erro
       ? <p role="alert" className={mm.falha}>{mensagem.texto}</p>

@@ -1,10 +1,8 @@
-/// <reference lib="dom" />
-import { createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ACAO = "mm-voto";
 
 interface Requisicao {
   method?: string;
@@ -79,7 +77,7 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       });
     }
 
-    const { evento, concorrentes, indicacoes = [], email, token } = (req.body ?? {}) as Record<string, unknown>;
+    const { evento, concorrentes, indicacoes = [], email } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof evento !== "string" || !UUID.test(evento)
       || !Array.isArray(concorrentes) || !Array.isArray(indicacoes)
       || concorrentes.length + indicacoes.length < 1 || concorrentes.length + indicacoes.length > 9
@@ -87,23 +85,8 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       || new Set(concorrentes.map((id: string) => id.toLowerCase())).size !== concorrentes.length
       || !indicacoes.every((item) => item && typeof item.categoria_id === "string" && UUID.test(item.categoria_id)
         && typeof item.nome === "string" && item.nome.trim().length >= 2 && item.nome.length <= 150)
-      || typeof email !== "string" || email.length > 254 || !EMAIL.test(email.trim())
-      || typeof token !== "string" || token.length === 0 || token.length > 2048) {
-      return res.status(400).json({ erro: "Selecione até 3 empresas por categoria e confira o e-mail e a verificação." });
-    }
-
-    const secret = process.env.MM_TURNSTILE_SECRET_KEY;
-    if (!secret) return res.status(503).json({ erro: "Verificação de segurança indisponível." });
-    const verificacao = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      body: new URLSearchParams({ secret, response: token }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!verificacao.ok) return res.status(503).json({ erro: "Verificação de segurança indisponível." });
-    const desafio = await verificacao.json() as { success?: boolean; action?: string; hostname?: string };
-    const hosts = (process.env.MM_TURNSTILE_HOSTS || "diversidade.io,www.diversidade.io").split(",").map((host) => host.trim());
-    if (!desafio.success || desafio.action !== ACAO || !hosts.includes(desafio.hostname ?? "")) {
-      return res.status(422).json({ erro: "Refaça a verificação de segurança e tente novamente." });
+      || typeof email !== "string" || email.length > 254 || !EMAIL.test(email.trim())) {
+      return res.status(400).json({ erro: "Selecione até 3 empresas por categoria e confira o e-mail." });
     }
 
     const resultado = await banco.rpc("mm_registrar_votos_com_indicacoes", {
@@ -111,7 +94,7 @@ export async function tratarVotacaoMm(req: Requisicao, res: Resposta) {
       p_concorrentes: concorrentes,
       p_indicacoes: indicacoes.map(({ categoria_id, nome }) => ({ categoria_id, nome })),
       p_email: email.trim().toLowerCase(),
-      p_comprovante: createHash("sha256").update(token).digest("hex"),
+      p_comprovante: randomBytes(32).toString("hex"),
     });
     if (resultado.error) throw resultado.error;
     if (!resultado.data) return res.status(409).json({ erro: "Confira as empresas selecionadas e se a votação continua aberta." });
