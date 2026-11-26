@@ -28,13 +28,18 @@ export default function AcompanharVotacao({ evento }: { evento: string }) {
         </p>}
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        {categoria && <div className={mm.rotulo + " flex-1"}>
-          <label htmlFor="categoria-acompanhamento">Categoria</label>
-          <select id="categoria-acompanhamento" className={mm.campo} value={categoria.id}
-            onChange={(e) => setCategoriaId(e.target.value)}>
-            {dados?.categorias.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}
-          </select>
-        </div>}
+        {dados && categoria && <fieldset className="m-0 grid w-full min-w-0 gap-2 border-0 p-0 lg:w-auto lg:flex-1">
+          <legend className="mb-2 text-sm font-semibold">Categoria</legend>
+          <div className="grid gap-2 lg:grid-cols-3">
+            {dados.categorias.map((item) => (
+              <button key={item.id} type="button" aria-pressed={item.id === categoria.id}
+                className={item.id === categoria.id ? mm.botao : mm.botaoSecundario}
+                onClick={() => setCategoriaId(item.id)}>
+                {item.nome}
+              </button>
+            ))}
+          </div>
+        </fieldset>}
         <button type="button" className={mm.botaoSecundario} disabled={carregando} onClick={() => void atualizar()}>
           <RefreshCw aria-hidden="true" className={"size-4 " + (carregando ? "motion-safe:animate-spin" : "")} />
           {carregando ? "Atualizando…" : "Recarregar"}
