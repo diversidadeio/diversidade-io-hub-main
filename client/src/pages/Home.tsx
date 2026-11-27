@@ -110,7 +110,7 @@ export default function Home() {
                 </span>
               </span>
               <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f5bf64] px-5 py-3 font-bold text-[#28123e] group-hover:bg-[#ffd27f] transition-colors">
-                Inscreva sua empresa <ArrowRight className="h-4 w-4" />
+                Inscreva a sua empresa / Vote aqui <ArrowRight className="h-4 w-4" />
               </span>
             </Link>
           )}
