@@ -6,7 +6,7 @@ import { FormularioInscricao, type DadosInscricao } from "@/components/maiores-m
 import { FormularioNegocio } from "@/components/maiores-melhores/FormularioNegocio";
 import { ListaNegocios } from "@/components/maiores-melhores/ListaNegocios";
 import { MinhaInscricao } from "@/components/maiores-melhores/MinhaInscricao";
-import { ROTA_VOTACAO_MM, TITULO_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
+import { ROTA_VOTACAO_MM } from "@/lib/maioresMelhoresVotacao";
 import { mm } from "@/components/maiores-melhores/estilo";
 import {
   LegendaObrigatorios,
@@ -225,7 +225,7 @@ function InscricoesMaioresMelhores() {
               Votação por desempenho <ArrowDown aria-hidden="true" className="h-4 w-4" />
             </a>
             <Link className={botaoPremiacao} href={ROTA_VOTACAO_MM}>
-              {TITULO_VOTACAO_MM} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              Votação: Mais admirados <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>
         </div>}
